@@ -1,0 +1,95 @@
+{% extends "base/base.html" %}
+{% block container %}
+{% load static %}
+{% include 'includes/employee-nav.html' %}
+
+
+<section class="h-auto">
+    <section class="wrapper pt-[13vh]">
+        <div class="main flex flex-col lg:flex-row justify-evenly items-start p-4">
+            <!-- Left section -->
+            <div class="left w-full lg:w-[40%] flex justify-center lg:justify-start mb-4 lg:mb-0">
+                <img src="{{ employe.image.url }}" alt="Employee Image" class="w-[250px] h-auto md:w-[300px] rounded-[8px] shadow-lg">
+            </div>
+        
+            <!-- Right section -->
+            <div class="right w-full lg:w-[50%]">
+                <div class="container p-4">
+                    <div class="max-w-lg p-6 border rounded-lg shadow-md bg-white">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Name</label>
+                            <p class="text-gray-900">{{ user.first_name }} {{ user.last_name }}</p>
+                        </div>
+                
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Employee ID</label>
+                            <p class="text-gray-900">{{ user.employe_id }}</p>
+                        </div>
+                
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Reason/Description</label>
+                            <p class="text-gray-900">{{  leave_request.description }}</p>
+                        </div>
+                
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Job Role</label>
+                            <p class="text-gray-900">{{ employe.designation }}</p>
+                        </div>
+                
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Total Leave</label>
+                            <p class="text-gray-900">{{ employe.available_leaves }}</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Leaves Taken</label>
+                            <p class="text-gray-900">{{ employe.leaves_taken }}</p>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Paid Annual Leave:</p>
+                            <p class="text-gray-900"> {{ employe.available_medical_leaves}}</p>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Medical leave</p>
+                            <p class="text-gray-900">{{ employe.medical_leaves_taken}}</p>
+                        </div>
+                    </div>
+                
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">File</label>
+                            {% if leavereaquest.file %}
+                            <a href="{{ leave_request.file.url }}" class="text-blue-500 underline">View File</a>
+                            {% else %}
+                            <p class="text-gray-500">No file uploaded</p>
+                            {% endif %}
+                        </div>
+                
+                        <div class="flex justify-end">
+                            {% if leave_request.is_approved %}
+                            <a class="bg-gray-600 text-white font-medium py-2 px-4 rounded">
+                                Approved
+                            </a>
+                            <p class="text-green-500 font-semibold ml-[20px] ">{{ leave_request.approval_date}}</p> <!-- Display approval date -->
+
+                            {% elif leave_request.is_rejected %}
+                            <a class="bg-red-600 text-white font-medium py-2 px-4 rounded">
+                                Rejected
+                            </a>
+                            <p class="text-red-500 font-semibold ml-[20px]">{{ leave_request.rejection_date }}</p> <!-- Display rejection date -->
+
+                            {% else %}
+                          
+                            {% endif %} 
+                        </div>
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</section>
+
+{% endblock %}

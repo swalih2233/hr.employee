@@ -1,0 +1,74 @@
+{% extends "base/base.html" %} 
+{% block container %} 
+{% load static %}
+
+{% include 'includes/manager-nav.html' %}
+
+<section>
+    <section class="wrapper pt-[13vh]">
+        <div class="container mx-auto p-4">
+            <!-- Table container for larger screens (hidden on small screens) -->
+            <div class="overflow-x-auto hidden sm:block">
+               
+                <table class="min-w-full bg-white border rounded-lg shadow-lg">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Name</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Employee ID</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Subject</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Requesting Date</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Date</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Leave Type</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for instance in instances %}
+                        <tr class="border-t">
+                            <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</td>
+                            <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.employe_id }}</td>
+                            <td class="py-3 px-4 text-gray-700">{{ instance.subject }}</td>
+                            <td class="py-3 px-4 text-gray-700">{{ instance.created_date }}</td>
+                            <td class="py-3 px-4 text-gray-700">
+                                {{ instance.start_date }} - {{ instance.end_date }} <br>
+                                <span class="text-sm text-gray-500">({{ instance.leave_duration }} days)</span>
+                            </td>
+                            <td class="py-3 px-4 text-gray-700">{{ instance.get_leave_type_display }}</td>
+                            <td class="py-3 px-4">
+                                <a href="{% url 'managers:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2">View</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="py-3 px-4 text-center text-gray-700">No leave requests found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Stacked layout for small screens (shown only on small screens) -->
+            <div class="block sm:hidden">
+                {% for instance in instances %}
+                <div class="bg-white border rounded-lg shadow-lg mt-4 p-4">
+                    <p class="text-gray-600"><strong>Name:</strong> {{ instance.user.first_name }} {{ instance.user.last_name }}</p>
+                    <p class="text-gray-600"><strong>Employee ID:</strong> {{ instance.user.employee_id }}</p>
+                    <p class="text-gray-600"><strong>Subject:</strong>{{ instance.subject }}</p>
+                    <p class="text-gray-600"><strong>Subject:</strong>{{ instance.created_date }}</p>
+                    <p class="text-gray-600"><strong>Date:</strong>  {{ instance.start_date }} - {{ instance.end_date }}   <span class="text-sm text-gray-500">({{ instance.leave_duration }} days)</span></p>
+                    <p class="text-gray-600"><strong>Leave Type:</strong> {{ instance.get_leave_type_display }}</p>
+                    <div class="mt-2">
+                        <a href="{% url 'managers:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2">View List</a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center mt-4">
+                    <p class="text-gray-700">No leave requests found.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</section>
+
+{% endblock %}

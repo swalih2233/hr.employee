@@ -1,0 +1,25 @@
+<section class="bg-white shadow-md">
+    <section class="wrapper">
+        <header class="py-6 h-[90px]">
+            <div class="container mx-auto flex justify-between items-center">
+                <!-- Left content (Logo or navigation) -->
+                <div class="flex-shrink-0 mr-4"> <!-- Added margin-right to create space -->
+                    <h1 class="text-xl font-bold "><img src="/static/images/logo_d.png" alt="" class="h-[60px]"></h1>
+                </div>
+
+                <!-- <div class="w-full max-w-lg mx-auto">
+                    <input 
+                        type="text" 
+                        placeholder="Shift+K to search a user" 
+                        class="w-full py-3 px-5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div> -->
+
+                <!-- Right content (User icons or links) -->
+                <div class="flex-shrink-0 ml-4"> 
+                    <a href="{% url 'employe:logout' %}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4  rounded-[10px] focus:outline-none focus:ring-2 focus:ring-blue-300 transition-transform transform hover:scale-105">Logout</a>
+                </div>
+            </div>
+        </header>
+    </section>
+</section>  <!--header-end-->

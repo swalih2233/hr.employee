@@ -1,0 +1,214 @@
+{% extends "base/base.html" %}
+{% block container %}
+{% load static %}
+
+{% include 'includes/manager-nav.html' %}
+
+<section class="pt-[10vh] lg:pt-[15vh] mb-[120px]">
+    <section class="wrapper flex flex-col lg:flex-row justify-between gap-6">
+        <!-- Left Section: Image -->
+        <div class="left w-full lg:w-[43%] flex justify-center">
+            <img src="{{employe.image.url}}" alt="Employee Image" class="w-[250px] h-[350px] md:w-[300px] md:h-[400px] rounded-[8px]">
+        </div>
+
+        <!-- Right Section: Information -->
+        <div class="right w-full lg:w-[70%]">
+            <div class="max-w-4xl mx-auto p-6 space-y-6">
+
+                <!-- Personal Information Section -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-bold mb-4">1. Personal Information</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold">Full Name:</p>
+                            <p>{{ user.first_name }} {{ user.last_name }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Date of Birth:</p>
+                            <p>{{ user.date_of_birth }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Gender:</p>
+                            <p>{{ user.gender }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Marital Status:</p>
+                            <p>{{ user.maritul_status }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Phone Number:</p>
+                            <p>{{ user.phone_number }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Email Address:</p>
+                            <p>{{ user.email }}</p>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Permanent Address:</p>
+                            <p>{{ address.permanent_address }}, {{ address.city }}, {{ address.country }}, {{ address.pincode }}</p>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Emergency Contact:</p>
+                            <p>{{ contact.contact_name }}, {{ contact.relationship }}, {{ contact.contact_number }}, {{ contact.permanent_address }}</p>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Total Leave</p>
+                            <p class="text-gray-900">{{ employe.available_leaves }}</p>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Leaves Taken</p>
+                            <p class="text-gray-900">{{ employe.leaves_taken }}</p>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Paid Annual Leave:</p>
+                            <p class="text-gray-900"> {{ employe.available_medical_leaves}}</p>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Medical leave</p>
+                            <p class="text-gray-900">{{ employe.medical_leaves_taken}}</p>
+                        </div>
+
+                        
+                    <div class="bg-white shadow-md rounded-lg p-6">
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Carry-forward:</p>
+                            <p class="text-gray-900">{{ employe.carryforward_available_leaves }}</p>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <p class="font-semibold">Carry-forward taken</p>
+                            <p class="text-gray-900">{{ employe.carryforward_leaves_taken }}</p>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- Employment Details Section -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-bold mb-4">2. Employment Details</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold">Employee ID:</p>
+                            <p>{{ user.employe_id }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Department:</p>
+                            <p>{{ employe.department }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Job Title:</p>
+                            <p>{{ employe.designation }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Date of Joining:</p>
+                            <p>{{ employe.date_of_joining }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Employment Type:</p>
+                            <p>{{ employe.employment_type }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Reporting Manager:</p>
+                            <p>{{ employe.reporting_manager }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Work Location:</p>
+                            <p>{{ employe.work_location }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Employee Status:</p>
+                            <p>{{ employe.employe_status }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compensation & Benefits Section -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-bold mb-4">3. Compensation & Benefits</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold">Salary Details:</p>
+                            <p>{{ benefits.salary_details }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Bank Name:</p>
+                            <p>{{ benefits.bank_name }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Account Number:</p>
+                            <p>{{ benefits.account_number }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Branch Name:</p>
+                            <p>{{ benefits.branch_name }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">IFSC Code:</p>
+                            <p>{{ benefits.ifsc_code }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">PAN Card:</p>
+                            <p>{{ benefits.pancard }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">PF Fund:</p>
+                            <p>{{ benefits.pf_fund }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">State Insurance Number:</p>
+                            <p>{{ benefits.state_insurance_number }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Educational Background & Work Experience Section -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-bold mb-4">4. Educational Background & Work Experience</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold">Educational Qualifications:</p>
+                            <p>{{ background.educational_qualifications }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Previous Employment:</p>
+                            <p>{{ background.previous_details }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Identification Documents Section -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-bold mb-4">5. Identification Documents</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold">Government ID:</p>
+                            <p>{{ identification.government_id }}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Work Authorization:</p>
+                            <p>{{ identification.work_authorization }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Work Schedule Section -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-bold mb-4">6. Work Schedule</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold">Work Hours:</p>
+                            <p>{{schedule.start_time}} - {{schedule.end_time}}</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <!-- End Right Section -->
+    </section>
+</section>
+
+{% endblock %}
