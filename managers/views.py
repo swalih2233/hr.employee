@@ -423,7 +423,6 @@ def viewlist(request, id):
 #     return redirect(reverse("managers:index"))
 
 
-
 @login_required(login_url='/managers/login')
 @allow_manager
 def approve_leave(request, id):
@@ -436,41 +435,62 @@ def approve_leave(request, id):
 
     current_day = leave_request.start_date
     while current_day <= leave_request.end_date:
-        # Check if it's a weekend or a holiday
-        if current_day.weekday() >= 5:  # 5 and 6 correspond to Saturday and Sunday
+        if current_day.weekday() >= 5:  # Saturday and Sunday
             pass
-        elif Holiday.objects.filter(date=current_day).exists():  # Check if it's a holiday
+        elif Holiday.objects.filter(date=current_day).exists():
             pass
         else:
             leave_days.append(current_day)
-        
         current_day += timedelta(days=1)
 
-    # The actual number of leave days excluding weekends and holidays
     actual_leave_days = len(leave_days)
 
-    # Approve the leave request and save the calculated leave duration
+    # Update leave request
     leave_request.is_approved = True
-    leave_request.approval_date = timezone.now()  # Set the approval date
-    leave_request.leave_duration = actual_leave_days  # Save the calculated leave days
+    leave_request.approval_date = timezone.now()
+    leave_request.leave_duration = actual_leave_days
     leave_request.save()
 
-    # Check the type of leave and adjust balances
-    if leave_request.leave_type == 'ML':  # Medical Leave
+    # Adjust leave balances
+    if leave_request.leave_type == 'ML':
         employee.medical_leaves_taken += actual_leave_days
         employee.available_medical_leaves -= actual_leave_days
-    elif leave_request.leave_type == 'PR':  # Privilege Leave
+    elif leave_request.leave_type == 'PR':
         employee.carryforward_leaves_taken += actual_leave_days
         employee.carryforward_available_leaves -= actual_leave_days
-    else:  # Casual Leave
+    else:
         employee.leaves_taken += actual_leave_days
         employee.available_leaves -= actual_leave_days
 
-    # Save the updated employee leave balance
     employee.save()
 
-    # Notify the user and redirect to the manager's index page
-    messages.success(request, f"Leave request approved successfully for {actual_leave_days} days.")
+    # ✉️ Send email notification
+    subject = "Leave Request Approved"
+    message = f"""
+Dear {employee.user.first_name},
+
+Your leave request from {leave_request.start_date.strftime('%Y-%m-%d')} to {leave_request.end_date.strftime('%Y-%m-%d')} has been approved.
+
+Type of Leave: {leave_request.get_leave_type_display()}
+Approval Date: {leave_request.approval_date.strftime('%Y-%m-%d %H:%M')}
+
+Thank you,
+HR Department
+"""
+    recipient_email = employee.user.email
+
+    try:
+        send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,  # Use your configured sender email
+        [employee.user.email],        # Employee's email receiving the notification
+        fail_silently=False
+    )
+    except Exception as e:
+        print(f"Email send failed: {e}")
+
+    messages.success(request, f"Leave request approved successfully.")
     return redirect(reverse("managers:index"))
 
 
@@ -602,6 +622,24 @@ def add_employe(request):
     # GET request: simply render the form with the empty context
     return render(request, "managers/add_employe.html", context)
 
+def get_int_or_none(value):
+    try:
+        return int(value) if value.strip() else None
+    except (ValueError, TypeError):
+        return None
+
+def get_float_or_none(value):
+    try:
+        return float(value) if value.strip() else 0  # default to 0 as per your model
+    except (ValueError, TypeError):
+        return 0
+
+def get_time_or_none(value):
+    try:
+        return datetime.strptime(value.strip(), "%H:%M").time() if value.strip() else None
+    except (ValueError, TypeError):
+        return None
+
 
 @login_required(login_url='/managers/login')
 @allow_manager
@@ -665,11 +703,11 @@ def edit_employe(request, id):
         # Update Benefits
         benefits.salary_details = request.POST.get('salary_details')
         benefits.bank_name = request.POST.get('bank_name')
-        benefits.account_number = request.POST.get('account_number')
+        benefits.account_number = get_int_or_none(request.POST.get('account_number'))
         benefits.branch_name = request.POST.get('branch_name')
         benefits.ifsc_code = request.POST.get('ifsc_code')
         benefits.pancard = request.POST.get('pancard')
-        benefits.pf_fund = request.POST.get('pf_fund')
+        benefits.pf_fund = get_float_or_none(request.POST.get('pf_fund'))
         benefits.state_insurance_number = request.POST.get('state_insurance_number')
         benefits.save()
 
@@ -683,8 +721,8 @@ def edit_employe(request, id):
         identification.save()
 
         # Update Work Schedule
-        schedule.start_time = request.POST.get('start_time')
-        schedule.end_time = request.POST.get('end_time')
+        schedule.start_time = get_time_or_none(request.POST.get('start_time'))
+        schedule.end_time = get_time_or_none(request.POST.get('end_time'))
         schedule.save()
 
         return redirect(reverse("managers:index"))
@@ -760,13 +798,31 @@ def manager_details(request, id):
 @login_required(login_url='/managers/login')
 @allow_manager
 def reject_leave(request, id):
-    leave_request = LeaveReaquest.objects.get(id=id)
+    leave_request = get_object_or_404(LeaveReaquest, id=id)
+    employee = leave_request.employe
+
+    # Mark leave as rejected
     leave_request.is_rejected = True
-    leave_request.rejection_date = timezone.now()  # Set rejection time
+    leave_request.rejection_date = timezone.now()
     leave_request.save()
 
-    # Notify the user and redirect to the manager's index page
-    messages.error(request, "Leave request has been rejected.")
+    # Prepare email notification
+    subject = 'Leave Request Rejected'
+    message = f'Dear {employee.user.first_name},\n\nYour leave request from {leave_request.start_date} to {leave_request.end_date} has been rejected.\n\nRegards,\nHR Department'
+
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,  # Sender
+            [employee.user.email],       # Recipient
+            fail_silently=False
+        )
+    except Exception as e:
+        print(f"Failed to send email: {e}")  # You can also log this
+
+    # Notify manager on the UI
+    messages.error(request, "Your Leave request has been rejected .")
     return redirect(reverse("managers:index"))
 
 

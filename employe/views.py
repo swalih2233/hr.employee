@@ -9,7 +9,7 @@ from common.decorators import allow_employee
 from employe.models import *
 from managers.models import *
 from users.models import *
-
+from datetime import datetime
 
 
 from django.contrib.auth.models import User
@@ -64,6 +64,35 @@ def details(request):
     return render(request, "employe/details.html", context=context)
 
 
+# @login_required(login_url='/login')
+# @allow_employee
+# def leaveform(request):
+    
+#     user = request.user
+#     employe = Employe.objects.get(user=user)
+
+#     if request.method =='POST':
+#         subject = request.POST.get('subject')
+#         start_date = request.POST.get('start_date')
+#         end_date = request.POST.get('end_date')
+#         leave_type = request.POST.get('leave_type')
+#         description = request.POST.get('description')
+#         file = request.FILES.get('file')
+
+#         leaveform = LeaveReaquest.objects.create(
+#             subject=subject,
+#             leave_type=leave_type,
+#             description= description,
+#             file = file,
+#             employe=employe,
+#             start_date = start_date,
+#             end_date = end_date
+#         )
+#         leaveform.save()
+#         return HttpResponseRedirect(reverse("employe:details"))
+#     return render(request, "employe/leaveform.html")
+
+
 @login_required(login_url='/login')
 @allow_employee
 def leaveform(request):
@@ -89,8 +118,37 @@ def leaveform(request):
             end_date = end_date
         )
         leaveform.save()
+           # ✅ Send email to 2 managers
+        manager_emails = ['smita@mavendoer.com', 'vinay@mavendoer.com']  # replace with real emails
+
+        email_subject = f"Leave Request from {user.first_name} {user.last_name}"
+        email_message = f"""
+Hello Manager,
+
+A leave request has been submitted by {user.first_name} {user.last_name}.
+
+📝 Subject: {subject}
+📅 From: {start_date} To: {end_date}
+📌 Type: {leave_type}
+📄 Description: {description}
+
+Please log in to review and take action.
+
+Thanks,
+HR Leave Portal
+        """
+
+        send_mail(
+            email_subject,
+            email_message,
+            settings.DEFAULT_FROM_EMAIL,
+            manager_emails,
+            fail_silently=False
+        )
+
         return HttpResponseRedirect(reverse("employe:details"))
-    return render(request, "employe/leaveform.html")
+    return render(request, "employe/leaveform.html", {'employe': employe})
+
 
 
 def logout(request):
@@ -146,7 +204,23 @@ def viewlist(request, id):
         'leave_request': leave_request,
     })
 
+def get_int_or_none(value):
+    try:
+        return int(value) if value.strip() else None
+    except (ValueError, TypeError):
+        return None
 
+def get_float_or_none(value):
+    try:
+        return float(value) if value.strip() else 0  # default to 0 as per your model
+    except (ValueError, TypeError):
+        return 0
+
+def get_time_or_none(value):
+    try:
+        return datetime.strptime(value.strip(), "%H:%M").time() if value.strip() else None
+    except (ValueError, TypeError):
+        return None
 
 @login_required(login_url='/login')
 @allow_employee
@@ -208,11 +282,11 @@ def edit_employe(request, id):
         # Benefits
         benefits.salary_details = request.POST.get('salary_details')
         benefits.bank_name = request.POST.get('bank_name')
-        benefits.account_number = request.POST.get('account_number')
+        benefits.account_number = get_int_or_none(request.POST.get('account_number'))
         benefits.branch_name = request.POST.get('branch_name')
         benefits.ifsc_code = request.POST.get('ifsc_code')
         benefits.pancard = request.POST.get('pancard')
-        benefits.pf_fund = request.POST.get('pf_fund')
+        benefits.pf_fund = get_float_or_none(request.POST.get('pf_fund'))
         benefits.state_insurance_number = request.POST.get('state_insurance_number')
         benefits.save()
 
@@ -226,11 +300,11 @@ def edit_employe(request, id):
         identification.save()
 
         # Work Schedule
-        schedule.start_time = request.POST.get('start_time')
-        schedule.end_time = request.POST.get('end_time')
+        schedule.start_time = get_time_or_none(request.POST.get('start_time'))
+        schedule.end_time = get_time_or_none(request.POST.get('end_time'))
         schedule.save()
 
-        return HttpResponseRedirect(reverse("employe:detail"))
+        return HttpResponseRedirect(reverse("employe:details"))
 
     context = {
         'employe': employe,
