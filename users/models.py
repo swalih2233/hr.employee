@@ -46,12 +46,13 @@ class UserManager(UserManager):
 class User(AbstractUser):
     username = models.CharField(max_length=150, unique=False, null=True, blank=True)
     GENDER_CHOICES = (
-        ('male', 'Male'),
-        ('female', 'Female'),
+        ('M', 'Male'),
+        ('F', 'Female'),
+        ('O', 'Other'),
     )
     # FIX: Ensured email is unique as it's used for login.
     email = models.EmailField(_('email address'), unique=True)
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='male')
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='M')
     
     # FIX: Made phone_number unique to avoid duplicate entries.
     phone_number = models.CharField(max_length=15, null=True, blank=True)

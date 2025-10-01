@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # Google Calendar integration
 from .google_calendar_service import get_google_calendar_service
-from .forms import UnifiedLeaveRequestForm, AddEmployeeForm
+from .forms import UnifiedLeaveRequestForm, AddUserForm, AddEmployeModelForm
 from common.decorators import role_required, allow_founder
 from common.utils import get_user_role, is_founder, is_manager, get_user_profile, generate_manager_id, calculate_leave_days
 
@@ -213,6 +213,11 @@ def manager_dashboard(request):
         messages.error(request, "Manager profile not found.")
         return redirect(reverse('managers:login'))
 
+    # The form submission is now handled by the `add_employe` view via AJAX.
+    # This view now only needs to prepare the context for the dashboard.
+    user_form = AddUserForm()
+    employe_form = AddEmployeModelForm()
+
     from common.utils import get_employees_under_manager
     employees = get_employees_under_manager(manager)
 
@@ -245,6 +250,8 @@ def manager_dashboard(request):
         'leave_requests': pending_employee_requests,
         'manager_leaves': manager_leave_requests,
         'notification_count': pending_employee_requests.count(),
+        'user_form': user_form,
+        'employe_form': employe_form,
     }
 
     return render(request, 'managers/manager_dashboard.html', context)
@@ -545,51 +552,86 @@ def reject_leave(request, pk):
     return reject_employee_leave(request, pk)
 
 
+from common.utils import get_user_role, is_founder, is_manager, get_user_profile, generate_manager_id, calculate_leave_days
+
 @login_required(login_url='/managers/login')
 @role_required('manager', 'founder')
 def add_employe(request):
     if request.method == 'POST':
-        form = AddEmployeeForm(request.POST, request.FILES)
-        if form.is_valid():
+        user_form = AddUserForm(request.POST)
+        employe_form = AddEmployeModelForm(request.POST, request.FILES)
+        
+        if user_form.is_valid() and employe_form.is_valid():
             try:
-                user = User.objects.create_user(
-                    email=form.cleaned_data['email'],
-                    password=form.cleaned_data['password'],
-                    first_name=form.cleaned_data['first_name'],
-                    last_name=form.cleaned_data['last_name'],
-                    phone_number=form.cleaned_data.get('phone_number', ''),
-                    gender=form.cleaned_data.get('gender', ''),
-                    is_employee=True
-                )
+                user = user_form.save(commit=False)
+                user.set_password(user_form.cleaned_data['password'])
+                user.is_employee = True
+                user.username = user_form.cleaned_data['email']
+                user.save()
+
+                employe = employe_form.save(commit=False)
+                employe.user = user
                 
-                manager = None
                 if is_manager(request.user):
                     manager = Manager.objects.get(user=request.user)
+                    employe.manager = manager
                 
-                employe = Employe.objects.create(
-                    user=user,
-                    manager=manager,
-                    department=form.cleaned_data.get('department', ''),
-                    designation=form.cleaned_data.get('designation', ''),
-                    date_of_joining=form.cleaned_data.get('date_of_joining'),
-                    employment_Type=form.cleaned_data.get('employment_Type', ''),
-                    work_location=form.cleaned_data.get('work_location', ''),
-                    image=form.cleaned_data.get('image'),
-                )
+                employe.save()
                 
-                messages.success(request, f"Employee {user.get_full_name()} added successfully!")
-                return redirect(reverse('managers:employees_list'))
-                
+                messages.success(request, f"✅ Employee {user.get_full_name()} created successfully!")
+                return redirect(reverse('managers:manager_dashboard'))
+                    
             except Exception as e:
                 messages.error(request, f"Error creating employee: {str(e)}")
         else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field}: {error}")
-    else:
-        form = AddEmployeeForm()
+            messages.error(request, "Please correct the form errors.")
+            # Re-populate the context for the manager dashboard to show errors in the sidebar
+            try:
+                manager = Manager.objects.get(user=request.user)
+            except Manager.DoesNotExist:
+                messages.error(request, "Manager profile not found.")
+                return redirect(reverse('managers:login'))
+
+            from common.utils import get_employees_under_manager
+            employees = get_employees_under_manager(manager)
+
+            pending_employee_requests = LeaveRequest.objects.filter(
+                employee__in=[emp.user for emp in employees],
+                status='Pending'
+            ).order_by('-created_date')
+
+            manager_leave_requests = UnifiedLeaveRequest.objects.filter(
+                manager=manager,
+                requested_by_role='manager'
+            ).order_by('-created_date')[:5]
+
+            recent_approved_employee_leaves = LeaveRequest.objects.filter(
+                employee__in=[emp.user for emp in employees],
+                status='Approved'
+            ).order_by('-created_date')[:5]
+            
+            leave_history = LeaveRequest.objects.filter(employee__in=[emp.user for emp in employees]).order_by('-created_date')
+
+            context = {
+                'manager': manager,
+                'employees': employees,
+                'employee_count': employees.count(),
+                'pending_employee_requests': pending_employee_requests,
+                'pending_count': pending_employee_requests.count(),
+                'manager_leave_requests': manager_leave_requests,
+                'recent_approved_employee_leaves': recent_approved_employee_leaves,
+                'leave_history': leave_history,
+                'leave_requests': pending_employee_requests,
+                'manager_leaves': manager_leave_requests,
+                'notification_count': pending_employee_requests.count(),
+                'user_form': user_form,
+                'employe_form': employe_form,
+                'show_add_employee_sidebar': True,  # Flag to keep sidebar open
+            }
+            return render(request, 'managers/manager_dashboard.html', context)
     
-    return render(request, 'managers/add_employe.html', {'form': form})
+    # If GET request, redirect to the dashboard, as this view only handles POST
+    return redirect(reverse('managers:manager_dashboard'))
 
 
 @login_required(login_url='/managers/login')

@@ -7,10 +7,10 @@ from users.models import User
 from managers.models import Manager
 
 EMPLOYE_CHOICES = (
-   ('FT', 'FULL TIME'),
-   ('PT', 'PART TIME'),
-   ('CT', 'CONTRACT'),
-   ('FR', 'FREELANCE')
+    ('Full-Time', 'Full-Time'),
+    ('Part-Time', 'Part-Time'),
+    ('Contract', 'Contract'),
+    ('Internship', 'Internship'),
 )
 
 STATUS_CHOICES = (
@@ -34,6 +34,7 @@ LEAVE_CHOICES = (
 
 class Employe(CommonModel):
     user = models.ForeignKey(User ,on_delete=models.CASCADE)
+    employe_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     manager =models.ForeignKey(Manager, on_delete=models.CASCADE, null=True, blank=True)
     department = models.CharField(max_length=100, null=True, blank=True)
     designation = models.CharField(max_length=100, null=True, blank=True)

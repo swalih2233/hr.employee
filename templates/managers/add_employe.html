@@ -43,7 +43,17 @@
       <!-- Phone Number -->
       <div>
         <label for="phone" class="block text-gray-700 font-medium mb-1">Phone Number</label>
-        <input type="tel" id="phone" name="phone" value="{{ phone }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="tel" id="phone" name="phone_number" value="{{ phone }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <!-- Gender -->
+      <div>
+        <label for="gender" class="block text-gray-700 font-medium mb-1">Gender</label>
+        <select id="gender" name="gender" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">-- Select Gender --</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
       </div>
 
       <!-- Password -->
@@ -61,7 +71,37 @@
       <!-- Joining Date -->
       <div>
         <label for="joining_date" class="block text-gray-700 font-medium mb-1">Joining Date</label>
-        <input type="date" id="joining_date" name="joining_date" value="{{ joining_date }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="date" id="joining_date" name="date_of_joining" value="{{ joining_date }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <!-- Employment Type -->
+      <div>
+        <label for="employment_Type" class="block text-gray-700 font-medium mb-1">Employment Type</label>
+        <select id="employment_Type" name="employment_Type" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">-- Select Employment Type --</option>
+          <option value="FT">Full Time</option>
+          <option value="PT">Part Time</option>
+          <option value="CT">Contract</option>
+          <option value="FR">Freelance</option>
+        </select>
+      </div>
+
+      <!-- Department -->
+      <div>
+        <label for="department" class="block text-gray-700 font-medium mb-1">Department</label>
+        <input type="text" id="department" name="department" value="{{ department }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <!-- Designation -->
+      <div>
+        <label for="designation" class="block text-gray-700 font-medium mb-1">Designation</label>
+        <input type="text" id="designation" name="designation" value="{{ designation }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <!-- Work Location -->
+      <div>
+        <label for="work_location" class="block text-gray-700 font-medium mb-1">Work Location</label>
+        <input type="text" id="work_location" name="work_location" value="{{ work_location }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
 
       <!-- Manager Selection -->

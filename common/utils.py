@@ -154,6 +154,22 @@ def generate_manager_id():
             return manager_id
 
 
+def generate_employee_id():
+    """Generate a unique employee ID"""
+    import random
+    import string
+    from employe.models import Employe
+    
+    while True:
+        # Generate ID like EMP001, EMP002, etc.
+        number = random.randint(1, 9999)
+        employe_id = f"EMP{number:03d}"
+        
+        # Check if this ID already exists
+        if not Employe.objects.filter(employe_id=employe_id).exists():
+            return employe_id
+
+
 def get_employees_under_manager(manager):
     """Get all employees under a specific manager"""
     try:
