@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # Google Calendar integration
 from .google_calendar_service import get_google_calendar_service
-from .forms import ManagerLeaveRequestForm, UnifiedLeaveRequestForm, AddEmployeeForm
+from .forms import UnifiedLeaveRequestForm, AddEmployeeForm
 from common.decorators import role_required, allow_founder
 from common.utils import get_user_role, is_founder, is_manager, get_user_profile, generate_manager_id, calculate_leave_days
 
