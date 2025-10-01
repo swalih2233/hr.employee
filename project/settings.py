@@ -131,7 +131,7 @@ PROJECT_MODE = os.environ.get('PROJECT_MODE', 'local')
 if PROJECT_MODE == 'production':
     MEDIA_URL = '/media/'
     MEDIA_ROOT = BASE_DIR / "media"
-    STATIC_ROOT = BASE_DIR / "static"
+    STATIC_ROOT = BASE_DIR / "staticfiles"
 else:
     MEDIA_URL = '/media/'  # ✅ FIX: Remove the comma
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
