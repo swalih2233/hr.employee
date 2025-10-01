@@ -23,12 +23,12 @@
                 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700">Employee ID</label>
-                            <p class="text-gray-900">{{ employe.employe_id }}</p>
+                            <p class="text-gray-900">{{ user.employe_id }}</p>
                         </div>
                 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700">Reason/Description</label>
-                            <p class="text-gray-900">{{ leave_request.description }}</p>
+                            <p class="text-gray-900">{{  leave_request.description }}</p>
                         </div>
                 
                         <div class="mb-4">
@@ -59,46 +59,32 @@
                 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700">File</label>
-                            {% if leavereaquest.file %}
-                            <a href="{{ leavereaquest.file.url }}" class="text-blue-500 underline">View File</a>
+                           {% if leave_request.file %}
+                                <a href="{{ leave_request.file.url }}" class="text-blue-500 underline">View File</a>
                             {% else %}
-                            <p class="text-gray-500">No file uploaded</p>
+                                <p class="text-gray-500">No file uploaded</p>
                             {% endif %}
                         </div>
-<!--                 
-                        <div class="flex justify-end">
-                            {% if leavereaquest.is_approved %}
-                            <a class="bg-gray-600 text-white font-medium py-2 px-4 rounded">
-                                Approved
-                            </a>
-                            {% else %}
-                            <a href="{% url 'managers:approve_leave' id=leavereaquest.id %}" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded">
-                                Approve Leave
-                            </a>
-                            {% endif %}
-                        </div> -->
 
-                        <div class="flex justify-end space-x-4">
-                            {% if leavereaquest.is_approved %}
+
+                       <div class="flex justify-end space-x-4">
+                            {% if leave_request.is_approved %}
                                 <a class="bg-gray-600 text-white font-medium py-2 px-4 rounded">
                                     Approved
                                 </a>
-                            {% elif leavereaquest.is_rejected %}
+                            {% elif leave_request.is_rejected %}
                                 <a class="bg-red-600 text-white font-medium py-2 px-4 rounded">
                                     Rejected
                                 </a>
                             {% else %}
-                                <!-- Approve Button -->
-                                <a href="{% url 'managers:approve_leave' id=leavereaquest.id %}" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded">
+                                <a href="{% url 'managers:approve_leave' id=leave_request.id %}" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded">
                                     Approve Leave
                                 </a>
-                        
-                                <!-- Reject Button -->
-                                <a href="{% url 'managers:reject_leave' id=leavereaquest.id %}" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded">
+                                <a href="{% url 'managers:reject_leave' id=leave_request.id %}" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded">
                                     Reject Leave
                                 </a>
                             {% endif %}
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>

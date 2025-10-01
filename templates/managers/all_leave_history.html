@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Employees</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+<!-- Header -->
+<nav class="bg-[#1F2937] text-white px-6 py-4 shadow">
+  <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-lg sm:text-xl font-semibold">Founder Dashboard</h1>
+    <div class="flex flex-wrap items-center gap-4 text-sm">
+      <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
+      <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
+      <a href="{% url 'managers:employees_list' %}" class="hover:underline font-bold">Employees</a>
+      <a href="{% url 'managers:logout' %}" class="hover:underline">Sign Out</a>
+    </div>
+  </div>
+</nav>
+
+<div class="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Complete Leave History</h1>
+                <p class="text-gray-600 text-sm sm:text-base">Comprehensive view of all leave requests across the organization</p>
+            </div>
+       
+        </div>
+    </div>
+
+    <!-- Filter Options -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex flex-col sm:flex-row flex-wrap gap-4">
+            <select class="border border-gray-300 rounded-md px-3 py-2 text-sm w-full sm:w-auto" id="statusFilter">
+                <option value="">All Status</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Pending">Pending</option>
+            </select>
+            
+            <select class="border border-gray-300 rounded-md px-3 py-2 text-sm w-full sm:w-auto" id="roleFilter">
+                <option value="">All Roles</option>
+                <option value="manager">Manager</option>
+                <option value="employee">Employee</option>
+            </select>
+            
+            <input type="date" class="border border-gray-300 rounded-md px-3 py-2 text-sm w-full sm:w-auto" id="dateFilter" placeholder="Filter by date">
+            
+            <button onclick="clearFilters()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm transition w-full sm:w-auto">
+                Clear Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Leave History Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Leave Records</h3>
+        </div>
+        
+        {% if all_leaves %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm" id="leaveTable">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Applied On</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for leave in all_leaves %}
+                            <tr class="hover:bg-gray-50 leave-row" 
+                                data-status="{{ leave.status }}" 
+                                data-role="{{ leave.requester_role }}"
+                                data-date="{{ leave.created_date|date:'Y-m-d' }}">
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    <div class="font-medium text-gray-900">{{ leave.requester_name }}</div>
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                        {% if leave.requester_role == 'manager' %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                        {{ leave.requester_role|title }}
+                                    </span>
+                                </td>
+                                <td class="px-4 sm:px-6 py-4">
+                                    <div class="text-gray-900">{{ leave.subject }}</div>
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    <div class="text-gray-900">{{ leave.start_date }} to {{ leave.end_date }}</div>
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                    {% if leave.status == 'Approved' %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                            Approved
+                                        </span>
+                                    {% elif leave.status == 'Rejected' %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                            Rejected
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            Pending
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-500">
+                                    {{ leave.created_date|date:"M d, Y" }}
+                                </td>
+                             
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="px-6 py-8 text-center">
+                <div class="text-gray-500 mb-4">
+                    <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No leave records found</h3>
+                <p class="text-gray-500">No leave requests have been submitted yet.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Summary Stats -->
+    {% if all_leaves %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-green-600" id="approvedCount">0</p>
+                    <p class="text-sm text-gray-500">Approved</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-red-600" id="rejectedCount">0</p>
+                    <p class="text-sm text-gray-500">Rejected</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-yellow-600" id="pendingCount">0</p>
+                    <p class="text-sm text-gray-500">Pending</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-blue-600" id="totalCount">{{ total_leaves }}</p>
+                    <p class="text-sm text-gray-500">Total</p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusFilter = document.getElementById('statusFilter');
+    const roleFilter = document.getElementById('roleFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const rows = document.querySelectorAll('.leave-row');
+    
+    function updateCounts() {
+        const visibleRows = document.querySelectorAll('.leave-row:not([style*="display: none"])');
+        let approved = 0, rejected = 0, pending = 0;
+        
+        visibleRows.forEach(row => {
+            const status = row.dataset.status;
+            if (status === 'Approved') approved++;
+            else if (status === 'Rejected') rejected++;
+            else if (status === 'Pending') pending++;
+        });
+        
+        document.getElementById('approvedCount').textContent = approved;
+        document.getElementById('rejectedCount').textContent = rejected;
+        document.getElementById('pendingCount').textContent = pending;
+        document.getElementById('totalCount').textContent = visibleRows.length;
+    }
+    
+    function filterTable() {
+        const statusValue = statusFilter.value;
+        const roleValue = roleFilter.value;
+        const dateValue = dateFilter.value;
+        
+        rows.forEach(row => {
+            let show = true;
+            
+            if (statusValue && row.dataset.status !== statusValue) {
+                show = false;
+            }
+            
+            if (roleValue && row.dataset.role !== roleValue) {
+                show = false;
+            }
+            
+            if (dateValue && row.dataset.date !== dateValue) {
+                show = false;
+            }
+            
+            row.style.display = show ? '' : 'none';
+        });
+        
+        updateCounts();
+    }
+    
+    statusFilter.addEventListener('change', filterTable);
+    roleFilter.addEventListener('change', filterTable);
+    dateFilter.addEventListener('change', filterTable);
+    
+    // Initial count update
+    updateCounts();
+});
+
+function clearFilters() {
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('roleFilter').value = '';
+    document.getElementById('dateFilter').value = '';
+    
+    document.querySelectorAll('.leave-row').forEach(row => {
+        row.style.display = '';
+    });
+    
+    // Update counts
+    const event = new Event('change');
+    document.getElementById('statusFilter').dispatchEvent(event);
+}
+</script>
+
+</body>
+</html>

@@ -10,12 +10,4 @@ admin.site.register(Background)
 admin.site.register(Skill)
 admin.site.register(Identification)
 admin.site.register(WorkSchedule)
-admin.site.register(LeaveReaquest)
-
-
-
-
-
-
-
-
+admin.site.register(LeaveRequest)  # Fixed: Use corrected model name

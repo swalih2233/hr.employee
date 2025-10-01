@@ -1,20 +1,24 @@
-from django.shortcuts import render,  reverse
+from django.shortcuts import render,  reverse, get_object_or_404
 from django.shortcuts import HttpResponse
 
 from django.http.response import HttpResponseRedirect
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 
-from common.decorators import allow_employee
+from common.decorators import allow_employee, role_required
+from common.utils import get_user_profile, get_leave_balance_info
 from employe.models import *
+from employe.models import LeaveRequest
 from managers.models import *
 from users.models import *
 from datetime import datetime
+from managers.views import send_leave_notification
 
 
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
+from django.template.loader import render_to_string
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.utils.timezone import now
@@ -40,13 +44,13 @@ from users.models import OTP
 @allow_employee
 def details(request):
     user = request.user
-    employe = Employe.objects.get(user=user)
-    contact = EmergencyContact.objects.get(employe=employe)
-    address = Address.objects.get(employe=employe)
-    background = Background.objects.get(employe=employe)
-    benefits = Benefits.objects.get(employe=employe)
-    identification = Identification.objects.get(employe=employe)
-    shedule = WorkSchedule.objects.get(employe=employe)
+    employe = get_object_or_404(Employe, user=user)
+    contact, _ = EmergencyContact.objects.get_or_create(employe=employe)
+    address, _ = Address.objects.get_or_create(employe=employe)
+    background, _ = Background.objects.get_or_create(employe=employe)
+    benefits, _ = Benefits.objects.get_or_create(employe=employe)
+    identification, _ = Identification.objects.get_or_create(employe=employe)
+    schedule, _ = WorkSchedule.objects.get_or_create(employe=employe)
     holidays = Holiday.objects.all()
 
     context ={
@@ -57,98 +61,114 @@ def details(request):
         'background': background,
         'benefits': benefits,
         'identification': identification,
-        'schedule': shedule,
+        'schedule': schedule,
         'holidays':holidays
     }
 
     return render(request, "employe/details.html", context=context)
 
 
-# @login_required(login_url='/login')
-# @allow_employee
-# def leaveform(request):
-    
-#     user = request.user
-#     employe = Employe.objects.get(user=user)
+@login_required(login_url='/login')
+@allow_employee
+def employee_dashboard(request):
+    """Dashboard specifically for employees"""
+    try:
+        employee = Employe.objects.get(user=request.user)
+    except Employe.DoesNotExist:
+        messages.error(request, "Employee profile not found.")
+        return redirect(reverse('employe:login'))
 
-#     if request.method =='POST':
-#         subject = request.POST.get('subject')
-#         start_date = request.POST.get('start_date')
-#         end_date = request.POST.get('end_date')
-#         leave_type = request.POST.get('leave_type')
-#         description = request.POST.get('description')
-#         file = request.FILES.get('file')
+    leave_requests = LeaveRequest.objects.filter(
+        employee=employee.user
+    ).order_by('-created_date')[:5]
 
-#         leaveform = LeaveReaquest.objects.create(
-#             subject=subject,
-#             leave_type=leave_type,
-#             description= description,
-#             file = file,
-#             employe=employe,
-#             start_date = start_date,
-#             end_date = end_date
-#         )
-#         leaveform.save()
-#         return HttpResponseRedirect(reverse("employe:details"))
-#     return render(request, "employe/leaveform.html")
+    pending_requests = LeaveRequest.objects.filter(
+        employee=employee.user,
+        status='Pending'
+    ).count()
+
+    for leave_request in leave_requests:
+        if leave_request.start_date and leave_request.end_date:
+            leave_request.calculated_duration = (leave_request.end_date - leave_request.start_date).days + 1
+        else:
+            leave_request.calculated_duration = 0
+
+    context = {
+        'employee': employee,
+        'leave_requests': leave_requests,
+        'pending_requests': pending_requests,
+        'manager': employee.manager,
+    }
+
+    return render(request, 'employe/employee_dashboard.html', context)
 
 
 @login_required(login_url='/login')
 @allow_employee
-def leaveform(request):
-    
+def apply_leave(request):
     user = request.user
-    employe = Employe.objects.get(user=user)
+    try:
+        employe = Employe.objects.get(user=user)
+    except Employe.DoesNotExist:
+        messages.error(request, "Employee profile not found.")
+        return redirect('employe:login')
 
-    if request.method =='POST':
+    if request.method == 'POST':
         subject = request.POST.get('subject')
-        start_date = request.POST.get('start_date')
-        end_date = request.POST.get('end_date')
+        start_date_str = request.POST.get('start_date')
+        end_date_str = request.POST.get('end_date')
         leave_type = request.POST.get('leave_type')
         description = request.POST.get('description')
         file = request.FILES.get('file')
 
-        leaveform = LeaveReaquest.objects.create(
-            subject=subject,
-            leave_type=leave_type,
-            description= description,
-            file = file,
-            employe=employe,
-            start_date = start_date,
-            end_date = end_date
-        )
-        leaveform.save()
-           # ✅ Send email to 2 managers
-        manager_emails = ['smita@mavendoer.com', 'vinay@mavendoer.com']  # replace with real emails
+        if not all([subject, start_date_str, end_date_str, leave_type, description]):
+            messages.error(request, "❌ All fields except file are required.")
+            return render(request, "employe/leaveform.html", {'employe': employe})
 
-        email_subject = f"Leave Request from {user.first_name} {user.last_name}"
-        email_message = f"""
-Hello Manager,
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            
+            if start_date > end_date:
+                messages.error(request, "❌ Start date cannot be after end date.")
+                return render(request, "employe/leaveform.html", {'employe': employe})
 
-A leave request has been submitted by {user.first_name} {user.last_name}.
+            leave_request = LeaveRequest.objects.create(
+                subject=subject,
+                leave_type=leave_type,
+                description=description,
+                file=file,
+                employee=user,
+                start_date=start_date,
+                end_date=end_date,
+                status='Pending'
+            )
 
-📝 Subject: {subject}
-📅 From: {start_date} To: {end_date}
-📌 Type: {leave_type}
-📄 Description: {description}
+            try:
+                if employe.manager and employe.manager.user.email:
+                    send_leave_notification(request, leave_request, 'new_request', employe.manager.user.email, manager_name=employe.manager.user.get_full_name())
+                
+                send_leave_notification(request, leave_request, 'submission_confirmation', user.email)
+                
+                messages.success(request, "✅ Leave request submitted successfully. Notifications have been sent.")
+            except Exception as e:
+                messages.error(request, f"⚠️ Leave request saved, but failed to send email notifications. Error: {str(e)}")
 
-Please log in to review and take action.
+            return HttpResponseRedirect(reverse("employe:leavelist"))
 
-Thanks,
-HR Leave Portal
-        """
+        except ValueError as e:
+            messages.error(request, f"❌ Invalid date format: {e}")
+            return render(request, "employe/leaveform.html", {'employe': employe})
+        except Exception as e:
+            messages.error(request, f"❌ Error creating leave request: {e}")
+            return render(request, "employe/leaveform.html", {'employe': employe})
 
-        send_mail(
-            email_subject,
-            email_message,
-            settings.DEFAULT_FROM_EMAIL,
-            manager_emails,
-            fail_silently=False
-        )
-
-        return HttpResponseRedirect(reverse("employe:details"))
     return render(request, "employe/leaveform.html", {'employe': employe})
 
+@login_required(login_url='/login')
+@allow_employee
+def leaveform(request):
+    return apply_leave(request)
 
 
 def logout(request):
@@ -179,25 +199,45 @@ def login(request):
 @login_required(login_url='/login')
 @allow_employee
 def leavelist(request):
-    instances = LeaveReaquest.objects.all()
+    try:
+        employee = Employe.objects.get(user=request.user)
+    except Employe.DoesNotExist:
+        messages.error(request, "Employee profile not found.")
+        return redirect(reverse('employe:login'))
 
-    # Calculate leave duration for each instance
+    instances = LeaveRequest.objects.filter(employee=employee.user).order_by('-created_date')
+
     for instance in instances:
-        instance.leave_duration = (instance.end_date - instance.start_date).days + 1
-    
+        if instance.start_date and instance.end_date:
+            instance.leave_duration = (instance.end_date - instance.start_date).days + 1
+        else:
+            instance.leave_duration = 0
+
     return render(request, "employe/leavelist.html", {'instances': instances})
-
-
 
 
 @login_required(login_url='/login')
 @allow_employee
 def viewlist(request, id):
-    
-    leave_request = LeaveReaquest.objects.get(id=id)
-    employee = leave_request.employe
-    user = employee.user 
-    
+    try:
+        current_employee = Employe.objects.get(user=request.user)
+    except Employe.DoesNotExist:
+        messages.error(request, "Employee profile not found.")
+        return redirect(reverse('employe:leavelist'))
+
+    try:
+        leave_request = LeaveRequest.objects.get(id=id, employee=current_employee.user)
+    except LeaveRequest.DoesNotExist:
+        messages.error(request, "Leave request not found or access denied.")
+        return redirect(reverse('employe:leavelist'))
+
+    try:
+        employee = Employe.objects.get(user=leave_request.employee)
+        user = employee.user
+    except Employe.DoesNotExist:
+        messages.error(request, "Employee profile not found for this leave request.")
+        return redirect(reverse('employe:leavelist'))
+
     return render(request, 'employe/viewlist.html', {
         'user': user,
         'employe': employee,
@@ -212,7 +252,7 @@ def get_int_or_none(value):
 
 def get_float_or_none(value):
     try:
-        return float(value) if value.strip() else 0  # default to 0 as per your model
+        return float(value) if value.strip() else 0
     except (ValueError, TypeError):
         return 0
 
@@ -225,32 +265,22 @@ def get_time_or_none(value):
 @login_required(login_url='/login')
 @allow_employee
 def edit_employe(request, id):
-    employe = Employe.objects.get(id=id)
+    employe = get_object_or_404(Employe, id=id)
     user = employe.user
-    contact = EmergencyContact.objects.get(employe=employe)
-    address = Address.objects.get(employe=employe)
-    background = Background.objects.get(employe=employe)
-    benefits = Benefits.objects.get(employe=employe)
-    identification = Identification.objects.get(employe=employe)
-    schedule = WorkSchedule.objects.get(employe=employe)
-
-    user_date_of_birth = employe.user.date_of_birth.strftime('%Y-%m-%d') if employe.user.date_of_birth else ''
-
-    date_joining = employe.date_of_joining.strftime('%Y-%m-%d') if employe.date_of_joining else ''
-
-    # Format the time fields
-    schedule_start_time = schedule.start_time.strftime('%H:%M') if schedule.start_time else ''
-    schedule_end_time = schedule.end_time.strftime('%H:%M') if schedule.end_time else ''
+    contact, _ = EmergencyContact.objects.get_or_create(employe=employe)
+    address, _ = Address.objects.get_or_create(employe=employe)
+    background, _ = Background.objects.get_or_create(employe=employe)
+    benefits, _ = Benefits.objects.get_or_create(employe=employe)
+    identification, _ = Identification.objects.get_or_create(employe=employe)
+    schedule, _ = WorkSchedule.objects.get_or_create(employe=employe)
 
     if request.method == 'POST':
         # User details
         user.first_name = request.POST.get('first_name')
         user.last_name = request.POST.get('last_name')
-        user.employe_id = request.POST.get('employe_id')
         user.phone_number = request.POST.get('phone_number')
         user.date_of_birth = request.POST.get('date_of_birth')
         user.gender = request.POST.get('gender')
-        user.maritul_status = request.POST.get('maritul_status')
         user.save()
 
         # Emergency Contact
@@ -304,6 +334,7 @@ def edit_employe(request, id):
         schedule.end_time = get_time_or_none(request.POST.get('end_time'))
         schedule.save()
 
+        messages.success(request, "Details updated successfully!")
         return HttpResponseRedirect(reverse("employe:details"))
 
     context = {
@@ -315,133 +346,12 @@ def edit_employe(request, id):
         'benefits': benefits,
         'identification': identification,
         'schedule': schedule,
-        'user_date_of_birth': user_date_of_birth,
-        'schedule_start_time': schedule_start_time,
-        'schedule_end_time': schedule_end_time,
-        'date_joining': date_joining
     }
 
     return render(request, "employe/edit_employe.html", context=context)
 
 User = get_user_model()
 
-# def forget_password(request):
-#     context = {"title": "Forget Password"}
-    
-#     if request.method == "POST":
-#         email = request.POST.get("email")
-        
-#         try:
-#             validate_email(email)
-#             user = User.objects.get(email=email)  # Handle custom user models
-            
-#             otp = secrets.randbelow(899999) + 100000
-#             OTP.objects.create(user=user, otp=otp)
-            
-#             send_mail(
-#                 subject='Password Reset OTP',
-#                 message=f'Your OTP for resetting the password is {otp}',
-#                 from_email=settings.EMAIL_HOST_USER,
-#                 recipient_list=[email],
-#                 fail_silently=False,
-#             )
-            
-#             request.session['reset_user_email'] = email
-#             messages.success(request, "If this email is registered, an OTP has been sent.")
-#             return HttpResponseRedirect(reverse('employe:reset_password'))
-        
-#         except ValidationError:
-#             messages.error(request, "Invalid email format.")
-#         except User.DoesNotExist:
-#             messages.success(request, "If this email is registered, an OTP has been sent.")
-#         except Exception as e:
-#             messages.error(request, f"An error occurred: {e}")
-    
-#     return render(request, "employe/forget_password.html", context)
-
-
-
-
-
-# def reset_password(request):
-#     context = {"title": "Reset Password"}
-    
-#     if request.method == "POST":
-#         otp = request.POST.get("otp")
-#         new_password = request.POST.get("new_password")
-#         confirm_password = request.POST.get("confirm_password")
-        
-#         email = request.session.get('reset_user_email')
-#         try:
-#             user = User.objects.get(email=email)
-#             otp_obj = OTP.objects.filter(user=user, otp=otp).first()
-            
-#             if not otp_obj or otp_obj.is_expired():
-#                 messages.error(request, "Invalid or expired OTP.")
-#             elif new_password != confirm_password:
-#                 messages.error(request, "Passwords do not match.")
-#             else:
-#                 try:
-#                     validate_password(new_password, user)
-#                 except ValidationError as e:
-#                     messages.error(request, " ".join(e.messages))
-#                     return render(request, "employe/reset_password.html", context)
-
-#                 # Save the new password
-#                 user.password = make_password(new_password)
-#                 user.save()
-                
-#                 # Remove the OTP after successful reset
-#                 otp_obj.delete()
-#                 messages.success(request, "Password reset successfully. Please login.")
-                
-#                 # Redirect to login page
-#                 return HttpResponseRedirect(reverse('employe:login'))
-        
-#         except User.DoesNotExist:
-#             messages.error(request, "User does not exist.")
-    
-#     return render(request, "employe/reset_password.html", context)
-
-
-# def forget_password(request):
-    
-#     if request.method == "POST":
-#         email = request.POST.get("email")
-
-#         if User.objects.filter(email=email).exists():
-
-#             user = User.objects.get(email=email)
-            
-#             otp = secrets.randbelow(899999) + 100000
-#             OTP.objects.create(user=user, otp=otp)
-            
-#             context = ssl._create_unverified_context()
-#             with smtplib.SMTP('smtp.gmail.com', 587) as server:
-#                 server.starttls(context=context)
-#                 server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-#                 send_mail(
-#                     'Reset Password OTP',
-#                     f'Your OTP for resetting the password is {otp}',
-#                     settings.EMAIL_HOST_USER,
-#                     [email],
-#                     fail_silently=False,
-#                 )
-        
-#             return HttpResponseRedirect(reverse('employe:reset_password'))
-#         else:
-#             context = {
-#                 "title": "Forget Password",
-#                 "message": "Invalid email address"
-#             }
-#         return render(request, "employe/forget_password.html", context)
-    
-#     context = {
-#         "title": "Forget Password",
-#     }
-
-            
-#     return render(request, "employe/forget_password.html", context)
 
 def forget_password(request):
     if request.method == "POST":
@@ -450,17 +360,13 @@ def forget_password(request):
         if User.objects.filter(email=email).exists():
             user = User.objects.get(email=email)
             
-            # Generate OTP
             otp = secrets.randbelow(899999) + 100000
-            expires_at = timezone.now() + timedelta(minutes=10)  # Set OTP expiration time (10 minutes)
+            expires_at = timezone.now() + timedelta(minutes=10)
             
-            # Create OTP with expiration time
             OTP.objects.create(user=user, otp=otp, expires_at=expires_at)
             
-            # Save email in session
             request.session['reset_user_email'] = email
             
-            # Send OTP via email
             try:
                 send_mail(
                     'Reset Password OTP',
@@ -496,17 +402,14 @@ def reset_password(request):
         new_password = request.POST.get("new_password")
         confirm_password = request.POST.get("confirm_password")
         
-        # Retrieve email from session
         email = request.session.get('reset_user_email')
         if not email:
             messages.error(request, "Session expired. Please restart the password reset process.")
             return redirect('employe:forget_password')
         
         try:
-            # Get the user based on the email
             user = User.objects.get(email=email)
             
-            # Retrieve and validate the OTP
             otp_obj = OTP.objects.filter(user=user, otp=otp).first()
             if not otp_obj:
                 messages.error(request, "Invalid OTP.")
@@ -516,23 +419,19 @@ def reset_password(request):
                 messages.error(request, "OTP has expired.")
                 return render(request, "employe/reset_password.html", context)
             
-            # Check if passwords match
             if new_password != confirm_password:
                 messages.error(request, "Passwords do not match.")
                 return render(request, "employe/reset_password.html", context)
             
-            # Validate new password
             try:
                 validate_password(new_password, user)
             except ValidationError as e:
                 messages.error(request, " ".join(e.messages))
                 return render(request, "employe/reset_password.html", context)
             
-            # Set and save the new password
             user.set_password(new_password)
             user.save()
             
-            # Delete the OTP after successful password reset
             otp_obj.delete()
             
             messages.success(request, "Password reset successfully. Please login.")

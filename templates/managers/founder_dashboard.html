@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Founder Dashboard - Leave Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+
+  <style>
+    .wrapper{
+        width:90%;
+        margin:0 auto;
+    }
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans" x-data="founderDashboard()">
+
+<!-- Header -->
+<nav class="bg-[#1F2937] text-white px-[90px] py-4 shadow h-[160px]">
+  <!-- Top Row: Search, Icons, Profile -->
+  <div class="flex items-center justify-between w-full">
+    <!-- Search -->
+    <div class="ml-[80px] flex items-center bg-gray-800 pr-[12px] pl-[10px] py-1 rounded-md border border-gray-700 w-full max-w-sm">
+      <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" stroke-width="2"
+        viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z" />
+      </svg>
+      <input type="text" placeholder="Search anything..."
+        class="bg-transparent outline-none text-sm placeholder-gray-400 flex-1 text-white" />
+      <button class="ml-2 bg-gray-700 px-2 py-0.5 rounded text-xs">⌘ F</button>
+    </div>
+
+    <!-- Icons + Profile + Figma Icon -->
+    <div class="flex items-center space-x-6 ml-6">
+  
+    
+      <!-- notification Icon (image inside <a>) -->
+      <a href="#">
+        <img src="/media/images/Vector (2).png" class="w-5 h-5" alt="Figma Icon">
+      </a>
+
+      <!-- Profile Image -->
+      {% if user.profile.image %}
+        <img src="{{ user.profile.image.url }}" class="w-8 h-8 rounded-full object-cover" alt="Avatar">
+      {% else %}
+        <img src="{% static 'images/default-avatar.png' %}" class="w-8 h-8 rounded-full object-cover" alt="Default Avatar">
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Bottom Row: Greeting + Navigation -->
+  <div class="flex items-center justify-between mt-6">
+    <!-- Greeting -->
+    <h1 class="text-xl font-semibold whitespace-nowrap">Hi, {{ user.first_name|default:'User' }}</h1>
+
+    <!-- Navigation Links -->
+    <div class="flex items-center space-x-6 text-sm">
+      <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
+      <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
+      <a href="{% url 'managers:leave_summary' %}" class="hover:underline">Leave Management</a>
+      <a href="#" @click.prevent="toggleSidebar('addFounder')" class="hover:underline">Add Founder</a>
+      <a href="#" @click.prevent="toggleSidebar('addManager')" class="hover:underline">Add Manager</a>
+    </div>
+  </div>
+</nav>
+
+
+
+
+<!-- Main Wrapper -->
+<div class="wrapper max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
+
+    <!-- Manager Leave Requests -->
+    <section class="bg-white rounded-lg shadow mt-[-70px]">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Manager Leave Requests</h2>
+        </div>
+        <div class="overflow-x-auto scrollbar-hide">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Manager Name</th>
+                        <th class="px-6 py-3">Subject</th>
+                        <th class="px-6 py-3">From</th>
+                        <th class="px-6 py-3">To</th>
+                        <th class="px-6 py-3">Applied On</th>
+                        <th class="px-6 py-3">Status</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for request in manager_leave_requests %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                          <img 
+                            src="{% if request.manager.image %}{{ request.manager.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
+                            alt="{{ request.requester_name }}" 
+                            class="w-10 h-10 rounded-full object-cover mr-3"
+                          >
+                          <div>
+                            <div class="font-medium text-gray-900">{{ request.requester_name }}</div>
+                            <div class="text-xs text-gray-500">{{ request.manager.user.email }}</div>
+                          </div>
+                        </td>
+                        <td class="px-6 py-4">{{ request.subject }}</td>
+                        <td class="px-6 py-4">{{ request.start_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4">{{ request.end_date|date:"d M Y" }}</td>
+                       <td class="px-6 py-4">{{ request.applied_on|date:"d M Y H:i" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="
+                                {% if request.status == 'pending' %}bg-blue-100 text-blue-800
+                                {% elif request.status == 'approved' %}bg-green-100 text-green-800
+                                {% elif request.status == 'rejected' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}
+                                text-xs font-medium px-3 py-1 rounded-full">
+                                {{ request.status|capfirst }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {% if request.status|lower == 'pending' %}
+                                <a href="{% url 'managers:approve_leave' request.id %}" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md">Approve</a>
+                                <a href="{% url 'managers:reject_leave' request.id %}" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md ml-2">Reject</a>
+                            {% elif request.status|lower == 'approved' %}
+                                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-md">Approved</span>
+                            {% elif request.status|lower == 'rejected' %}
+                                <span class="bg-red-100 text-red-700 px-3 py-1 rounded-md">Rejected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-6 text-gray-500">No pending manager leave requests.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Recently Approved Leaves -->
+    {% if recent_approved_leaves %}
+    <section class="bg-white rounded-lg shadow">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Recently Approved Leaves</h2>
+            <a href="{% url 'managers:all_leave_history' %}" class="text-[12px] text-white bg-[#111827] hover:underline pr-[24px] pl-[24px] pt-[10px] pb-[10px] rounded-[7px]">View All History</a>
+        </div>
+        <div class="overflow-x-auto scrollbar-hide">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Employee Name</th>
+                        <th class="px-6 py-3">From</th>
+                        <th class="px-6 py-3">To</th>
+                        <th class="px-6 py-3">Total</th>
+                        <th class="px-6 py-3">Approved By</th>
+                        <th class="px-6 py-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for leave in recent_approved_leaves %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                            <img 
+                                src="{% if leave.requester.image %}{{ leave.requester.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
+                                alt="{{ leave.requester_name }}" 
+                                class="h-8 w-8 rounded-full object-cover mr-3"
+                            >
+                            <div>
+                                <div class="font-medium text-gray-900">{{ leave.requester_name }}</div>
+                                <div class="text-xs text-gray-500">
+                                    {% if leave.requester_role == 'manager' %}
+                                        {{ leave.manager.user.email }}
+                                    {% elif leave.requester_role == 'employee' %}
+                                        {{ leave.employee.user.email }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">{{ leave.start_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4">{{ leave.end_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4">{{ leave.total_days }} Days</td>
+                        <td class="px-6 py-4">{{ leave.approved_by }}</td>
+                        <td class="px-6 py-4">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-3 py-1 rounded-full">Approved</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Founders List -->
+    <section class="bg-white rounded-lg shadow">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Founders List</h2>
+        </div>
+        <div class="overflow-x-auto scrollbar-hide">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Founder Name</th>
+                        <th class="px-6 py-3">Email</th>
+                        <th class="px-6 py-3">Role</th>
+                        <th class="px-6 py-3">Status</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for founder in founders %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                          <img 
+                            src="{% if founder.image %}{{ founder.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
+                            alt="{{ founder.user.get_full_name }}" 
+                            class="h-8 w-8 rounded-full object-cover mr-3"
+                          >
+                          <span class="text-gray-800 font-medium">{{ founder.user.get_full_name }}</span>
+                        </td>
+                        <td class="px-6 py-4">{{ founder.user.email }}</td>
+                        <td class="px-6 py-4">Founder</td>
+                        <td class="px-6 py-4">
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <a href="{% url 'managers:delete_founder' founder.id %}" onclick="return confirm('Are you sure you want to delete this founder?')" class="text-red-600 hover:text-red-900">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Managers List -->
+    <section class="bg-white rounded-lg shadow">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Managers List</h2>
+        </div>
+        <div class="overflow-x-auto scrollbar-hide">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Manager Name</th>
+                        <th class="px-6 py-3">Email</th>
+                        <th class="px-6 py-3">Role</th>
+                        <th class="px-6 py-3">Status</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for manager in managers %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                          <img 
+                            src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
+                            alt="{{ manager.user.get_full_name }}" 
+                            class="h-8 w-8 rounded-full object-cover mr-3"
+                          >
+                          <span class="text-gray-800 font-medium">{{ manager.user.get_full_name }}</span>
+                        </td>
+                        <td class="px-6 py-4">{{ manager.user.email }}</td>
+                        <td class="px-6 py-4">Manager</td>
+                        <td class="px-6 py-4">
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <a href="{% url 'managers:delete_manager' manager.id %}" onclick="return confirm('Are you sure you want to delete this manager?')" class="text-red-600 hover:text-red-900">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</div>
+
+  </div>
+
+  <!-- Add Manager Sidebar -->
+  <div x-show="isSidebarOpen('addManager')" @keydown.escape.window="closeSidebar()" x-cloak class="fixed inset-0 overflow-hidden z-50">
+    <div class="absolute inset-0 overflow-hidden">
+      <div x-show="isSidebarOpen('addManager')" x-transition:enter="ease-in-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in-out duration-500" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeSidebar()"></div>
+      <section class="absolute inset-y-0 right-0 pl-10 max-w-full flex">
+        <div x-show="isSidebarOpen('addManager')" x-transition:enter="transform transition ease-in-out duration-500 sm:duration-700" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transform transition ease-in-out duration-500 sm:duration-700" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" class="w-screen max-w-md">
+          <div class="h-full flex flex-col bg-white shadow-xl">
+            <div class="flex-1 h-0 overflow-y-auto">
+              <div class="py-6 px-4 bg-gray-800 sm:px-6">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-lg font-medium text-white">Add Manager</h2>
+                  <div class="ml-3 h-7 flex items-center">
+                    <button @click="closeSidebar()" class="bg-gray-800 rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-white">
+                      <span class="sr-only">Close panel</span>
+                      <svg class="h-6 w-6" x-description="Heroicon name: outline/x" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="relative flex-1 py-6 px-4 sm:px-6">
+                <form action="{% url 'managers:add_manager' %}" method="post" enctype="multipart/form-data" class="bg-white p-6 rounded-lg">
+                    {% csrf_token %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="first_name" class="block text-sm font-medium text-gray-700">First Name</label>
+                            <input type="text" name="first_name" id="first_name_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
+                            <input type="text" name="last_name" id="last_name_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input type="email" name="email" id="email_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
+                            <input type="text" name="phone" id="phone_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                            <input type="password" name="password" id="password_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="image" class="block text-sm font-medium text-gray-700">Profile Image</label>
+                            <input type="file" name="image" id="image_manager" class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+                        </div>
+                        <div>
+                            <label for="joining_date" class="block text-sm font-medium text-gray-700">Joining Date</label>
+                            <input type="date" name="joining_date" id="joining_date_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="job_role" class="block text-sm font-medium text-gray-700">Job Role</label>
+                            <input type="text" name="job_role" id="job_role_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Add Manager
+                        </button>
+                    </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Add Founder Sidebar -->
+  <div x-show="isSidebarOpen('addFounder')" @keydown.escape.window="closeSidebar()" x-cloak class="fixed inset-0 overflow-hidden z-50">
+    <div class="absolute inset-0 overflow-hidden">
+      <div x-show="isSidebarOpen('addFounder')" x-transition:enter="ease-in-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in-out duration-500" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeSidebar()"></div>
+      <section class="absolute inset-y-0 right-0 pl-10 max-w-full flex">
+        <div x-show="isSidebarOpen('addFounder')" x-transition:enter="transform transition ease-in-out duration-500 sm:duration-700" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transform transition ease-in-out duration-500 sm:duration-700" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" class="w-screen max-w-md">
+          <div class="h-full flex flex-col bg-white shadow-xl">
+            <div class="flex-1 h-0 overflow-y-auto">
+              <div class="py-6 px-4 bg-gray-800 sm:px-6">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-lg font-medium text-white">Add Founder</h2>
+                  <div class="ml-3 h-7 flex items-center">
+                    <button @click="closeSidebar()" class="bg-gray-800 rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-white">
+                      <span class="sr-only">Close panel</span>
+                      <svg class="h-6 w-6" x-description="Heroicon name: outline/x" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="relative flex-1 py-6 px-4 sm:px-6">
+                <form method="post" action="{% url 'managers:add_founder' %}" enctype="multipart/form-data" class="bg-white p-6 rounded-lg">
+                    {% csrf_token %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="first_name" class="block text-gray-700 font-medium mb-2">First Name</label>
+                            <input type="text" id="first_name_founder" name="first_name" value="{{ first_name }}" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                        </div>
+                        <div>
+                            <label for="last_name" class="block text-gray-700 font-medium mb-2">Last Name</label>
+                            <input type="text" id="last_name_founder" name="last_name" value="{{ last_name }}" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label for="email" class="block text-gray-700 font-medium mb-2">Email</label>
+                        <input type="email" id="email_founder" name="email" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                    </div>
+                    <div class="mt-4">
+                        <label for="phone" class="block text-gray-700 font-medium mb-2">Phone Number</label>
+                        <input type="tel" id="phone_founder" name="phone" value="{{ phone }}" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                    </div>
+                    <div class="mt-4">
+                        <label for="password" class="block text-gray-700 font-medium mb-2">Password</label>
+                        <input type="password" id="password_founder" name="password" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                    </div>
+                    <div class="mt-4">
+                        <label for="image" class="block text-gray-700 font-medium mb-2">Profile Image</label>
+                        <input type="file" id="image_founder" name="image" accept="image/*" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                    </div>
+                    <div class="mt-4">
+                        <label for="joining_date" class="block text-gray-700 font-medium mb-2">Joining Date</label>
+                        <input type="date" id="joining_date_founder" name="joining_date" value="{{ joining_date }}" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                    </div>
+                    <div class="mt-4">
+                        <label for="job_role" class="block text-gray-700 font-medium mb-2">Job Role</label>
+                        <input type="text" id="job_role_founder" name="job_role" value="{{ job_role }}" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
+                    </div>
+                    <div class="mt-6 text-center">
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-300">
+                            Submit
+                        </button>
+                    </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    function founderDashboard() {
+      return {
+        activeSidebar: null,
+        openSidebar(sidebarName) {
+          this.activeSidebar = sidebarName;
+        },
+        closeSidebar() {
+          this.activeSidebar = null;
+        },
+        isSidebarOpen(sidebarName) {
+          return this.activeSidebar === sidebarName;
+        },
+        toggleSidebar(sidebarName) {
+            if (this.activeSidebar === sidebarName) {
+                this.activeSidebar = null;
+            } else {
+                this.activeSidebar = sidebarName;
+            }
+        }
+      }
+    }
+  </script>
+</body>
+</html>

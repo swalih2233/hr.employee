@@ -1,166 +1,239 @@
-{% extends "base/base.html" %} {% block container %} {% load static %}
-
+{% extends "base/base.html" %}
+{% block container %}
+{% load static %}
 
 {% include 'includes/manager-nav.html' %}
 
-    <section>
-		<section class="wrapper">
-			<div class="grid pt-7 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-				<div class="col-span-1 p-4 bg-gray-100 shadow-xl border border-gray-600 rounded-lg">
-					<h3 class="text-[18px] font-semibold text-center">Managers</h3>
-					<p class="text-[24px] font-semibold text-center">{{m_count}}</p>
-				</div>
-				<div class="col-span-1 p-4 bg-gray-100 shadow-xl border border-gray-600 rounded-lg">
-					<h3 class="text-[18px] font-semibold text-center">Employees</h3>
-					<p class="text-[24px] font-semibold text-center">{{e_count}}</p>
-				</div>
-				<div class="col-span-1 p-4 bg-gray-100 shadow-xl border text-center border-gray-600 rounded-lg">
-					<h3 class="text-[18px] font-semibold text-center">New Leaves</h3>
-					<p class="text-[24px] font-semibold text-center mb-3">{{leave_count}}</p>
-					<a href="{% url 'managers:leavelist' %}" class="py-2 px-4 bg-gray-600 hover:bg-gray-800 text-white rounded-lg">View All</a>
-				</div>
-			</div>
-			<div class="flex justify-center items-center mt-10 mb-4">
-				<div class="border border-gray-300 rounded-lg p-4 sm:p-6 w-full max-w-[400px]">
-					<!-- Warning Message -->
-					<p class="text-center mt-5 text-red-600 font-semibold text-sm sm:text-base md:text-lg lg:text-xl">
-						'Warning': This action is for year-ending updates only!
-					</p>
-			
-					<!-- Update Yearly Leave Button -->
-					<div class="text-center mt-7">
-						<a href="{% url 'managers:update_yearly' %}" 
-						   class="py-3 px-7 text-sm sm:text-base md:text-lg bg-gray-600 hover:bg-gray-800 text-white rounded-lg transition-transform transform hover:scale-105">
-						   Update Yearly Leave
-						</a>
-					</div>
-			
-					<!-- Update March Leave Button -->
-					<div class="text-center mt-7">
-						<a href="{% url 'managers:update_march' %}" 
-						   class="py-3 px-7 text-sm sm:text-base md:text-lg bg-gray-600 hover:bg-gray-800 text-white rounded-lg transition-transform transform hover:scale-105">
-						   Update March Leave
-						</a>
-					</div>
-				</div>
-			</div>
-			
-			
-			<div class="py-7 flex flex-wrap justify-between items-center space-y-4 sm:space-y-0">
-				<!-- Title -->
-				<h1 class="text-[28px] text-center sm:text-left w-full sm:w-auto">
-					<span class="text-orange-500">{{ m_count }}</span> Managers
-				</h1>
-			
-				<!-- Buttons Container -->
-				<div class="flex flex-wrap justify-center sm:justify-end w-full sm:w-auto gap-2">
-					<!-- Add Manager Button -->
-					<a href="{% url 'managers:manager_add' %}" 
-					   class="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-300 transition-transform transform hover:scale-105 text-center">
-					   Add Manager
-					</a>
-			
-					<!-- Add Holiday Button -->
-					<a href="{% url 'managers:add_holiday' %}" 
-					   class="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-300 transition-transform transform hover:scale-105 text-center">
-					   Add Holiday
-					</a>
-				</div>
-			</div>
-			
-			
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for employe in managers %}
-					<div class="bg-white col-span-1 p-6 rounded-lg shadow-md relative cursor-pointer focus:ring transform transition-transform duration-300 hover:scale-110">
-						<div class="absolute top-4 right-4">
-							<i class="fas fa-ellipsis-h text-gray-400"></i>
-						</div>
-				
-						<div class="flex items-center mb-4">
-							<img src="{{employe.image.url}}" alt="Profile Image" class="w-12 h-12 rounded-full">
-							<div class="ml-4">
-								<h2 class="text-lg font-semibold">{{employe.user.first_name}} {{employe.user.last_name}}</h2>
-								<p class="text-gray-600">{{employe.designation}}</p>
-							</div>
-						</div>
-				
-						<div class="text-sm text-gray-500 ">
-							<p><span class="font-semibold">Department:</span> {{employe.department}}</p>
-							<p><span class="font-semibold">Hired Date:</span> {{employe.date_of_joining}}</p>
-					
-							<div class="flex items-center mt-4">
-								<i class="bx bxs-envelope text-gray-400 mr-2"></i>
-								<p>{{employe.user.email}}</p> 
-							</div>
-							<div class="flex items-center mt-2">
-								<i class="bx bxs-phone text-gray-400 mr-2"></i>
-								<p>{{employe.user.phone_number}}</p>
-							</div>
-							<div class="button mt-[25px] mb-[20px]">
-								<a href="{% url 'managers:manager_edit' id=employe.id %}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded mx-2 focus:outline-none focus:ring-2 focus:ring-yellow-300 transition-transform transform hover:scale-105 mt-[20px]">Edit</a>
-								<a href="{% url 'managers:manager_details' id=employe.id %}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded mx-2 focus:outline-none focus:ring-2 focus:ring-red-300 transition-transform transform hover:scale-105">View</a>
-							</div>
-						</div>
-					</div>
-                {% endfor %}
-			</div>
-		</section>
-	</section>
+<section class="py-10">
+    <div class="wrapper space-y-10">
 
-	<section class="mt-10">
-		<section class="wrapper">
-			<div class="py-7 flex flex-wrap justify-between items-center space-y-4 sm:space-y-0">
-				<!-- Title -->
-				<h1 class="text-[28px] text-center sm:text-left w-full sm:w-auto">
-					<span class="text-orange-500">{{ e_count }}</span> Employees
-				</h1>
-				
-				<!-- Add Employee Button -->
-				<div class="w-full sm:w-auto flex justify-center sm:justify-end">
-					<a href="{% url 'managers:add_employe' %}" 
-					   class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-300 transition-transform transform hover:scale-105">
-					   Add Employee
-					</a>
-				</div>
-			</div>
-			
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for employe in employes %}
-					<div class="bg-white p-6 col-span-1 rounded-lg shadow-md relative cursor-pointer focus:ring transform transition-transform duration-300 hover:scale-110">
-						<div class="absolute top-4 right-4">
-							<i class="fas fa-ellipsis-h text-gray-400"></i>
-						</div>
-				
-						<div class="flex items-center mb-4">
-							<img src="{{employe.image.url}}" alt="Profile Image" class="w-12 h-12 rounded-full">
-							<div class="ml-4">
-								<h2 class="text-lg font-semibold">{{employe.user.first_name}} {{employe.user.last_name}}</h2>
-							</div>
-						</div>
-				
-						<div class="text-sm text-gray-500 ">
-							<p><span class="font-semibold">Department:</span> {{employe.department}}</p>
-							<p><span class="font-semibold">Hired Date:</span> {{employe.date_of_joining}}</p>
-					
-							<div class="flex items-center mt-4">
-								<i class="bx bxs-envelope text-gray-400 mr-2"></i>
-								<p>{{employe.user.email}}</p> 
-							</div>
-							<div class="flex items-center mt-2">
-								<i class="bx bxs-phone text-gray-400 mr-2"></i>
-								<p>{{employe.user.phone_number}}</p>
-							</div>
-							<div class="button mt-[25px] mb-[20px]">
-								<a href="{% url 'managers:edit_employe' id=employe.id %}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded mx-2 focus:outline-none focus:ring-2 focus:ring-yellow-300 transition-transform transform hover:scale-105 mt-[20px]">Edit</a>
-								<a href="{% url 'managers:details' id=employe.id %}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded mx-2 focus:outline-none focus:ring-2 focus:ring-red-300 transition-transform transform hover:scale-105">View</a>
-							</div>
-						</div>
-					</div>
-                {% endfor %}
-			</div>
-		</section>
-	</section>
-    
-    
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 text-center hover:shadow-xl transition">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">Founders</h3>
+                <p class="text-3xl font-bold text-blue-600">{{ f_count }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 text-center hover:shadow-xl transition">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">Managers</h3>
+                <p class="text-3xl font-bold text-green-600">{{ m_count }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 text-center hover:shadow-xl transition">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">Employees</h3>
+                <p class="text-3xl font-bold text-indigo-600">{{ e_count }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 text-center hover:shadow-xl transition">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">Employee Leaves</h3>
+                <p class="text-3xl font-bold text-red-600 mb-3">{{ leave_count }}</p>
+                <a href="{% url 'managers:leavelist' %}" class="inline-block px-4 py-2 text-sm bg-gray-700 text-white rounded hover:bg-gray-900">View All</a>
+            </div>
+        </div>
 
-	{% endblock %}
+        <!-- Manager Leave Management Section -->
+        {% if is_founder %}
+            <!-- Founder View: Manager Leave Requests -->
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Manager Leave Requests</h3>
+                    {% if manager_leave_count > 0 %}
+                        <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            {{ manager_leave_count }} Pending
+                        </span>
+                    {% endif %}
+                </div>
+                {% if manager_leave_count > 0 %}
+                    <p class="text-gray-600 mb-4">You have {{ manager_leave_count }} manager leave request{{ manager_leave_count|pluralize }} awaiting your approval.</p>
+                    <a href="{% url 'managers:manager_leave_requests_list' %}"
+                       class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition">
+                        Review Manager Leaves
+                    </a>
+                {% else %}
+                    <p class="text-gray-600">No pending manager leave requests.</p>
+                {% endif %}
+            </div>
+        {% else %}
+            <!-- Manager View: Quick Actions -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+                <!-- Apply for Leave Card -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Apply for Leave</h3>
+                    <p class="text-gray-600 mb-4">Submit a new leave request for approval by founders.</p>
+                    <a href="{% url 'managers:manager_apply_leave' %}"
+                       class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded-lg transition inline-block">
+                        Apply for Leave
+                    </a>
+                </div>
+
+                <!-- Employee Management Card -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Manage Team</h3>
+                    <p class="text-gray-600 mb-4">Add and manage employees under your supervision.</p>
+                    <a href="{% url 'managers:manager_employee_dashboard' %}"
+                       class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition inline-block">
+                        Manage Employees
+                    </a>
+                </div>
+
+                <!-- Leave Balance Card -->
+                {% if current_manager %}
+                    <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Leave Balance</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="text-center">
+                                <p class="text-2xl font-bold text-green-600">{{ current_manager.available_leaves }}</p>
+                                <p class="text-sm text-gray-500">Annual Leaves</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-2xl font-bold text-purple-600">{{ current_manager.available_medical_leaves }}</p>
+                                <p class="text-sm text-gray-500">Medical Leaves</p>
+                            </div>
+                        </div>
+                        <a href="{% url 'managers:manager_leave_history' %}"
+                           class="mt-4 text-blue-600 hover:text-blue-800 text-sm font-medium inline-block">
+                            View Leave History →
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Recent Leave Requests -->
+            {% if recent_leave_requests %}
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mt-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Recent Leave Requests</h3>
+                        <a href="{% url 'managers:manager_leave_history' %}"
+                           class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            View All →
+                        </a>
+                    </div>
+                    <div class="space-y-3">
+                        {% for request in recent_leave_requests %}
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p class="font-medium text-gray-900">{{ request.subject }}</p>
+                                    <p class="text-sm text-gray-500">{{ request.start_date }} to {{ request.end_date }}</p>
+                                </div>
+                                <div class="text-right">
+                                    {% if request.is_approved %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                            Approved
+                                        </span>
+                                    {% elif request.is_rejected %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                            Rejected
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            Pending
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+
+        <!-- Add Holiday -->
+        <div class="text-right">
+            <a href="{% url 'managers:add_holiday' %}"
+                class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition">
+                + Add Holiday
+            </a>
+        </div>
+
+       <!-- Founders Section -->
+        <div class="flex justify-between items-center mt-12 mb-4">
+            <h1 class="text-[28px]"><span class="text-orange-500">{{ founders|length }}</span> Founders</h1>
+            <a href="{% url 'managers:add_founder' %}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Add Founder</a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for founder in founders %}
+            <div class="bg-white p-6 rounded-xl shadow hover:shadow-xl transition">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 rounded-full overflow-hidden border border-gray-300 shadow">
+                        <img src="{{ founder.image.url }}" alt="Founder" class="w-full h-full object-cover">
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="font-semibold text-lg">{{ founder.user.first_name }} {{ founder.user.last_name }}</h2>
+                        <p class="text-gray-500 text-sm">{{ founder.designation }}</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-600 space-y-1">
+                    <p><strong>Department:</strong> {{ founder.department }}</p>
+                    <p><strong>Hired Date:</strong> {{ founder.date_of_joining }}</p>
+                    <p class="flex items-center"><i class="fas fa-envelope text-gray-500 mr-2"></i> {{ founder.user.email }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Managers Section -->
+        <div class="flex justify-between items-center mt-16 mb-4">
+            <h1 class="text-[28px]"><span class="text-orange-500">{{ m_count }}</span> Managers</h1>
+            <a href="{% url 'managers:manager_add' %}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Add Manager</a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for employe in managers %}
+            <div class="bg-white p-6 rounded-xl shadow hover:shadow-xl transition">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 rounded-full overflow-hidden border border-gray-300 shadow">
+                        <img src="{{ employe.image.url }}" alt="Manager" class="w-full h-full object-cover">
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="font-semibold text-lg">{{ employe.user.first_name }} {{ employe.user.last_name }}</h2>
+                        <p class="text-gray-500 text-sm">{{ employe.designation }}</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-600 space-y-1">
+                    <p><strong>Department:</strong> {{ employe.department }}</p>
+                    <p><strong>Hired Date:</strong> {{ employe.date_of_joining }}</p>
+                    <p class="flex items-center"><i class="fas fa-envelope text-gray-500 mr-2"></i> {{ employe.user.email }}</p>
+                    <p class="flex items-center"><i class="fas fa-phone text-gray-500 mr-2"></i> {{ employe.user.phone_number }}</p>
+                </div>
+                <div class="mt-4 space-x-2">
+                    <a href="{% url 'managers:manager_edit' id=employe.id %}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm">Edit</a>
+                    <!-- <a href="{% url 'managers:manager_details' id=employe.id %}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm">View</a> -->
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Employees Section -->
+        <div class="flex justify-between items-center mt-16 mb-4">
+            <h1 class="text-[28px]"><span class="text-orange-500">{{ e_count }}</span> Employees</h1>
+            <a href="{% url 'managers:add_employe' %}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Add Employee</a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for employe in employes %}
+            <div class="bg-white p-6 rounded-xl shadow hover:shadow-xl transition">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 rounded-full overflow-hidden border border-gray-300 shadow">
+                        <img src="{{ employe.image.url }}" alt="Employee" class="w-full h-full object-cover">
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="font-semibold text-lg">{{ employe.user.first_name }} {{ employe.user.last_name }}</h2>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-600 space-y-1">
+                    <p><strong>Department:</strong> {{ employe.department }}</p>
+                    <p><strong>Hired Date:</strong> {{ employe.date_of_joining }}</p>
+                    <p class="flex items-center"><i class="fas fa-envelope text-gray-500 mr-2"></i> {{ employe.user.email }}</p>
+                    <p class="flex items-center"><i class="fas fa-phone text-gray-500 mr-2"></i> {{ employe.user.phone_number }}</p>
+                </div>
+                <div class="mt-4 space-x-2">
+                    <a href="{% url 'managers:edit_employe' id=employe.id %}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm">Edit</a>
+                    <a href="{% url 'managers:details' id=employe.id %}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm">View</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}

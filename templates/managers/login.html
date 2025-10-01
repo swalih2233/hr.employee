@@ -1,89 +1,83 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-
 </head>
-<body class="flex items-center justify-center min-h-screen">
-  
-<!-- Login Box -->
-<div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-    <!-- Login Title -->
-    <h2 class="text-2xl font-semibold text-center text-teal-600 mb-6">Login</h2>
+<body class="min-h-screen flex items-center justify-center bg-gray-100 pt-[50px] pb-[50px]">
 
-    <!-- Form -->
-    <form action="" method="post">
+  <div class="flex bg-white rounded-lg shadow-lg w-full max-w-4xl overflow-hidden min-h-[600px] ">
+    <!-- Left Side: Image on top, blue bottom with text -->
+    <div class="hidden md:flex flex-col w-1/2 relative">
+      <!-- Top image fills the space above the blue bottom bar -->
+      <div class="flex-1 relative">
+        <img src="/media/images/Photo (3).png" alt="Team collaboration"
+             class="object-cover w-full h-full absolute inset-0" style="min-height:210px;" />
+        <!-- Overlay only if needed for dimming -->
+        <div class="absolute inset-0 bg-black opacity-30"></div>
+      </div>
+      <!-- Bottom blue area with text -->
+      <div class="bg-[#162032] p-8">
+        <h2 class="text-3xl font-bold text-white mb-4">Let’s empower your employees today.</h2>
+        <p class="text-gray-200">We help to complete all your conveyancing needs easily</p>
+      </div>
+    </div>
+
+    <!-- Right Side: Login Form and arrow graphic -->
+    <div class="flex flex-col justify-center w-full md:w-1/2 px-8 py-12 relative">
+      <!-- Arrow/curve graphic above form (SVG) -->
+      <div class="absolute -left-16 -top-8 hidden md:block">
+        <svg width="50" height="50" fill="none" viewBox="0 0 50 50">
+          <path d="M0,50 Q30,0 50,20" stroke="#d1d5db" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-semibold text-center text-gray-900 mb-6">Login first to your account</h2>
+      <form action="" method="post">
         {% csrf_token %}
-      
-        <!-- Email Field -->
         <div class="mb-6">
-            <label for="email" class="sr-only">Email</label>
-            <input type="email" id="email" placeholder="Email" name="email" 
-                   class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400">
+          <label for="email" class="sr-only">Email</label>
+          <input type="email" id="email" placeholder="Email address" name="email" 
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" required>
         </div>
-
-        <!-- Password Field -->
         <div class="mb-6 relative">
-            <label for="password" class="sr-only">Password</label>
-            <input type="password" id="password" placeholder="Password" name="password" 
-                   class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 pr-10">
+          <label for="password" class="sr-only">Password</label>
+          <input type="password" id="password" placeholder="Password" name="password"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 pr-10" required>
         </div>
-
-        <!-- Show Password Checkbox (alternative) -->
-        <div class="mb-6 flex items-center">
+        <div class="mb-6 flex items-center justify-between">
+          <label class="flex items-center text-sm text-gray-600">
             <input type="checkbox" id="show-password" class="mr-2">
-            <label for="show-password" class="text-sm text-gray-600">Show Password</label>
+            Remember Me
+          </label>
+          <a href="{% url 'managers:forget_password' %}" class="text-sm text-teal-600 hover:underline">Forgot Password?</a>
         </div>
-
-        <!-- Sign In Button -->
         <div class="mb-6">
-            <button type="submit" class="w-full p-3 text-white bg-teal-600 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400">Sign In</button>
+          <button type="submit" class="w-full p-3 text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400">Login</button>
         </div>
-
-        <!-- Links -->
-        <div class="text-center">
-            <a href="{% url 'managers:forget_password' %}" class="text-sm text-teal-600 hover:underline">Forgot Password?</a>
-        </div>
-
-        <!-- Display Error Messages (if any) -->
         {% if messages %}
         <div class="text-center text-red-600 mt-4">
-            {% for message in messages %}
-                <p class="mb-2">{{ message }}</p>
-            {% endfor %}
+          {% for message in messages %}
+            <p class="mb-2">{{ message }}</p>
+          {% endfor %}
         </div>
         {% endif %}
-    </form>
-</div>
+      </form>
+    </div>
+  </div>
 
-<!-- JavaScript for Show Password Toggle -->
-<script>
-    // Show Password Toggle - Checkbox
+  <!-- Show/Hide Password Script -->
+  <script>
     document.getElementById('show-password').addEventListener('change', function() {
-        var passwordField = document.getElementById('password');
-        if (this.checked) {
-            passwordField.type = 'text';
-        } else {
-            passwordField.type = 'password';
-        }
+      var pw = document.getElementById('password');
+      pw.type = this.checked ? 'text' : 'password';
     });
-
-    // Show Password Toggle - Eye Icon
-    document.getElementById('show-password-icon').addEventListener('click', function() {
-        var passwordField = document.getElementById('password');
-        if (passwordField.type === 'password') {
-            passwordField.type = 'text';
-        } else {
-            passwordField.type = 'password';
-        }
-    });
-</script>
-
+  </script>
 </body>
 </html>
+

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Holidays</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans" x-data="pageData()">
+
+<!-- Header -->
+<nav class="bg-[#1F2937] text-white px-6 py-4 shadow">
+  <div class="container mx-auto flex items-center justify-between">
+    <h1 class="text-xl font-semibold">Founder Dashboard</h1>
+    <div class="flex items-center space-x-6 text-sm">
+      <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
+      <a href="{% url 'managers:holidays_list' %}" class="hover:underline font-bold">Holidays</a>
+      <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
+      <a href="{% url 'managers:logout' %}" class="hover:underline">Sign Out</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
+    <section class="bg-white rounded-lg shadow">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Holidays List</h2>
+            <button @click.prevent="openSidebar('addHoliday')" class="text-sm text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Add Holiday</button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Holiday Name</th>
+                        <th class="px-6 py-3">Date</th>
+                        <th class="px-6 py-3">Day</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for holiday in holidays %}
+                    <tr>
+                        <td class="px-6 py-4">{{ holiday.title }}</td>
+                        <!-- Display holiday date formatted as 'Day Month Year' (e.g., 25 Dec 2024) -->
+                        <td class="px-6 py-4">{{ holiday.date|date:"d M Y" }}</td>
+                        <!-- Display the full name of the day (e.g., Wednesday) -->
+                        <td class="px-6 py-4">{{ holiday.date|date:"l" }}</td>
+                        <td class="px-6 py-4">
+                            <form method="post" action="{% url 'managers:delete_holiday' holiday.id %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('Are you sure you want to delete this holiday?')">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-6 text-gray-500">No holidays found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<!-- Add Holiday Sidebar -->
+<div x-show="isSidebarOpen('addHoliday')" @keydown.escape.window="closeSidebar()" x-cloak class="fixed inset-0 overflow-hidden z-50">
+    <div class="absolute inset-0 overflow-hidden">
+        <div x-show="isSidebarOpen('addHoliday')" x-transition:enter="ease-in-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in-out duration-500" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeSidebar()"></div>
+        <section class="absolute inset-y-0 right-0 pl-10 max-w-full flex">
+            <div x-show="isSidebarOpen('addHoliday')" x-transition:enter="transform transition ease-in-out duration-500 sm:duration-700" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transform transition ease-in-out duration-500 sm:duration-700" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" class="w-screen max-w-md">
+                <div class="h-full flex flex-col bg-white shadow-xl">
+                    <div class="py-6 px-4 bg-gray-800 sm:px-6">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-lg font-medium text-white">Add Holiday</h2>
+                            <button @click="closeSidebar()" class="bg-gray-800 rounded-md text-gray-300 hover:text-white focus:outline-none">
+                                <span class="sr-only">Close panel</span>
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="relative flex-1 py-6 px-4 sm:px-6">
+                        <form method="POST" action="{% url 'managers:add_holiday' %}" class="space-y-4">
+                            {% csrf_token %}
+                            <div>
+                                <label for="title" class="block text-sm font-medium text-gray-700">Holiday Name *</label>
+                                <input type="text" id="title" name="title" required class="mt-1 block w-full border border-gray-300 rounded-lg p-2">
+                            </div>
+                            <div>
+                                <label for="date" class="block text-sm font-medium text-gray-700">Date *</label>
+                                <input type="date" id="date" name="date" required class="mt-1 block w-full border border-gray-300 rounded-lg p-2">
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="button" @click="closeSidebar()" class="mr-2 px-4 py-2 rounded-lg border">Cancel</button>
+                                <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white">Add</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    function pageData() {
+        return {
+            activeSidebar: null,
+            openSidebar(sidebarName) { this.activeSidebar = sidebarName; },
+            closeSidebar() { this.activeSidebar = null; },
+            isSidebarOpen(sidebarName) { return this.activeSidebar === sidebarName; }
+        }
+    }
+</script>
+</body>
+</html>

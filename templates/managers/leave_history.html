@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manager Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50">
+<div class="flex h-screen">
+  <!-- Sidebar -->
+  <aside class="w-64 bg-white border-r flex flex-col">
+    <div>
+      <div class="px-6 py-4 flex items-center space-x-2 bg-[#1E184D]">
+        <span class="text-xl font-bold text-white">HR Dashboard</span>
+      </div>
+      <nav class="mt-6 space-y-1">
+        <!-- Dashboard -->
+        <a href="{% url 'managers:manager_dashboard' %}" 
+           class="flex items-center px-6 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
+          📊 <span class="ml-3">Dashboard</span>
+        </a>
+
+        <!-- Employees Dropdown -->
+        <div x-data="{ open: false }" class="px-6">
+          <button @click="open = !open" 
+                  class="flex items-center w-full py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
+            👥 <span class="ml-3 flex-1 text-left">Employees</span>
+            <span :class="{ 'rotate-180': open }" class="ml-auto transition-transform">▼</span>
+          </button>
+          <div x-show="open" class="ml-8 mt-1 space-y-1 text-sm">
+            <a href="{% url 'managers:employee_leave_history' %}" 
+               class="block py-2 text-gray-600 hover:text-indigo-600">Leave History</a>
+            <a href="{% url 'managers:leavelist' %}" 
+               class="block py-2 text-gray-600 hover:text-indigo-600">Leave Requests</a>
+          </div>
+        </div>
+
+        <!-- Time Off Dropdown -->
+        <div x-data="{ open: false }" class="px-6">
+          <button @click="open = !open" 
+                  class="flex items-center w-full py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
+            🗓 <span class="ml-3 flex-1 text-left">Time Off</span>
+            <span :class="{ 'rotate-180': open }" class="ml-auto transition-transform">▼</span>
+          </button>
+          <div x-show="open" class="ml-8 mt-1 space-y-1 text-sm">
+            <a href="{% url 'managers:manager_leave_history' %}" 
+               class="block py-2 text-gray-600 hover:text-indigo-600">Manager Leave History</a>
+            <a href="{% url 'managers:manager_apply_leave' %}" 
+               class="block py-2 text-gray-600 hover:text-indigo-600">Apply for Leave</a>
+          </div>
+        </div>
+
+        <!-- Add Employee -->
+        <a href="{% url 'managers:add_employe' %}" 
+           class="flex items-center px-6 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
+          ➕ <span class="ml-3">Add Employee</span>
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Add Alpine.js for dropdown functionality -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-y-auto">
+    <!-- Header -->
+    <header class="flex items-center justify-between bg-white px-6 py-4 border-b">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Hi, {{ manager.user.first_name }}</h1>
+        <p class="text-sm text-gray-500">Here’s your HR report so far</p>
+      </div>
+      <div class="flex items-center space-x-4">
+        <input type="text" placeholder="Search…" class="px-3 py-2 border rounded-lg" />
+        <button class="relative">🔔 
+          <span class="absolute -top-1 -right-2 bg-red-500 text-white text-xs px-1 rounded-full">3</span>
+        </button>
+        <img src="{% static 'images/avatar.png' %}" class="w-8 h-8 rounded-full" alt="Profile">
+      </div>
+    </header>
+
+    <!-- Section -->
+    <section class="p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">My Leave History</h1>
+        <a href="{% url 'managers:manager_apply_leave' %}" 
+           class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition">
+          Apply for Leave
+        </a>
+      </div>
+
+      <!-- Leave Balance Summary -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white p-4 rounded-lg shadow border">
+          <h3 class="text-sm font-medium text-gray-500">Available Annual Leaves</h3>
+          <p class="text-2xl font-bold text-green-600">{{ manager.available_leaves }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border">
+          <h3 class="text-sm font-medium text-gray-500">Annual Leaves Taken</h3>
+          <p class="text-2xl font-bold text-red-600">{{ manager.leaves_taken }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border">
+          <h3 class="text-sm font-medium text-gray-500">Available Medical Leaves</h3>
+          <p class="text-2xl font-bold text-green-600">{{ manager.available_medical_leaves }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border">
+          <h3 class="text-sm font-medium text-gray-500">Medical Leaves Taken</h3>
+          <p class="text-2xl font-bold text-red-600">{{ manager.medical_leaves_taken }}</p>
+        </div>
+      </div>
+
+      <!-- Leave Requests Table -->
+      <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-800">Leave Requests</h2>
+        </div>
+
+        {% if unified_requests or old_requests %}
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Applied On</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <!-- Unified Requests -->
+              {% for request in unified_requests %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                  <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
+                  {% if request.description %}
+                  <div class="text-sm text-gray-500">{{ request.description|truncatechars:50 }}</div>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                        {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                    {{ request.get_leave_type_display }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                  {{ request.start_date }} to {{ request.end_date }}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                  {{ request.calculated_duration }} day{{ request.calculated_duration|pluralize }}
+                </td>
+                <td class="px-6 py-4">
+                  {% if request.is_approved %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
+                  {% elif request.is_rejected %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
+                  {% else %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">{{ request.created_date }}</td>
+              </tr>
+              {% endfor %}
+
+              <!-- Old Requests -->
+              {% for request in old_requests %}
+              <tr class="hover:bg-gray-50 bg-gray-25">
+                <td class="px-6 py-4">
+                  <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
+                  {% if request.description %}
+                  <div class="text-sm text-gray-500">{{ request.description|truncatechars:50 }}</div>
+                  {% endif %}
+                  <div class="text-xs text-gray-400">(Legacy)</div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                        {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                    {{ request.get_leave_type_display }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                  {{ request.start_date }} to {{ request.end_date }}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                  {{ request.calculated_duration }} day{{ request.calculated_duration|pluralize }}
+                </td>
+                <td class="px-6 py-4">
+                  {% if request.is_approved %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
+                  {% elif request.is_rejected %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
+                  {% else %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">{{ request.created_date }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="px-6 py-8 text-center">
+          <div class="text-gray-500 mb-4">
+            <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">No leave requests found</h3>
+          <p class="text-gray-500 mb-4">You haven't applied for any leaves yet.</p>
+          <a href="{% url 'managers:manager_apply_leave' %}"
+             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+            Apply for Leave
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Chart.js Scripts -->
+<script>
+  const ctx1 = document.getElementById('employeeChart');
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'pie',
+      data: {
+        labels: ['Others', 'Onboarding', 'Offboarding'],
+        datasets: [{
+          data: [71, 27, 23],
+          backgroundColor: ['#6366F1', '#FACC15', '#F87171']
+        }]
+      }
+    });
+  }
+
+  const ctx2 = document.getElementById('jobChart');
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: ['Designers', 'Managers', 'Developers', 'HR'],
+        datasets: [{
+          data: [25, 15, 40, 20],
+          backgroundColor: ['#34D399', '#60A5FA', '#F472B6', '#FBBF24']
+        }]
+      }
+    });
+  }
+</script>
+</body>
+</html>

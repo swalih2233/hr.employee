@@ -1,0 +1,122 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module aligned">
+    <h1>{{ title }}</h1>
+    
+    <div class="form-row">
+        <div class="description">
+            <h3>📋 Action Description</h3>
+            <p>{{ description }}</p>
+            
+            {% if warning %}
+            <div class="messagelist">
+                <div class="warning">
+                    <strong>⚠️ Warning:</strong> {{ warning }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-row">
+            <h3>🔍 Current System Status</h3>
+            <div class="description">
+                <p><strong>Date:</strong> {{ request.user.date_joined|date:"F d, Y" }}</p>
+                <p><strong>User:</strong> {{ request.user.username }}</p>
+                <p><strong>Action:</strong> {{ action|title }}</p>
+            </div>
+        </div>
+        
+        {% if action == 'grant' %}
+        <div class="form-row">
+            <h3>🎄 Grant Process Details</h3>
+            <ul>
+                <li>Employees with ≥10 leaves taken will receive 6 carryforward leaves</li>
+                <li>Carryforward leaves are valid until March 31st</li>
+                <li>Email notifications will be sent to managers and founders</li>
+                <li>This process is typically run on December 31st</li>
+            </ul>
+        </div>
+        {% elif action == 'cleanup' %}
+        <div class="form-row">
+            <h3>🧹 Cleanup Process Details</h3>
+            <ul>
+                <li>All unused carryforward leaves will be removed</li>
+                <li>carryforward_available_leaves will be set to 0</li>
+                <li>carryforward_leaves_taken will be reset to 0</li>
+                <li>Email notifications will be sent about the cleanup</li>
+                <li>This process is typically run on March 31st</li>
+            </ul>
+        </div>
+        {% endif %}
+        
+        <div class="submit-row">
+            <input type="submit" value="✅ Confirm and Execute" class="default" style="background-color: #28a745; border-color: #28a745;">
+            <a href="{% url 'admin:index' %}" class="button cancel-link" style="margin-left: 10px;">❌ Cancel</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.description {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.description h3 {
+    margin-top: 0;
+    color: #495057;
+}
+
+.description ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.description li {
+    margin: 5px 0;
+}
+
+.warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.submit-row {
+    margin-top: 20px;
+    padding: 15px 0;
+    border-top: 1px solid #ddd;
+}
+
+.cancel-link {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: white !important;
+    text-decoration: none !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    display: inline-block !important;
+}
+</style>
+{% endblock %}

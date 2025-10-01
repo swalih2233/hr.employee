@@ -1,0 +1,34 @@
+{% extends 'base/dashboard_base.html' %}
+
+{% block content %}
+<div class="p-4">
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Leave Requests</h1>
+    <div class="mt-4 overflow-x-auto">
+        <table class="min-w-full bg-white dark:bg-gray-800">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Employee</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Leave Type</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Start Date</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">End Date</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave_request in leave_requests %}
+                <tr>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave_request.employee.user.first_name }} {{ leave_request.employee.user.last_name }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave_request.leave_type }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave_request.start_date }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave_request.end_date }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">
+                        <a href="#" class="bg-green-500 text-white px-4 py-2 rounded">Approve</a>
+                        <a href="#" class="bg-red-500 text-white px-4 py-2 rounded">Reject</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

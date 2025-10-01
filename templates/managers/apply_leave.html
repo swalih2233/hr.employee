@@ -1,0 +1,91 @@
+{% extends 'managers/manager_dashboard.html' %}
+
+{% block content %}
+<div class="p-4 max-w-lg mx-auto">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-4 text-center">Manager Leave Application</h2>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- Subject Field -->
+            <div class="mb-4">
+                <label for="{{ form.subject.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.subject.label }}</label>
+                {{ form.subject }}
+                {% if form.subject.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.subject.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <!-- Leave Type Field -->
+            <div class="mb-4">
+                <label for="{{ form.leave_type.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.leave_type.label }}</label>
+                {{ form.leave_type }}
+                {% if form.leave_type.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.leave_type.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <!-- Date Fields -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.start_date.label }}</label>
+                    {{ form.start_date }}
+                    {% if form.start_date.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.start_date.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.end_date.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.end_date.label }}</label>
+                    {{ form.end_date }}
+                    {% if form.end_date.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.end_date.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Description Field -->
+            <div class="mb-4">
+                <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.description.label }}</label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.description.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <!-- File Upload Field -->
+            <div class="mb-4">
+                <label for="{{ form.file.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.file.label }}</label>
+                {{ form.file }}
+                {% if form.file.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.file.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <!-- Form Errors -->
+            {% if form.non_field_errors %}
+                <div class="mb-4">
+                    {% for error in form.non_field_errors %}
+                        <div class="text-red-500 text-sm">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            <!-- Submit Button -->
+            <div class="text-center">
+                <button type="submit"
+                        class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                    Submit Leave Request
+                </button>
+            </div>
+            
+            <!-- Back to Dashboard -->
+            <div class="text-center mt-4">
+                <a href="{% url 'managers:index' %}" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                    ← Back to Dashboard
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

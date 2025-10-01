@@ -1,0 +1,162 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module aligned">
+    <h1>{{ title }}</h1>
+    
+    <div class="messagelist">
+        <div class="success">
+            <strong>✅ Success!</strong> The {{ action }} process has been completed successfully.
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <h3>📊 Process Output</h3>
+        <div class="output-container">
+            <pre>{{ output }}</pre>
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <h3>📧 Email Notifications</h3>
+        <div class="description">
+            {% if action == 'grant' %}
+            <p>Email notifications have been sent to all managers and founders with details about:</p>
+            <ul>
+                <li>List of eligible employees</li>
+                <li>Carryforward leave allocations</li>
+                <li>Important dates and deadlines</li>
+                <li>Summary statistics</li>
+            </ul>
+            {% elif action == 'cleanup' %}
+            <p>Email notifications have been sent to all managers and founders about:</p>
+            <ul>
+                <li>Carryforward cleanup completion</li>
+                <li>Number of affected employees</li>
+                <li>Start of new leave year</li>
+            </ul>
+            {% elif action == 'test' %}
+            <p>This was a test run - no actual changes were made and no emails were sent.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <h3>📅 Next Steps</h3>
+        <div class="description">
+            {% if action == 'grant' %}
+            <ul>
+                <li>Monitor employee leave usage through March 31st</li>
+                <li>Send reminder notifications in mid-March</li>
+                <li>Prepare for cleanup process on March 31st</li>
+                <li>Review leave policies if needed</li>
+            </ul>
+            {% elif action == 'cleanup' %}
+            <ul>
+                <li>New leave year has begun</li>
+                <li>Monitor regular leave allocations</li>
+                <li>Prepare for next year's carryforward process</li>
+                <li>Review and update leave policies if needed</li>
+            </ul>
+            {% elif action == 'test' %}
+            <ul>
+                <li>Review the test output above</li>
+                <li>Verify employee eligibility criteria</li>
+                <li>Check email notification settings</li>
+                <li>Run actual process when ready</li>
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="submit-row">
+        <a href="{% url 'admin:index' %}" class="button default">🏠 Return to Admin Home</a>
+        {% if action == 'test' %}
+        <a href="{% url 'admin:carryforward_grant' %}" class="button" style="background-color: #28a745; color: white; margin-left: 10px;">🎄 Run Grant Process</a>
+        <a href="{% url 'admin:carryforward_cleanup' %}" class="button" style="background-color: #dc3545; color: white; margin-left: 10px;">🧹 Run Cleanup Process</a>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.output-container {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 10px 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.output-container pre {
+    margin: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.description {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.description h3 {
+    margin-top: 0;
+    color: #495057;
+}
+
+.description ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.description li {
+    margin: 5px 0;
+}
+
+.success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.submit-row {
+    margin-top: 20px;
+    padding: 15px 0;
+    border-top: 1px solid #ddd;
+}
+
+.button {
+    text-decoration: none !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    display: inline-block !important;
+    margin-right: 10px !important;
+}
+
+.default {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+    color: white !important;
+}
+</style>
+{% endblock %}

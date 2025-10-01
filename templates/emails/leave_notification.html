@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Request Notification</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f7;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f7;">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 20px; background-color: #4f46e5; color: #ffffff; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                            {% if email_type == 'new_request' %}
+                                <h1 style="margin: 0; font-size: 24px;">New Leave Request</h1>
+                                <p style="margin: 5px 0 0; font-size: 14px;">Requires Your Attention</p>
+                            {% elif email_type == 'submission_confirmation' %}
+                                <h1 style="margin: 0; font-size: 24px;">Leave Request Submitted</h1>
+                                <p style="margin: 5px 0 0; font-size: 14px;">Your request is now pending approval.</p>
+                            {% else %}
+                                <h1 style="margin: 0; font-size: 24px;">Leave Request Update</h1>
+                                <p style="margin: 5px 0 0; font-size: 14px;">Status: 
+                                    {% if status == 'Approved' %}
+                                        <strong style="color: #34d399;">Approved</strong>
+                                    {% else %}
+                                        <strong style="color: #f87171;">Rejected</strong>
+                                    {% endif %}
+                                </p>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 30px;">
+                            {% if email_type == 'new_request' %}
+                                <p style="font-size: 16px; color: #374151;">Dear {{ manager_name }},</p>
+                                <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                                    This is to inform you that <strong>{{ employee.user.get_full_name }}</strong> ({{ employee.designation|default:'N/A' }}) has submitted a <strong>{{ leave.get_leave_type_display }}</strong> leave request.
+                                </p>
+                            {% elif email_type == 'submission_confirmation' %}
+                                <p style="font-size: 16px; color: #374151;">Dear {{ employee.user.get_full_name }},</p>
+                                <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                                    Your leave request has been successfully submitted and is now pending approval from your manager. You will be notified once a decision is made.
+                                </p>
+                            {% else %}
+                                <p style="font-size: 16px; color: #374151;">Dear {{ employee.user.get_full_name }},</p>
+                                <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                                    This is an update on your recent leave request. It has been 
+                                    {% if status == 'Approved' %}
+                                        <strong style="color: #34d399;">Approved</strong>.
+                                    {% else %}
+                                        <strong style="color: #f87171;">Rejected</strong>.
+                                    {% endif %}
+                                </p>
+                            {% endif %}
+
+                            <!-- Leave Details Table -->
+                            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 6px; margin: 20px 0;">
+                                <h3 style="color: #374151; margin-top: 0; margin-bottom: 15px; font-size: 16px;">Leave Details</h3>
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px;">
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280; width: 40%;">Employee:</td>
+                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ employee.user.get_full_name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">From:</td>
+                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ leave.start_date|date:"F d, Y" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">To:</td>
+                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ leave.end_date|date:"F d, Y" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">Total Days:</td>
+                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ leave.leave_duration }} Day(s)</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Reason:</td>
+                                        <td style="padding: 8px 0; color: #1f2937;">{{ leave.description|default:"Not provided" }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Action Button for New Requests -->
+                            {% if email_type == 'new_request' and review_url %}
+                                <div style="text-align: center; margin: 30px 0;">
+                                    <a href="{{ review_url }}" target="_blank" style="display: inline-block; padding: 12px 30px; background-color: #4f46e5; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+                                        Review Now
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="border-top: 1px solid #e5e7eb; padding: 20px; text-align: center;">
+                            <p style="color: #6b7280; font-size: 12px; margin: 0;">
+                                This is an automated notification from the HR Leave Management System.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

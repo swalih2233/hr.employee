@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Leave Management System{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <style>
+        .wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Animation classes */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        {% include 'includes/sidebar.html' %}
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col lg:ml-0">
+            <!-- Top Navigation Bar -->
+            <header class="bg-white shadow-sm border-b border-gray-200 lg:pl-0 pl-16 sticky top-0 z-30">
+                <div class="flex items-center justify-between h-16 px-4 sm:px-6">
+                    <div class="flex items-center space-x-4">
+                        <!-- Mobile menu button -->
+                        <button id="mobile-menu-button" class="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Page Title -->
+                        <div class="flex items-center">
+                            <h1 class="text-lg sm:text-xl font-semibold text-gray-800 truncate">
+                                {% block page_title %}Dashboard{% endblock %}
+                            </h1>
+                        </div>
+                    </div>
+
+                    <!-- Right side items -->
+                    <div class="flex items-center space-x-2 sm:space-x-4">
+                        <!-- Quick Actions Dropdown -->
+                        <div class="relative hidden sm:block">
+                            <button id="quick-actions-button" class="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 rounded-md hover:bg-gray-100">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                            </button>
+                            <div id="quick-actions-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
+                                {% if is_founder %}
+                                    <a href="{% url 'managers:add_employe' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Add Employee</a>
+                                    <a href="{% url 'managers:manager_add' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Add Manager</a>
+                                    <a href="{% url 'managers:add_holiday' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Add Holiday</a>
+                                {% endif %}
+                                {% if is_manager or is_employee %}
+                                    <a href="{% if is_manager %}{% url 'managers:manager_apply_leave' %}{% else %}{% url 'employe:leaveform' %}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Apply for Leave</a>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Notifications -->
+                        <div class="relative">
+                            <button class="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 rounded-md hover:bg-gray-100">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5zM11 19H6a2 2 0 01-2-2V7a2 2 0 012-2h5m5 0v5"></path>
+                                </svg>
+                            </button>
+                            {% if notification_count > 0 %}
+                                <span class="absolute top-1 right-1 block h-2 w-2 bg-red-500 rounded-full"></span>
+                            {% endif %}
+                        </div>
+
+                        <!-- User Profile Dropdown -->
+                        <div class="relative">
+                            <button id="user-menu-button" class="flex items-center space-x-2 sm:space-x-3 p-1 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <div class="text-right hidden sm:block">
+                                    <p class="text-sm font-medium text-gray-700 truncate max-w-32">{{ user.first_name }} {{ user.last_name }}</p>
+                                    <p class="text-xs text-gray-500">
+                                        {% if is_founder %}Founder{% elif is_manager %}Manager{% elif is_employee %}Employee{% endif %}
+                                    </p>
+                                </div>
+                                <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+                                    {% if profile and profile.image %}
+                                        <img src="{{ profile.image.url }}" alt="Profile" class="w-8 h-8 rounded-full object-cover">
+                                    {% else %}
+                                        <span class="text-sm font-medium text-gray-600">{{ user.first_name.0 }}{{ user.last_name.0 }}</span>
+                                    {% endif %}
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+
+                            <!-- User Dropdown Menu -->
+                            <div id="user-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
+                                <div class="px-4 py-2 border-b border-gray-100 sm:hidden">
+                                    <p class="text-sm font-medium text-gray-900">{{ user.first_name }} {{ user.last_name }}</p>
+                                    <p class="text-xs text-gray-500">{{ user.email }}</p>
+                                </div>
+                                {% if is_manager %}
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit Profile</a>
+                                {% endif %}
+                                <div class="border-t border-gray-100"></div>
+                                <form action="{% url 'managers:logout' %}" method="post" class="w-full">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                        Sign out
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Main Content Area -->
+            <main class="flex-1 overflow-y-auto bg-gray-50">
+                <!-- Messages -->
+                {% if messages %}
+                    <div class="p-4">
+                        {% for message in messages %}
+                            <div class="mb-4 p-4 rounded-lg fade-in {% if message.tags == 'error' %}bg-red-100 border border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 border border-yellow-400 text-yellow-700{% elif message.tags == 'success' %}bg-green-100 border border-green-400 text-green-700{% else %}bg-blue-100 border border-blue-400 text-blue-700{% endif %}">
+                                <div class="flex items-center justify-between">
+                                    <span>{{ message }}</span>
+                                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-current hover:text-opacity-75">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <!-- Page Content -->
+                <div class="p-6">
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-hide messages after 5 seconds
+            const messages = document.querySelectorAll('[class*="bg-red-100"], [class*="bg-yellow-100"], [class*="bg-green-100"], [class*="bg-blue-100"]');
+            messages.forEach(function(message) {
+                setTimeout(function() {
+                    message.style.transition = 'opacity 0.5s ease-out';
+                    message.style.opacity = '0';
+                    setTimeout(function() {
+                        message.remove();
+                    }, 500);
+                }, 5000);
+            });
+
+            // Mobile menu toggle
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+            if (mobileMenuButton) {
+                mobileMenuButton.addEventListener('click', function() {
+                    sidebar.classList.remove('-translate-x-full');
+                    sidebarOverlay.classList.remove('hidden');
+                });
+            }
+
+            // User menu dropdown
+            const userMenuButton = document.getElementById('user-menu-button');
+            const userMenu = document.getElementById('user-menu');
+
+            if (userMenuButton && userMenu) {
+                userMenuButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    userMenu.classList.toggle('hidden');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function() {
+                    userMenu.classList.add('hidden');
+                });
+
+                userMenu.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
+
+            // Quick actions dropdown
+            const quickActionsButton = document.getElementById('quick-actions-button');
+            const quickActionsMenu = document.getElementById('quick-actions-menu');
+
+            if (quickActionsButton && quickActionsMenu) {
+                quickActionsButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    quickActionsMenu.classList.toggle('hidden');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function() {
+                    quickActionsMenu.classList.add('hidden');
+                });
+
+                quickActionsMenu.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
+        });
+
+        // Confirmation dialogs
+        function confirmAction(message) {
+            return confirm(message || 'Are you sure you want to perform this action?');
+        }
+
+        // Loading states for buttons
+        function showLoading(button) {
+            const originalText = button.innerHTML;
+            button.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading...';
+            button.disabled = true;
+
+            // Restore button after 3 seconds (fallback)
+            setTimeout(function() {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 3000);
+        }
+
+        // Enhanced responsive utilities
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

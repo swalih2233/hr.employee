@@ -1,0 +1,162 @@
+{% extends "base/dashboard_base.html" %}
+{% load static %}
+
+{% block title %}Manager Leave Request Details - Leave Management{% endblock %}
+{% block page_title %}Manager Leave Request Details{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-2 sm:space-y-0">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Manager Leave Request Details</h1>
+            <a href="{% url 'managers:manager_leave_requests_list' %}"
+               class="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base">
+                ← Back to Leave Requests
+            </a>
+        </div>
+
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <!-- Header with Manager Info -->
+            <div class="px-6 py-4 bg-gray-50 border-b">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 h-16 w-16">
+                        {% if manager.image %}
+                            <img class="h-16 w-16 rounded-full object-cover" src="{{ manager.image.url }}" alt="">
+                        {% else %}
+                            <div class="h-16 w-16 rounded-full bg-gray-300 flex items-center justify-center">
+                                <span class="text-lg font-medium text-gray-700">{{ manager.user.first_name.0 }}{{ manager.user.last_name.0 }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="text-xl font-semibold text-gray-900">
+                            {{ manager.user.first_name }} {{ manager.user.last_name }}
+                        </h2>
+                        <p class="text-gray-600">{{ manager.designation }} - {{ manager.department }}</p>
+                        <p class="text-gray-500 text-sm">{{ manager.user.email }}</p>
+                    </div>
+                    <div class="ml-auto">
+                        {% if leave_request.is_approved %}
+                            <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                                Approved
+                            </span>
+                        {% elif leave_request.is_rejected %}
+                            <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-red-100 text-red-800">
+                                Rejected
+                            </span>
+                        {% else %}
+                            <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                Pending Approval
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leave Request Details -->
+            <div class="px-6 py-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Leave Details</h3>
+                        <dl class="space-y-3">
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Subject</dt>
+                                <dd class="text-sm text-gray-900">{{ leave_request.subject }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Leave Type</dt>
+                                <dd class="text-sm text-gray-900">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                        {% if leave_request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                                        {{ leave_request.get_leave_type_display }}
+                                    </span>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Start Date</dt>
+                                <dd class="text-sm text-gray-900">{{ leave_request.start_date }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">End Date</dt>
+                                <dd class="text-sm text-gray-900">{{ leave_request.end_date }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Duration</dt>
+                                <dd class="text-sm text-gray-900">{{ leave_request.calculated_duration }} day{{ leave_request.calculated_duration|pluralize }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Application Info</h3>
+                        <dl class="space-y-3">
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Applied On</dt>
+                                <dd class="text-sm text-gray-900">{{ leave_request.created_date }}</dd>
+                            </div>
+                            {% if leave_request.is_approved %}
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Approved By</dt>
+                                    <dd class="text-sm text-gray-900">{{ leave_request.approved_by.first_name }} {{ leave_request.approved_by.last_name }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Approved On</dt>
+                                    <dd class="text-sm text-gray-900">{{ leave_request.approval_date }}</dd>
+                                </div>
+                            {% elif leave_request.is_rejected %}
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Rejected By</dt>
+                                    <dd class="text-sm text-gray-900">{{ leave_request.rejected_by.first_name }} {{ leave_request.rejected_by.last_name }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Rejected On</dt>
+                                    <dd class="text-sm text-gray-900">{{ leave_request.rejection_date }}</dd>
+                                </div>
+                            {% endif %}
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                {% if leave_request.description %}
+                    <div class="mt-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Reason</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-sm text-gray-700">{{ leave_request.description }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Supporting Document -->
+                {% if leave_request.file %}
+                    <div class="mt-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Supporting Document</h3>
+                        <a href="{{ leave_request.file.url }}" target="_blank" 
+                           class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Download Document
+                        </a>
+                    </div>
+                {% endif %}
+
+                <!-- Action Buttons (only show if pending) -->
+                {% if not leave_request.is_approved and not leave_request.is_rejected %}
+                    <div class="mt-8 flex flex-col sm:flex-row gap-4">
+                        <a href="{% url 'managers:approve_manager_leave' leave_request.id %}"
+                           class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition text-center flex-1"
+                           onclick="return confirm('Are you sure you want to approve this leave request?')">
+                            ✅ Approve Leave
+                        </a>
+                        <a href="{% url 'managers:reject_manager_leave' leave_request.id %}"
+                           class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition text-center flex-1"
+                           onclick="return confirm('Are you sure you want to reject this leave request?')">
+                            ❌ Reject Leave
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

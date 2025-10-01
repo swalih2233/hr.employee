@@ -1,6 +1,6 @@
 from django.shortcuts import render, reverse
 from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
+from django.contrib import messages 
 from django.shortcuts import redirect
 from django.http.response import HttpResponseRedirect
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
@@ -22,38 +22,469 @@ import ssl
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.core.exceptions import ValidationError
+from django.template.loader import render_to_string
+from django.http import JsonResponse
 from django.contrib.auth.password_validation import validate_password
 from users.models import User
-from users.models import OTP  # Assuming OTP is in the common app
+from users.models import OTP 
 import random
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.conf import settings
 from django.core.validators import validate_email
 import secrets
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Google Calendar integration
+from .google_calendar_service import get_google_calendar_service
+from .forms import ManagerLeaveRequestForm, UnifiedLeaveRequestForm, AddEmployeeForm
+from common.decorators import role_required, allow_founder
+from common.utils import get_user_role, is_founder, is_manager, get_user_profile, generate_manager_id, calculate_leave_days
+
+logger = logging.getLogger(__name__)
+
+# ==================== EMAIL FUNCTIONS ====================
+
+def send_leave_notification(request, leave, email_type, recipient_email, manager_name=None):
+    """
+    Generic function to send leave notifications.
+    - `leave`: The leave request object (LeaveRequest or UnifiedLeaveRequest).
+    - `email_type`: 'new_request', 'approved', 'rejected', or 'submission_confirmation'.
+    - `recipient_email`: The email address of the recipient.
+    - `manager_name`: The name of the manager (for notifications to managers).
+    """
+    
+    if isinstance(leave, LeaveRequest):
+        requester_profile = get_object_or_404(Employe, user=leave.employee)
+        requester_name = leave.employee.get_full_name()
+        leave_model_name = 'LeaveRequest'
+    elif isinstance(leave, UnifiedLeaveRequest):
+        requester_profile = leave.manager
+        requester_name = leave.manager.user.get_full_name()
+        leave_model_name = 'UnifiedLeaveRequest'
+    else:
+        logger.error(f"Unknown leave model type: {type(leave)}")
+        return
+
+    if email_type == 'new_request':
+        subject = f"New Leave Request from {requester_name}"
+    elif email_type == 'approved':
+        subject = "Your Leave Request has been Approved"
+    elif email_type == 'rejected':
+        subject = "Your Leave Request has been Rejected"
+    elif email_type == 'submission_confirmation':
+        subject = "Leave Request Submitted Successfully"
+    else:
+        subject = "Leave Request Update"
+
+    if email_type == 'new_request':
+        if leave_model_name == 'LeaveRequest':
+            # FIX: Corrected reverse lookup from 'leave_requests' to 'leavelist'
+            review_path = reverse('managers:leavelist')
+        else:
+            review_path = reverse('managers:manager_leave_requests_list')
+        review_url = request.build_absolute_uri(review_path)
+    else:
+        review_url = None
+
+    html_content = render_to_string('emails/leave_notification.html', {
+        'leave': leave,
+        'employee': requester_profile,
+        'email_type': email_type,
+        'status': leave.status,
+        'manager_name': manager_name,
+        'review_url': review_url,
+    })
+
+    try:
+        email = EmailMessage(
+            subject,
+            body=html_content,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[recipient_email]
+        )
+        email.content_subtype = 'html'
+        email.send()
+        logger.info(f"Leave notification '{email_type}' sent to {recipient_email}")
+    except Exception as e:
+        logger.error(f"Failed to send email to {recipient_email}: {e}")
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def index(request):
+    user_role = get_user_role(request.user)
+    if user_role == 'founder':
+        return redirect(reverse('managers:founder_dashboard'))
+    elif user_role == 'manager':
+        return redirect(reverse('managers:manager_dashboard'))
+    else:
+        return redirect(reverse('managers:login'))
+
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def founder_dashboard(request):
+    founders = Founder.objects.all()
+    managers = Manager.objects.all()
+    employes = Employe.objects.all()
+    holidays = Holiday.objects.all()
+
+    manager_leave_requests = UnifiedLeaveRequest.objects.filter(
+        requested_by_role='manager',
+        is_approved=False,
+        is_rejected=False
+    ).select_related('manager__user').order_by('-created_date')[:5]
+
+    employee_leave_requests = LeaveRequest.objects.filter(
+        status='Pending'
+    ).select_related('employee').order_by('-created_date')[:5]
+
+    recent_approved_leaves = []
+    recent_manager_leaves = UnifiedLeaveRequest.objects.filter(
+        requested_by_role='manager',
+        is_approved=True
+    ).select_related('manager__user', 'approved_by').order_by('-id')[:5]
+
+    for leave in recent_manager_leaves:
+        recent_approved_leaves.append({
+            'requester_name': f"{leave.manager.user.first_name} {leave.manager.user.last_name}",
+            'requested_by_role': 'manager',
+            'manager': leave.manager,
+            'subject': leave.subject,
+            'start_date': leave.start_date,
+            'end_date': leave.end_date,
+            'approved_by': leave.approved_by,
+            'approval_date': leave.approval_date,
+        })
+
+    recent_employee_leaves = LeaveRequest.objects.filter(
+        status='Approved'
+    ).select_related('employee').order_by('-id')[:5]
+
+    employee_users = [leave.employee for leave in recent_employee_leaves]
+    employe_objects = Employe.objects.filter(user__in=employee_users).select_related('user')
+    employe_map = {employe.user.id: employe for employe in employe_objects}
+
+    for leave in recent_employee_leaves:
+        employee_profile = employe_map.get(leave.employee.id)
+        recent_approved_leaves.append({
+            'requester_name': f"{leave.employee.first_name} {leave.employee.last_name}",
+            'requested_by_role': 'employee',
+            'employee': employee_profile,
+            'subject': leave.subject,
+            'start_date': leave.start_date,
+            'end_date': leave.end_date,
+            'approved_by': None,
+            'approval_date': leave.approval_date,
+        })
+
+    recent_approved_leaves = recent_approved_leaves[:5]
+
+    context = {
+        'founders': founders,
+        'managers': managers,
+        'employees': employes,
+        'holidays': holidays,
+        'f_count': founders.count(),
+        'm_count': managers.count(),
+        'e_count': employes.count(),
+        'h_count': holidays.count(),
+        'manager_leave_requests': manager_leave_requests,
+        'employee_leave_requests': employee_leave_requests,
+        'recent_approved_leaves': recent_approved_leaves,
+        'pending_manager_leaves': manager_leave_requests.count(),
+        'pending_employee_leaves': employee_leave_requests.count(),
+    }
+
+    return render(request, 'managers/founder_dashboard.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager')
+def manager_dashboard(request):
+    try:
+        manager = Manager.objects.get(user=request.user)
+    except Manager.DoesNotExist:
+        messages.error(request, "Manager profile not found.")
+        return redirect(reverse('managers:login'))
+
+    from common.utils import get_employees_under_manager
+    employees = get_employees_under_manager(manager)
+
+    pending_employee_requests = LeaveRequest.objects.filter(
+        employee__in=[emp.user for emp in employees],
+        status='Pending'
+    ).order_by('-created_date')
+
+    manager_leave_requests = UnifiedLeaveRequest.objects.filter(
+        manager=manager,
+        requested_by_role='manager'
+    ).order_by('-created_date')[:5]
+
+    recent_approved_employee_leaves = LeaveRequest.objects.filter(
+        employee__in=[emp.user for emp in employees],
+        status='Approved'
+    ).order_by('-created_date')[:5]
+    
+    leave_history = LeaveRequest.objects.filter(employee__in=[emp.user for emp in employees]).order_by('-created_date')
+
+    context = {
+        'manager': manager,
+        'employees': employees,
+        'employee_count': employees.count(),
+        'pending_employee_requests': pending_employee_requests,
+        'pending_count': pending_employee_requests.count(),
+        'manager_leave_requests': manager_leave_requests,
+        'recent_approved_employee_leaves': recent_approved_employee_leaves,
+        'leave_history': leave_history,
+        'leave_requests': pending_employee_requests,
+        'manager_leaves': manager_leave_requests,
+        'notification_count': pending_employee_requests.count(),
+    }
+
+    return render(request, 'managers/manager_dashboard.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def approve_employee_leave(request, leave_id):
+    leave_request = get_object_or_404(LeaveRequest, id=leave_id)
+    employee_profile = get_object_or_404(Employe, user=leave_request.employee)
+
+    if request.method == 'POST':
+        if not (request.user.is_superuser or employee_profile.manager.user == request.user):
+            messages.error(request, "You do not have permission to approve this leave request.")
+            return redirect('managers:manager_dashboard')
+
+        leave_days = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+
+        if leave_request.leave_type == 'ML':
+            if employee_profile.available_medical_leaves >= leave_days:
+                employee_profile.medical_leaves_taken += leave_days
+                employee_profile.available_medical_leaves -= leave_days
+            else:
+                messages.error(request, "Not enough medical leave balance.")
+                return redirect('managers:leavelist')
+        elif leave_request.leave_type == 'AL':
+            if employee_profile.available_leaves >= leave_days:
+                employee_profile.leaves_taken += leave_days
+                employee_profile.available_leaves -= leave_days
+            else:
+                messages.error(request, "Not enough annual leave balance.")
+                return redirect('managers:leavelist')
+
+        employee_profile.save()
+
+        leave_request.status = 'Approved'
+        leave_request.is_approved = True
+        leave_request.approval_date = timezone.now()
+        leave_request.leave_duration = leave_days
+        leave_request.save()
+
+        send_leave_notification(request, leave_request, 'approved', leave_request.employee.email)
+
+        messages.success(request, f"Leave request for {leave_request.employee.get_full_name()} approved.")
+        return redirect('managers:leavelist')
+
+    return redirect('managers:leavelist')
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def reject_employee_leave(request, leave_id):
+    leave_request = get_object_or_404(LeaveRequest, id=leave_id)
+    employee_profile = get_object_or_404(Employe, user=leave_request.employee)
+
+    if request.method == 'POST':
+        if not (request.user.is_superuser or employee_profile.manager.user == request.user):
+            messages.error(request, "You do not have permission to reject this leave request.")
+            return redirect('managers:manager_dashboard')
+
+        leave_request.status = 'Rejected'
+        leave_request.is_rejected = True
+        leave_request.rejection_date = timezone.now()
+        leave_request.save()
+
+        send_leave_notification(request, leave_request, 'rejected', leave_request.employee.email)
+
+        messages.success(request, f"Leave request for {leave_request.employee.get_full_name()} rejected.")
+        return redirect('managers:leavelist')
+
+    return redirect('managers:leavelist')
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager')
+def manager_apply_leave(request):
+    if request.method == 'POST':
+        form = UnifiedLeaveRequestForm(request.POST, request.FILES)
+        if form.is_valid():
+            leave_request = form.save(commit=False)
+
+            try:
+                manager = Manager.objects.get(user=request.user)
+                leave_request.manager = manager
+                leave_request.requested_by_role = 'manager'
+                leave_request.save()
+
+                founders = Founder.objects.all()
+                for founder in founders:
+                    send_leave_notification(request, leave_request, 'new_request', founder.user.email, manager_name=founder.user.get_full_name())
+                
+                send_leave_notification(request, leave_request, 'submission_confirmation', request.user.email)
+
+                messages.success(request, "Leave request submitted successfully!")
+                return redirect(reverse("managers:manager_leave_history"))
+
+            except Manager.DoesNotExist:
+                messages.error(request, "Manager profile not found.")
+
+    else:
+        form = UnifiedLeaveRequestForm()
+
+    return render(request, 'managers/apply_leave.html', {'form': form})
+
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def approve_manager_leave(request, id):
+    leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
+    manager = leave_request.manager
+
+    actual_leave_days = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+
+    leave_request.is_approved = True
+    leave_request.approval_date = timezone.now()
+    leave_request.approved_by = request.user
+    leave_request.leave_duration = actual_leave_days
+    leave_request.status = 'approved'
+    leave_request.save()
+
+    if leave_request.leave_type == 'ML':
+        manager.medical_leaves_taken += actual_leave_days
+        manager.available_medical_leaves -= actual_leave_days
+    elif leave_request.leave_type == 'AL':
+        manager.leaves_taken += actual_leave_days
+        manager.available_leaves -= actual_leave_days
+
+    manager.save()
+
+    send_leave_notification(request, leave_request, 'approved', manager.user.email)
+
+    messages.success(request, f"Manager leave request approved successfully for {actual_leave_days} days.")
+    return redirect(reverse("managers:founder_dashboard"))
+
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def reject_manager_leave(request, id):
+    leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
+
+    leave_request.is_rejected = True
+    leave_request.rejection_date = timezone.now()
+    leave_request.rejected_by = request.user
+    leave_request.status = 'rejected'
+    leave_request.save()
+
+    send_leave_notification(request, leave_request, 'rejected', leave_request.manager.user.email)
+
+    messages.success(request, "Manager leave request rejected successfully.")
+    return redirect(reverse("managers:founder_dashboard"))
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager')
+def manager_leave_history(request):
+    try:
+        manager = Manager.objects.get(user=request.user)
+        unified_requests = UnifiedLeaveRequest.objects.filter(
+            manager=manager,
+            requested_by_role='manager'
+        ).order_by('-created_date')
+
+        for leave_request in unified_requests:
+            leave_request.calculated_duration = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+
+        context = {
+            'unified_requests': unified_requests,
+            'manager': manager
+        }
+        return render(request, 'managers/leave_history.html', context)
+
+    except Manager.DoesNotExist:
+        messages.error(request, "Manager profile not found.")
+        return redirect(reverse("managers:manager_dashboard"))
+
 
 @login_required(login_url='/managers/login')
 @allow_manager
-def index(request):
-    m_count = Manager.objects.all().count()
-    managers = Manager.objects.all()
-    employes = Employe.objects.all()
-    e_count = Employe.objects.all().count()
+def manager_leave_requests_list(request):
+    if not is_founder(request.user):
+        messages.error(request, "Access denied. Only founders can view manager leave requests.")
+        return redirect(reverse("managers:index"))
 
-    leave_count = LeaveReaquest.objects.filter(is_approved=False).count()
-    
-    context ={
-        "title":"employe management",
-        "employes": employes,
-        "managers": managers,
-        "m_count": m_count,
-        "e_count": e_count,
-        "leave_count":leave_count
+    pending_requests = UnifiedLeaveRequest.objects.filter(
+        requested_by_role='manager',
+        is_approved=False,
+        is_rejected=False
+    ).order_by('-created_date')
+
+    for leave_request in pending_requests:
+        leave_request.calculated_duration = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+
+    context = {
+        'leave_requests': pending_requests,
+        'is_founder': True
     }
-    
-    return render(request, "managers/index.html", context=context)
+    return render(request, 'managers/manager_leave_requests.html', context)
+
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def view_manager_leave_request(request, id):
+    if not is_founder(request.user):
+        messages.error(request, "Access denied. Only founders can view manager leave requests.")
+        return redirect(reverse("managers:index"))
+
+    leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
+    leave_request.calculated_duration = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+
+    context = {
+        'leave_request': leave_request,
+        'manager': leave_request.manager,
+        'is_founder': True
+    }
+    return render(request, 'managers/view_manager_leave.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager')
+def leave_requests(request):
+    try:
+        manager = Manager.objects.get(user=request.user)
+    except Manager.DoesNotExist:
+        messages.error(request, "Manager profile not found.")
+        return redirect(reverse('managers:login'))
+
+    from common.utils import get_employees_under_manager
+    employees = get_employees_under_manager(manager)
+
+    pending_employee_requests = LeaveRequest.objects.filter(
+        employee__in=[emp.user for emp in employees],
+        status='Pending'
+    ).order_by('-created_date')
+
+    context = {
+        'leave_requests': pending_employee_requests,
+        'manager': manager,
+        'notification_count': pending_employee_requests.count(),
+    }
+    return render(request, 'managers/leave_requests.html', context)
 
 
 def login(request):
@@ -67,31 +498,15 @@ def login(request):
             user = authenticate(request, email=email, password=password)
             
             if user:
-                if user.is_superuser:
+                if user.is_superuser or user.is_manager:
                     auth_login(request, user)
                     user.is_manager = True
                     user.save()
                     manager, created = Manager.objects.get_or_create(user=user)
-
-                    # Create or get related manager models
-                    related_models = [
-                        EmergencyContactManager,
-                        AddressManager,
-                        BackgroundManager,
-                        BenefitsManager,
-                        IdentificationManager,
-                        WorkScheduleManager 
-                    ]
-
-                    for model in related_models:
-                        model.objects.get_or_create(manager=manager)
-
                     return HttpResponseRedirect(reverse("managers:index"))
                 else:
-                    # If user is not a superuser, handle this error
                     messages.error(request, "Access restricted")
             else:
-                # If authentication failed (wrong password or email)
                 messages.error(request, "Invalid email or password")
         else:
             messages.error(request, "Email and password are required")
@@ -105,957 +520,477 @@ def logout(request):
 
 
 @login_required(login_url='/managers/login')
-@allow_manager
-def account(request):
-    user = request.user
-    manager = Manager.objects.get(user=user)
-    context = {
-        "title": f"{manager.user.first_name} {manager.user.last_name}", 
-        "manager": manager
-    }
-    return render(request, "managers/details.html", context=context)
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def manager_details(request, id):
-    manager = Manager.objects.get(id=id)
-    context = {
-        "title": f"{manager.user.first_name} {manager.user.last_name}", 
-        "manager": manager
-    }
-    return render(request, "managers/details.html", context=context)
-
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def manager_add(request):
-    # Initialize the context to pass to the template
-    context = {
-        'first_name': '',
-        'last_name': '',
-        'phone': '',
-        'joining_date': '',
-        'job_role': ''
-    }
-
-    if request.method == 'POST':
-        # Extract form data
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        email = request.POST.get('email')
-        phone = request.POST.get('phone')
-        password = request.POST.get('password')
-        image = request.FILES.get('image')
-        joining_date = request.POST.get('joining_date')
-        job_role = request.POST.get('job_role')
-
-        # Update context with form data to repopulate the form in case of errors
-        context.update({
-            'first_name': first_name,
-            'last_name': last_name,
-            'phone': phone,
-            'joining_date': joining_date,
-            'job_role': job_role
-        })
-
-        # Check if the user with the provided email already exists
-        if User.objects.filter(email=email).exists():
-            messages.error(request, "A user with this email already exists.")
-            return render(request, "managers/manager_add.html", context)
-
-        try:
-            # Print the extracted data to debug
-            print("Form Data:", first_name, last_name, email, phone, password, image, joining_date, job_role)
-
-            # Create the new user
-            user = User.objects.create_user(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                phone_number=phone,  # Ensure your User model has phone_number field
-                password=password,
-                is_manager=True,
-                is_superuser=True
-            )
-            user.save()
-
-            # Create the employee profile
-            manager = Manager.objects.create(
-                user=user,
-                image=image,
-                date_of_joining=joining_date,
-                department=job_role
-            )
-            manager.save()
-
-            # Create or get related manager models
-            related_models = [
-                EmergencyContactManager,
-                AddressManager,
-                BackgroundManager,
-                BenefitsManager,
-                IdentificationManager,
-                WorkScheduleManager 
-            ]
-
-            for model in related_models:
-                model.objects.get_or_create(manager=manager)
-
-            messages.success(request, "Manager added successfully.")
-            return redirect(reverse("managers:index"))
-
-        except Exception as e:
-            # Print the error stack trace for debugging
-            error_trace = traceback.format_exc()
-            print(f"Error occurred: {error_trace}")
-            # Display the error message to the user
-            messages.error(request, f"An error occurred: {error_trace}")
-            return render(request, "managers/manager_add.html", context)
-
-    # GET request: simply render the form with the empty context
-    return render(request, "managers/manager_add.html", context)
-
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def manager_edit(request, id):
-    employe = Manager.objects.get(id=id)
-    user = employe.user
-    contact = EmergencyContactManager.objects.get(manager=employe)
-    address = AddressManager.objects.get(manager=employe)
-    background = BackgroundManager.objects.get(manager=employe)
-    benefits = BenefitsManager.objects.get(manager=employe)
-    identification = IdentificationManager.objects.get(manager=employe)
-    schedule = WorkScheduleManager.objects.get(manager=employe)
-
-    user_date_of_birth = employe.user.date_of_birth.strftime('%Y-%m-%d') if employe.user.date_of_birth else ''
-
-    date_joining = employe.date_of_joining.strftime('%Y-%m-%d') if employe.date_of_joining else ''
-
-    # Format the time fields
-    schedule_start_time = schedule.start_time.strftime('%H:%M') if schedule.start_time else ''
-    schedule_end_time = schedule.end_time.strftime('%H:%M') if schedule.end_time else ''
-    
-   
-
-    if request.method == 'POST':
-        # User details
-        user.first_name = request.POST.get('first_name')
-        user.last_name = request.POST.get('last_name')
-        user.email = request.POST.get('email')
-        user.phone_number = request.POST.get('phone_number')
-        user.date_of_birth = request.POST.get('date_of_birth')
-        user.gender = request.POST.get('gender')
-        user.maritul_status = request.POST.get('maritul_status')
-        user.save()
-
-        # Emergency Contact
-        contact.country = request.POST.get('emergency_country')
-        contact.city = request.POST.get('emergency_city')
-        contact.pincode = request.POST.get('emergency_pincode')
-        contact.save()
-
-        # Employee details
-        employe.user.employe_id = request.POST.get('employe_id')
-        employe.department = request.POST.get('department')
-        employe.designation = request.POST.get('designation')
-        employe.date_of_joining = request.POST.get('date_of_joining')
-        employe.employment_Type = request.POST.get('employment_Type')
-        employe.reporting_manager = request.POST.get('reporting_manager')
-        employe.work_location = request.POST.get('work_location')
-        employe.save()
-
-        # Address
-        address.Permanent_address = request.POST.get('Permanent_address')
-        address.country = request.POST.get('country')
-        address.city = request.POST.get('city')
-        address.pincode = request.POST.get('pincode')
-        address.save()
-
-        # Benefits
-        benefits.salary_details = request.POST.get('salary_details')
-        benefits.bank_name = request.POST.get('bank_name')
-        benefits.account_number = request.POST.get('account_number')
-        benefits.branch_name = request.POST.get('branch_name')
-        benefits.ifsc_code = request.POST.get('ifsc_code')
-        benefits.pancard = request.POST.get('pancard')
-        benefits.pf_fund = request.POST.get('pf_fund')
-        benefits.state_insurance_number = request.POST.get('state_insurance_number')
-        benefits.save()
-
-        # Background
-        background.educational_qualifications = request.POST.get('educational_qualifications')
-        background.previous_details = request.POST.get('previous_details')
-        background.save()
-
-        # Identification
-        identification.work_authorization = request.POST.get('work_authorization')
-        identification.save()
-
-        # Work Schedule
-        schedule.start_time = request.POST.get('start_time')
-        schedule.end_time = request.POST.get('end_time')
-        schedule.save()
-
-        return redirect(reverse("managers:index"))
-
-    context = {
-        'employe': employe,
-        'user': user,
-        'contact': contact,
-        'address': address,
-        'background': background,
-        'benefits': benefits,
-        'identification': identification,
-        'schedule': schedule,
-        'user_date_of_birth': user_date_of_birth,
-        'schedule_start_time': schedule_start_time,
-        'schedule_end_time': schedule_end_time,
-        'date_joining': date_joining
-    }
-
-    return render(request, "managers/edit_employe.html", context=context)
-
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def leavelist(request):
-    instances = LeaveReaquest.objects.all()
-
-    # Calculate leave duration for each instance
-    for instance in instances:
-        instance.leave_duration = (instance.end_date - instance.start_date).days + 1
-    
-    return render(request, "managers/leavelist.html", {'instances': instances})
-
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
+@role_required('manager', 'founder')
 def viewlist(request, id):
+    leave_request = get_object_or_404(LeaveRequest, id=id)
+    employe = get_object_or_404(Employe, user=leave_request.employee)
     
-    leave_request = LeaveReaquest.objects.get(id=id)
-    employee = leave_request.employe
-    user = employee.user 
-    
-    return render(request, 'managers/viewlist.html', {
-        'user': user,
-        'employe': employee,
-        'leavereaquest': leave_request,
-    })
-
-# @login_required(login_url='/managers/login')
-# @allow_manager
-# def approve_leave(request, id):
-#     leave_request = LeaveReaquest.objects.get(id=id)  # Fixed typo in LeaveRequest
-#     employee = leave_request.employe  # Fixed typo in employee
-
-#     # Calculate the number of days between start_date and end_date
-#     leave_duration = (leave_request.end_date - leave_request.start_date).days + 1
-
-#     # Approve the leave request
-#     leave_request.is_approved = True
-#     leave_request.save()
-
-#     # Check the type of leave: regular, medical, or PR leave
-#     if leave_request.leave_type == 'ML':  # Assuming 'ML' means Medical Leave
-#         # Deduct from available medical leave balance and increase medical leaves taken
-#         employee.medical_leaves_taken += leave_duration
-#         employee.available_medical_leaves -= leave_duration
-
-#     elif leave_request.leave_type == 'PR':  # Assuming 'PR' means some carryforward leave type
-#         # Deduct from carryforward leave balance and increase carryforward leaves taken
-#         employee.carryforward_leaves_taken += leave_duration
-#         employee.carryforward_available_leaves -= leave_duration
-
-#     else:
-#         # Deduct from available regular leave balance and increase regular leaves taken
-#         employee.leaves_taken += leave_duration
-#         employee.available_leaves -= leave_duration
-
-#     # Save the updated employee leave balance
-#     employee.save()
-
-#     # Notify the user and redirect to the manager's index page
-#     messages.success(request, f"Leave request approved successfully for {leave_duration} days.")
-#     return redirect(reverse("managers:index"))
-
-
-# @login_required(login_url='/managers/login')
-# @allow_manager
-# def approve_leave(request, id):
-#     leave_request = LeaveReaquest.objects.get(id=id)  # Fixed typo in LeaveReaquest
-#     employee = leave_request.employe  # Fixed typo in employee
-
-#     # Calculate the number of days between start_date and end_date
-#     leave_duration = (leave_request.end_date - leave_request.start_date).days + 1
-
-#     # Approve the leave request
-#     leave_request.is_approved = True
-#     leave_request.approval_date = timezone.now()  # Set the approval date
-#     leave_request.save()
-
-#     # Check the type of leave: regular, medical, or PR leave
-#     if leave_request.leave_type == 'ML':  # Assuming 'ML' means Medical Leave
-#         # Deduct from available medical leave balance and increase medical leaves taken
-#         employee.medical_leaves_taken += leave_duration
-#         employee.available_medical_leaves -= leave_duration
-
-#     elif leave_request.leave_type == 'PR':  # Assuming 'PR' means some carryforward leave type
-#         # Deduct from carryforward leave balance and increase carryforward leaves taken
-#         employee.carryforward_leaves_taken += leave_duration
-#         employee.carryforward_available_leaves -= leave_duration
-
-#     else:
-#         # Deduct from available regular leave balance and increase regular leaves taken
-#         employee.leaves_taken += leave_duration
-#         employee.available_leaves -= leave_duration
-
-#     # Save the updated employee leave balance
-#     employee.save()
-
-#     # Notify the user and redirect to the manager's index page
-#     messages.success(request, f"Leave request approved successfully for {leave_duration} days.")
-#     return redirect(reverse("managers:index"))
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def approve_leave(request, id):
-    leave_request = LeaveReaquest.objects.get(id=id)
-    employee = leave_request.employe
-
-    # Calculate the number of leave days excluding holidays, Saturdays, and Sundays
-    leave_duration = (leave_request.end_date - leave_request.start_date).days + 1
-    leave_days = []
-
-    current_day = leave_request.start_date
-    while current_day <= leave_request.end_date:
-        if current_day.weekday() >= 5:  # Saturday and Sunday
-            pass
-        elif Holiday.objects.filter(date=current_day).exists():
-            pass
-        else:
-            leave_days.append(current_day)
-        current_day += timedelta(days=1)
-
-    actual_leave_days = len(leave_days)
-
-    # Update leave request
-    leave_request.is_approved = True
-    leave_request.approval_date = timezone.now()
-    leave_request.leave_duration = actual_leave_days
-    leave_request.save()
-
-    # Adjust leave balances
-    if leave_request.leave_type == 'ML':
-        employee.medical_leaves_taken += actual_leave_days
-        employee.available_medical_leaves -= actual_leave_days
-    elif leave_request.leave_type == 'PR':
-        employee.carryforward_leaves_taken += actual_leave_days
-        employee.carryforward_available_leaves -= actual_leave_days
-    else:
-        employee.leaves_taken += actual_leave_days
-        employee.available_leaves -= actual_leave_days
-
-    employee.save()
-
-    # ✉️ Send email notification
-    subject = "Leave Request Approved"
-    message = f"""
-Dear {employee.user.first_name},
-
-Your leave request from {leave_request.start_date.strftime('%Y-%m-%d')} to {leave_request.end_date.strftime('%Y-%m-%d')} has been approved.
-
-Type of Leave: {leave_request.get_leave_type_display()}
-Approval Date: {leave_request.approval_date.strftime('%Y-%m-%d %H:%M')}
-
-Thank you,
-HR Department
-"""
-    recipient_email = employee.user.email
-
-    try:
-        send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,  # Use your configured sender email
-        [employee.user.email],        # Employee's email receiving the notification
-        fail_silently=False
-    )
-    except Exception as e:
-        print(f"Email send failed: {e}")
-
-    messages.success(request, f"Leave request approved successfully.")
-    return redirect(reverse("managers:index"))
-
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def update_yearly(request):
-    employees = Employe.objects.all()
-    for employee in employees:
-       if employee.available_leaves >= 10:
-            employee.available_leaves = 18
-            employee.leaves_taken  = 0
-            employee.available_medical_leaves= 14
-            employee.carryforward_available_leaves=6
-       
-            employee.save()
-
-    return redirect(reverse("managers:index"))
-
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def update_march(request):
-    employees = Employe.objects.all()
-    for employee in employees:
-        # Reset carryforward_available_leaves to 0 for all employees, regardless of leave count
-        employee.carryforward_available_leaves = 0
-        employee.carryforward_leaves_taken = 0
-        
-        # Optionally, cap available leaves at 18 if it exceeds
-        if employee.available_leaves > 18:
-            employee.available_leaves = 18
-
-        employee.save()
-
-    return redirect(reverse("managers:index"))
-
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def add_employe(request):
-     # Initialize the context to pass to the template
     context = {
-        'first_name': '',
-        'last_name': '',
-        'phone': '',
-        'joining_date': '',
-        'job_role': ''
+        'leave_request': leave_request,
+        'employe': employe,
+        'user': leave_request.employee,
     }
-
-    if request.method == 'POST':
-        # Extract form data
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        employe_id= request.POST.get('employe_id')
-        email = request.POST.get('email')
-        phone = request.POST.get('phone')
-        password = request.POST.get('password')
-        image = request.FILES.get('image')
-        joining_date = request.POST.get('joining_date')
-        job_role = request.POST.get('job_role')
-
-        # Update context with form data to repopulate the form in case of errors
-        context.update({
-            'first_name': first_name,
-            'last_name': last_name,
-            'phone': phone,
-            'joining_date': joining_date,
-            'job_role': job_role,
-            'employe_id':employe_id
-        })
-
-        # Check if the user with the provided email already exists
-        if User.objects.filter(email=email).exists():
-            messages.error(request, "A user with this email already exists.")
-            return render(request, "managers/add_employe.html", context)
-
-        try:
-            # Print the extracted data to debug
-            print("Form Data:", first_name, last_name, email, phone, password, image, joining_date, job_role)
-
-            # Create the new user
-            user = User.objects.create_user(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                phone_number=phone,  # Ensure your User model has phone_number field
-                password=password,
-                is_employee = True,
-                employe_id= employe_id
-            )
-            user.save()
-
-            # Create the employee profile
-            employe = Employe.objects.create(
-                user=user,
-                image=image,
-                date_of_joining=joining_date,
-                department=job_role
-            )
-            employe.save()
-
-            # Create or get related manager models
-            related_models = [
-                EmergencyContact,
-                Address,
-                Background,
-                Benefits,
-                Identification,
-                WorkSchedule
-            ]
-
-            for model in related_models:
-                model.objects.get_or_create(employe=employe)
-
-            messages.success(request, "Employee added successfully.")
-            return redirect(reverse("managers:index"))
-
-        except Exception as e:
-            # Print the error stack trace for debugging
-            error_trace = traceback.format_exc()
-            print(f"Error occurred: {error_trace}")
-            # Display the error message to the user
-            messages.error(request, f"An error occurred: {error_trace}")
-            return render(request, "managers/add_employe.html", context)
-
-    # GET request: simply render the form with the empty context
-    return render(request, "managers/add_employe.html", context)
-
-def get_int_or_none(value):
-    try:
-        return int(value) if value.strip() else None
-    except (ValueError, TypeError):
-        return None
-
-def get_float_or_none(value):
-    try:
-        return float(value) if value.strip() else 0  # default to 0 as per your model
-    except (ValueError, TypeError):
-        return 0
-
-def get_time_or_none(value):
-    try:
-        return datetime.strptime(value.strip(), "%H:%M").time() if value.strip() else None
-    except (ValueError, TypeError):
-        return None
+    return render(request, 'managers/viewlist.html', context)
 
 
 @login_required(login_url='/managers/login')
-@allow_manager
+@role_required('manager', 'founder')
+def approve_leave(request, pk):
+    return approve_employee_leave(request, pk)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def reject_leave(request, pk):
+    return reject_employee_leave(request, pk)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def add_employe(request):
+    if request.method == 'POST':
+        form = AddEmployeeForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                user = User.objects.create_user(
+                    email=form.cleaned_data['email'],
+                    password=form.cleaned_data['password'],
+                    first_name=form.cleaned_data['first_name'],
+                    last_name=form.cleaned_data['last_name'],
+                    phone_number=form.cleaned_data.get('phone_number', ''),
+                    gender=form.cleaned_data.get('gender', ''),
+                    is_employee=True
+                )
+                
+                manager = None
+                if is_manager(request.user):
+                    manager = Manager.objects.get(user=request.user)
+                
+                employe = Employe.objects.create(
+                    user=user,
+                    manager=manager,
+                    department=form.cleaned_data.get('department', ''),
+                    designation=form.cleaned_data.get('designation', ''),
+                    date_of_joining=form.cleaned_data.get('date_of_joining'),
+                    employment_Type=form.cleaned_data.get('employment_Type', ''),
+                    work_location=form.cleaned_data.get('work_location', ''),
+                    image=form.cleaned_data.get('image'),
+                )
+                
+                messages.success(request, f"Employee {user.get_full_name()} added successfully!")
+                return redirect(reverse('managers:employees_list'))
+                
+            except Exception as e:
+                messages.error(request, f"Error creating employee: {str(e)}")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        form = AddEmployeeForm()
+    
+    return render(request, 'managers/add_employe.html', {'form': form})
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
 def edit_employe(request, id):
-    # Fetch the employe or return 404 if it doesn't exist
     employe = get_object_or_404(Employe, id=id)
     user = employe.user
-
-    # Use get_or_create for related objects to ensure they exist
-    contact, _ = EmergencyContact.objects.get_or_create(employe=employe)
-    address, _ = Address.objects.get_or_create(employe=employe)
-    background, _ = Background.objects.get_or_create(employe=employe)
-    benefits, _ = Benefits.objects.get_or_create(employe=employe)
-    identification, _ = Identification.objects.get_or_create(employe=employe)
-    schedule, _ = WorkSchedule.objects.get_or_create(employe=employe)
-
-    # Format date and time fields safely
-    user_date_of_birth = employe.user.date_of_birth.strftime('%Y-%m-%d') if employe.user.date_of_birth else ''
-    date_joining = employe.date_of_joining.strftime('%Y-%m-%d') if employe.date_of_joining else ''
-    schedule_start_time = schedule.start_time.strftime('%H:%M') if schedule.start_time else ''
-    schedule_end_time = schedule.end_time.strftime('%H:%M') if schedule.end_time else ''
-
+    
     if request.method == 'POST':
-        # Update user details
-        user.first_name = request.POST.get('first_name')
-        user.last_name = request.POST.get('last_name')
-        user.email = request.POST.get('email')
-        user.phone_number = request.POST.get('phone_number')
-        user.date_of_birth = request.POST.get('date_of_birth')
-        user.gender = request.POST.get('gender')
-        user.maritul_status = request.POST.get('maritul_status')
-        user.save()
-
-        # Update Emergency Contact
-        contact.contact_name = request.POST.get('contact_name')
-        contact.contact_number = request.POST.get('contact_number')
-        contact.relationship = request.POST.get('relationship')
-        contact.country = request.POST.get('emergency_country')
-        contact.city = request.POST.get('emergency_city')
-        contact.pincode = request.POST.get('emergency_pincode')
-        contact.save()
-
-        # Update Employee details
-        employe.user.employe_id = request.POST.get('employe_id')
-        employe.department = request.POST.get('department')
-        employe.designation = request.POST.get('designation')
-        employe.date_of_joining = request.POST.get('date_of_joining')
-        employe.employment_Type = request.POST.get('employment_Type')
-        employe.reporting_manager = request.POST.get('reporting_manager')
-        employe.work_location = request.POST.get('work_location')
-        employe.employe_status = request.POST.get('employe_status')
-        employe.save()
-
-        # Update Address
-        address.permanent_address = request.POST.get('permanent_address')
-        address.country = request.POST.get('country')
-        address.city = request.POST.get('city')
-        address.pincode = request.POST.get('pincode')
-        address.save()
-
-        # Update Benefits
-        benefits.salary_details = request.POST.get('salary_details')
-        benefits.bank_name = request.POST.get('bank_name')
-        benefits.account_number = get_int_or_none(request.POST.get('account_number'))
-        benefits.branch_name = request.POST.get('branch_name')
-        benefits.ifsc_code = request.POST.get('ifsc_code')
-        benefits.pancard = request.POST.get('pancard')
-        benefits.pf_fund = get_float_or_none(request.POST.get('pf_fund'))
-        benefits.state_insurance_number = request.POST.get('state_insurance_number')
-        benefits.save()
-
-        # Update Background
-        background.educational_qualifications = request.POST.get('educational_qualifications')
-        background.previous_details = request.POST.get('previous_details')
-        background.save()
-
-        # Update Identification
-        identification.work_authorization = request.POST.get('work_authorization')
-        identification.save()
-
-        # Update Work Schedule
-        schedule.start_time = get_time_or_none(request.POST.get('start_time'))
-        schedule.end_time = get_time_or_none(request.POST.get('end_time'))
-        schedule.save()
-
-        return redirect(reverse("managers:index"))
-
+        try:
+            user.first_name = request.POST.get('first_name', user.first_name)
+            user.last_name = request.POST.get('last_name', user.last_name)
+            user.email = request.POST.get('email', user.email)
+            user.phone_number = request.POST.get('phone_number', user.phone_number)
+            
+            date_of_birth_str = request.POST.get('date_of_birth')
+            if date_of_birth_str:
+                user.date_of_birth = date_of_birth_str
+                
+            user.save()
+            
+            employe.department = request.POST.get('department', employe.department)
+            employe.designation = request.POST.get('designation', employe.designation)
+            employe.work_location = request.POST.get('work_location', employe.work_location)
+            
+            if request.FILES.get('image'):
+                employe.image = request.FILES['image']
+            
+            employe.save()
+            
+            messages.success(request, f"Employee {user.get_full_name()} updated successfully!")
+            return redirect(reverse('managers:employees_list'))
+            
+        except Exception as e:
+            messages.error(request, f"Error updating employee: {str(e)}")
+    
     context = {
         'employe': employe,
         'user': user,
-        'contact': contact,
-        'address': address,
-        'background': background,
-        'benefits': benefits,
-        'identification': identification,
-        'schedule': schedule,
-        'user_date_of_birth': user_date_of_birth,
-        'schedule_start_time': schedule_start_time,
-        'schedule_end_time': schedule_end_time,
-        'date_joining': date_joining,
     }
-
-    return render(request, "managers/edit_employe.html", context=context)
+    return render(request, 'managers/edit_employe.html', context)
 
 
 @login_required(login_url='/managers/login')
-@allow_manager
+@role_required('manager', 'founder')
 def details(request, id):
-    employe = Employe.objects.get(id=id)
+    employe = get_object_or_404(Employe, id=id)
     user = employe.user
-    contact = EmergencyContact.objects.get(employe=employe)
-    address = Address.objects.get(employe=employe)
-    background = Background.objects.get(employe=employe)
-    benefits = Benefits.objects.get(employe=employe)
-    identification = Identification.objects.get(employe=employe)
-    shedule = WorkSchedule.objects.get(employe=employe)
-
-    context ={
+    
+    context = {
         'employe': employe,
         'user': user,
-        'contact': contact,
-        'address': address,
-        'background': background,
-        'benefits': benefits,
-        'identification': identification,
-        'schedule': shedule,
     }
-    return render(request, "managers/details.html", context=context)
+    return render(request, 'managers/details.html', context)
 
 
 @login_required(login_url='/managers/login')
-@allow_manager
-def manager_details(request, id):
-    employe = Manager.objects.get(id=id)
+@role_required('manager', 'founder')
+def delete_employee(request, id):
+    employe = get_object_or_404(Employe, id=id)
     user = employe.user
-    contact = EmergencyContactManager.objects.get(manager=employe)
-    address = AddressManager.objects.get(manager=employe)
-    background = BackgroundManager.objects.get(manager=employe)
-    benefits = BenefitsManager.objects.get(manager=employe)
-    identification = IdentificationManager.objects.get(manager=employe)
-    shedule = WorkScheduleManager.objects.get(manager=employe)
-
-    context ={
-        'employe': employe,
-        'user': user,
-        'contact': contact,
-        'address': address,
-        'background': background,
-        'benefits': benefits,
-        'identification': identification,
-        'schedule': shedule,
-    }
-    return render(request, "managers/details.html", context=context)
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def reject_leave(request, id):
-    leave_request = get_object_or_404(LeaveReaquest, id=id)
-    employee = leave_request.employe
-
-    # Mark leave as rejected
-    leave_request.is_rejected = True
-    leave_request.rejection_date = timezone.now()
-    leave_request.save()
-
-    # Prepare email notification
-    subject = 'Leave Request Rejected'
-    message = f'Dear {employee.user.first_name},\n\nYour leave request from {leave_request.start_date} to {leave_request.end_date} has been rejected.\n\nRegards,\nHR Department'
-
-    try:
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,  # Sender
-            [employee.user.email],       # Recipient
-            fail_silently=False
-        )
-    except Exception as e:
-        print(f"Failed to send email: {e}")  # You can also log this
-
-    # Notify manager on the UI
-    messages.error(request, "Your Leave request has been rejected .")
-    return redirect(reverse("managers:index"))
-
-
-@login_required(login_url='/managers/login')
-@allow_manager
-def add_holiday(request):
-    # Fetch all holidays to display in the list
-    holidays = Holiday.objects.all()
-
+    
     if request.method == 'POST':
-        # Retrieve form data
-        title = request.POST.get('title')
-        date = request.POST.get('date')
-
-        # Create a new Holiday object and save it
-        holiday = Holiday(title=title, date=date)
-        holiday.save()
-
-        # Success message
-        messages.success(request, "Holiday added successfully!")
-        return redirect('managers:add_holiday')
-
-    # Render the add holiday form and list of holidays
-    return render(request, 'managers/add_holiday.html', {
-        'holidays': holidays
-    })
-  
+        try:
+            user_name = user.get_full_name()
+            user.delete()
+            messages.success(request, f"Employee {user_name} deleted successfully!")
+        except Exception as e:
+            messages.error(request, f"Error deleting employee: {str(e)}")
+    
+    return redirect(reverse('managers:employees_list'))
 
 
 @login_required(login_url='/managers/login')
-@allow_manager
+@allow_founder
+def add_manager(request):
+    if request.method == 'POST':
+        try:
+            user = User.objects.create_user(
+                email=request.POST['email'],
+                password=request.POST['password'],
+                first_name=request.POST['first_name'],
+                last_name=request.POST['last_name'],
+                phone_number=request.POST.get('phone_number', ''),
+                gender=request.POST.get('gender', ''),
+                is_manager=True
+            )
+            
+            manager_id = generate_manager_id()
+            
+            manager = Manager.objects.create(
+                user=user,
+                manager_id=manager_id,
+                department=request.POST.get('department', ''),
+                designation=request.POST.get('designation', ''),
+                date_of_joining=request.POST.get('date_of_joining'),
+                employment_Type=request.POST.get('employment_Type', ''),
+                work_location=request.POST.get('work_location', ''),
+            )
+            
+            if request.FILES.get('image'):
+                manager.image = request.FILES['image']
+                manager.save()
+            
+            messages.success(request, f"Manager {user.get_full_name()} added successfully!")
+            return redirect(reverse('managers:founder_dashboard'))
+            
+        except Exception as e:
+            messages.error(request, f"Error creating manager: {str(e)}")
+    
+    return render(request, 'managers/add_manager.html')
+
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def delete_manager(request, id):
+    manager = get_object_or_404(Manager, id=id)
+    user = manager.user
+    
+    if request.method == 'POST':
+        try:
+            user_name = user.get_full_name()
+            user.delete()
+            messages.success(request, f"Manager {user_name} deleted successfully!")
+        except Exception as e:
+            messages.error(request, f"Error deleting manager: {str(e)}")
+    
+    return redirect(reverse('managers:founder_dashboard'))
+
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def founder_add(request):
+    if request.method == 'POST':
+        try:
+            user = User.objects.create_user(
+                email=request.POST['email'],
+                password=request.POST['password'],
+                first_name=request.POST['first_name'],
+                last_name=request.POST['last_name'],
+                phone_number=request.POST.get('phone_number', ''),
+                gender=request.POST.get('gender', ''),
+                is_superuser=True,
+                is_staff=True
+            )
+            
+            founder = Founder.objects.create(
+                user=user,
+                department=request.POST.get('department', ''),
+                designation=request.POST.get('designation', ''),
+                date_of_joining=request.POST.get('date_of_joining'),
+                employment_Type=request.POST.get('employment_Type', ''),
+                work_location=request.POST.get('work_location', ''),
+            )
+            
+            if request.FILES.get('image'):
+                founder.image = request.FILES['image']
+                founder.save()
+            
+            messages.success(request, f"Founder {user.get_full_name()} added successfully!")
+            return redirect(reverse('managers:founder_dashboard'))
+            
+        except Exception as e:
+            messages.error(request, f"Error creating founder: {str(e)}")
+    
+    return render(request, 'managers/add_founder.html')
+
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def delete_founder(request, id):
+    founder = get_object_or_404(Founder, id=id)
+    user = founder.user
+    
+    if request.method == 'POST':
+        try:
+            user_name = user.get_full_name()
+            user.delete()
+            messages.success(request, f"Founder {user_name} deleted successfully!")
+        except Exception as e:
+            messages.error(request, f"Error deleting founder: {str(e)}")
+    
+    return redirect(reverse('managers:founder_dashboard'))
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def holidays_list(request):
+    from employe.models import Holiday
+    holidays = Holiday.objects.all().order_by('date')
+    
+    context = {
+        'holidays': holidays,
+    }
+    return render(request, 'managers/holidays_list.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def add_holiday(request):
+    from employe.models import Holiday
+    
+    if request.method == 'POST':
+        try:
+            holiday = Holiday.objects.create(
+                title=request.POST['title'],
+                date=request.POST['date']
+            )
+            messages.success(request, f"Holiday '{holiday.title}' added successfully!")
+            return redirect(reverse('managers:holidays_list'))
+        except Exception as e:
+            messages.error(request, f"Error adding holiday: {str(e)}")
+    
+    return render(request, 'managers/add_holiday.html')
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
 def delete_holiday(request, id):
+    from employe.models import Holiday
     holiday = get_object_or_404(Holiday, id=id)
     
     if request.method == 'POST':
-        holiday.delete()
-        messages.success(request, "Holiday deleted successfully!")
+        try:
+            title = holiday.title
+            holiday.delete()
+            messages.success(request, f"Holiday '{title}' deleted successfully!")
+        except Exception as e:
+            messages.error(request, f"Error deleting holiday: {str(e)}")
     
-    return redirect('managers:add_holiday')  # Redirect to the list of holidays after deletion
+    return redirect(reverse('managers:holidays_list'))
 
 
 @login_required(login_url='/managers/login')
-@allow_manager
+@role_required('manager', 'founder')
 def bulk_delete_holidays(request):
+    from employe.models import Holiday
+    
     if request.method == 'POST':
-        # Delete all holiday entries
-        Holiday.objects.all().delete()
-        messages.success(request, "All holidays deleted successfully!")
-        
-    return redirect('managers:add_holiday')  # Redirect to the list after bulk deletio
-
-
-# User = get_user_model()
-
-# def manager_forget_password(request):
-#     context = {"title": "Forget Password"}
+        holiday_ids = request.POST.getlist('holiday_ids')
+        try:
+            Holiday.objects.filter(id__in=holiday_ids).delete()
+            messages.success(request, f"{len(holiday_ids)} holiday(s) deleted successfully!")
+        except Exception as e:
+            messages.error(request, f"Error deleting holidays: {str(e)}")
     
-#     if request.method == "POST":
-#         email = request.POST.get("email")
-        
-#         try:
-#             validate_email(email)
-#             user = User.objects.get(email=email)  # Handle custom user models
-            
-#             otp = secrets.randbelow(899999) + 100000
-#             OTP.objects.create(user=user, otp=otp)
-            
-#             send_mail(
-#                 subject='Password Reset OTP',
-#                 message=f'Your OTP for resetting the password is {otp}',
-#                 from_email=settings.EMAIL_HOST_USER,
-#                 recipient_list=[email],
-#                 fail_silently=False,
-#             )
-            
-#             request.session['reset_user_email'] = email
-#             messages.success(request, "If this email is registered, an OTP has been sent.")
-#             return HttpResponseRedirect(reverse('managers:reset_password'))
-        
-#         except ValidationError:
-#             messages.error(request, "Invalid email format.")
-#         except User.DoesNotExist:
-#             messages.success(request, "If this email is registered, an OTP has been sent.")
-#         except Exception as e:
-#             messages.error(request, f"An error occurred: {e}")
-    
-#     return render(request, "managers/forget_password.html", context)
+    return redirect(reverse('managers:holidays_list'))
 
 
-# def manager_reset_password(request):
-#     context = {"title": "Reset Password"}
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def employees_list(request):
+    if is_founder(request.user):
+        employees = Employe.objects.all().select_related('user', 'manager')
+    else:
+        try:
+            manager = Manager.objects.get(user=request.user)
+            from common.utils import get_employees_under_manager
+            employees = get_employees_under_manager(manager)
+        except Manager.DoesNotExist:
+            employees = Employe.objects.none()
     
-#     if request.method == "POST":
-#         otp = request.POST.get("otp")
-#         new_password = request.POST.get("new_password")
-#         confirm_password = request.POST.get("confirm_password")
-        
-#         email = request.session.get('manager_reset_email')
-#         try:
-#             user = User.objects.get(email=email, is_manager=True)  # Ensure the user is a manager
-#             otp_obj = OTP.objects.filter(user=user, otp=otp).first()
-            
-#             if not otp_obj:
-#                 messages.error(request, "Invalid or expired OTP.")
-#             elif new_password != confirm_password:
-#                 messages.error(request, "Passwords do not match.")
-#             else:
-#                 try:
-#                     validate_password(new_password, user)
-#                 except ValidationError as e:
-#                     messages.error(request, " ".join(e.messages))
-#                     return render(request, "managers/reset_password.html", context)
+    context = {
+        'employees': employees,
+    }
+    return render(request, 'managers/employees_list.html', context)
 
-#                 # Save the new password
-#                 user.password = make_password(new_password)
-#                 user.save()
-#                 otp_obj.delete()  # Remove OTP after successful reset
-#                 messages.success(request, "Password reset successfully. Please login.")
-#                 return redirect('managers:login')  # Redirect to login page
-#         except User.DoesNotExist:
-#             messages.error(request, "User does not exist.")
+
+@login_required(login_url='/managers/login')
+@allow_founder
+def all_leave_history(request):
+    employee_leaves = LeaveRequest.objects.all().select_related('employee').order_by('-created_date')
     
-#     return render(request, "managers/reset_password.html", context)
+    manager_leaves = UnifiedLeaveRequest.objects.filter(
+        requested_by_role='manager'
+    ).select_related('manager__user').order_by('-created_date')
+    
+    context = {
+        'employee_leaves': employee_leaves,
+        'manager_leaves': manager_leaves,
+    }
+    return render(request, 'managers/all_leave_history.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def employee_leave_history(request):
+    if is_founder(request.user):
+        leave_requests = LeaveRequest.objects.all().select_related('employee').order_by('-created_date')
+    else:
+        try:
+            manager = Manager.objects.get(user=request.user)
+            from common.utils import get_employees_under_manager
+            employees = get_employees_under_manager(manager)
+            leave_requests = LeaveRequest.objects.filter(
+                employee__in=[emp.user for emp in employees]
+            ).order_by('-created_date')
+        except Manager.DoesNotExist:
+            leave_requests = LeaveRequest.objects.none()
+    
+    context = {
+        'leave_requests': leave_requests,
+    }
+    return render(request, 'managers/employee_leave_history.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def leave_summary(request):
+    if is_founder(request.user):
+        employees = Employe.objects.all()
+        managers = Manager.objects.all()
+    else:
+        try:
+            manager = Manager.objects.get(user=request.user)
+            from common.utils import get_employees_under_manager
+            employees = get_employees_under_manager(manager)
+            managers = Manager.objects.none()
+        except Manager.DoesNotExist:
+            employees = Employe.objects.none()
+            managers = Manager.objects.none()
+    
+    context = {
+        'employees': employees,
+        'managers': managers,
+    }
+    return render(request, 'managers/leave_summary.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager', 'founder')
+def employee_detail(request, id):
+    employe = get_object_or_404(Employe, id=id)
+    user = employe.user
+    
+    leave_requests = LeaveRequest.objects.filter(employee=user).order_by('-created_date')
+    
+    context = {
+        'employe': employe,
+        'user': user,
+        'leave_requests': leave_requests,
+    }
+    return render(request, 'managers/employee_detail.html', context)
 
 
 def manager_forget_password(request):
-    if request.method == "POST":
-        email = request.POST.get("email")
-
-        # Validate email format
-        if not email or not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            context = {
-                "title": "Forget Password",
-                "message": "Invalid email format"
-            }
-            return render(request, "managers/forget_password.html", context)
-
-        # Check if the email exists in the database
+    if request.method == 'POST':
+        email = request.POST.get('email')
         try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            context = {
-                "title": "Forget Password",
-                "message": "Email not found in our records. Please try again."
-            }
-            return render(request, "managers/forget_password.html", context)
-
-        # Generate OTP (6 digits)
-        otp = secrets.randbelow(899999) + 100000
-
-        # Set OTP expiration time (e.g., 10 minutes from now)
-        otp_expiry_time = timezone.now() + timedelta(minutes=10)
-
-        # Create OTP entry in the database with an expiration time
-        OTP.objects.create(user=user, otp=otp, expires_at=otp_expiry_time)
-
-        # Send OTP via email (same as before)
-        try:
-            context = ssl._create_unverified_context()
-            with smtplib.SMTP('smtp.gmail.com', 587) as server:
-                server.starttls(context=context)
-                server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-                send_mail(
-                    'Reset Password OTP',
-                    f'Your OTP for resetting the password is {otp}. It will expire in 10 minutes.',
-                    settings.EMAIL_HOST_USER,
-                    [email],
-                    fail_silently=False,
-                )
+            user = User.objects.get(email=email, is_manager=True)
             
-            # Store the email in session for later use
-            request.session['reset_user_email'] = email
-
-            # Redirect to reset password page
-            return HttpResponseRedirect(reverse('managers:reset_password'))
-
-        except smtplib.SMTPException as e:
-            messages.error(request, "Error sending OTP email. Please try again later.")
-            return render(request, "managers/forget_password.html", {"title": "Forget Password"})
-
-    # If the request method is GET, show the form
-    context = {
-        "title": "Forget Password",
-    }
-    return render(request, "managers/forget_password.html", context)
-
+            otp_code = str(random.randint(100000, 999999))
+            otp, created = OTP.objects.get_or_create(user=user)
+            otp.otp = otp_code
+            otp.save()
+            
+            subject = "Password Reset OTP"
+            message = f"Your OTP for password reset is: {otp_code}\nThis OTP is valid for 10 minutes."
+            send_mail(subject, message, settings.EMAIL_HOST_USER, [email])
+            
+            request.session['reset_email'] = email
+            messages.success(request, "OTP sent to your email!")
+            return redirect(reverse('managers:reset_password'))
+            
+        except User.DoesNotExist:
+            messages.error(request, "No manager account found with this email.")
+    
+    return render(request, 'managers/forget_password.html')
 
 
 def manager_reset_password(request):
-    context = {"title": "Reset Password"}
-
-    # Retrieve the email from session
-    email = request.session.get('reset_user_email')
-
-    if not email:
-        messages.error(request, "Session expired. Please restart the password reset process.")
-        return redirect('managers:forget_password')
-
-    if request.method == "POST":
-        otp = request.POST.get("otp")
-        new_password = request.POST.get("new_password")
-        confirm_password = request.POST.get("confirm_password")
-
+    if request.method == 'POST':
+        email = request.session.get('reset_email')
+        otp_code = request.POST.get('otp')
+        new_password = request.POST.get('password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        if new_password != confirm_password:
+            messages.error(request, "Passwords do not match!")
+            return render(request, 'managers/reset_password.html')
+        
         try:
-            # Retrieve user by email
-            user = get_user_model().objects.get(email=email)
-            otp_obj = OTP.objects.filter(user=user, otp=otp).first()
-
-            # Validate OTP
-            if not otp_obj or otp_obj.is_expired():
-                messages.error(request, "Invalid or expired OTP.")
-            elif new_password != confirm_password:
-                messages.error(request, "Passwords do not match.")
-            else:
-                try:
-                    # Validate password strength (optional)
-                    validate_password(new_password, user)
-                except ValidationError as e:
-                    messages.error(request, " ".join(e.messages))
-                    return render(request, "managers/reset_password.html", context)
-
-                # Save the new password
-                user.set_password(new_password)
-                user.save()
-
-                # Remove OTP after successful reset
-                otp_obj.delete()
-                messages.success(request, "Password reset successfully. Please login.")
-
-                # Redirect to login page
-                return HttpResponseRedirect(reverse('managers:login'))
-
-        except get_user_model().DoesNotExist:
-            messages.error(request, "User does not exist.")
-
-    return render(request, "managers/reset_password.html", context)
+            user = User.objects.get(email=email)
+            otp = OTP.objects.get(user=user, otp=otp_code)
+            
+            if otp.is_expired():
+                messages.error(request, "OTP has expired!")
+                return render(request, 'managers/reset_password.html')
+            
+            user.set_password(new_password)
+            user.save()
+            
+            otp.delete()
+            
+            if 'reset_email' in request.session:
+                del request.session['reset_email']
+            
+            messages.success(request, "Password reset successfully! Please login.")
+            return redirect(reverse('managers:login'))
+            
+        except (User.DoesNotExist, OTP.DoesNotExist):
+            messages.error(request, "Invalid OTP!")
+    
+    return render(request, 'managers/reset_password.html')

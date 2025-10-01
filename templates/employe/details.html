@@ -1,275 +1,338 @@
 {% extends "base/base.html" %}
-{% block container %}
 {% load static %}
 
-{% include 'includes/employee-nav.html' %}
+{% block container %}
+<div class="bg-gray-50 min-h-screen">
 
-<section class="pt-[10vh] lg:pt-[15vh] mb-[120px]">
-    <section class="wrapper flex flex-col lg:flex-row justify-between gap-6">
-        <!-- Left Section: Image -->
-        <div class="left w-full lg:w-[43%] flex justify-center">
-            <img src="{{employe.image.url}}" alt="Employee Image" class="w-[250px] h-[350px] md:w-[300px] md:h-[400px] rounded-[8px]">
+  <!-- Header -->
+  <header class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center">
+      <input type="text" placeholder="Search anything..." class="w-64 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+      <span class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">F</span>
+    </div>
+    <div class="flex items-center space-x-6">
+      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
+      <!-- Fixed: Added notification count badge -->
+      <div class="relative">
+        <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
+        {% if pending_leave_count > 0 %}
+          <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ pending_leave_count }}</span>
+        {% endif %}
+      </div>
+      <!-- Fixed: Added profile dropdown functionality -->
+      <div class="relative">
+        <img src="{{ user_profile_image }}" class="w-8 h-8 rounded-full object-cover cursor-pointer" id="profile-dropdown-btn">
+        <!-- Dropdown menu -->
+        <div id="profile-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden">
+          {% if user_role == 'manager' %}
+            <a href="{% url 'managers:edit_manager' user_profile.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+              <i class="fas fa-user-edit mr-2"></i>Edit Profile
+            </a>
+          {% elif user_role == 'employee' %}
+            <a href="{% url 'employe:edit_employe' user_profile.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+              <i class="fas fa-user-edit mr-2"></i>Edit Profile
+            </a>
+          {% endif %}
+          <form method="post" action="{% url 'employe:logout' %}" class="block">
+            {% csrf_token %}
+            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+              <i class="fas fa-sign-out-alt mr-2"></i>Sign Out
+            </button>
+          </form>
         </div>
-        
-        <!-- Right Section: Information -->
-        <div class="right w-full lg:w-[70%]">
-            <div class="max-w-4xl mx-auto p-6 space-y-6">
+      </div>
+    </div>
+  </header>
 
-                <!-- Personal Information Section -->
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <h2 class="text-lg font-bold mb-4">1. Personal Information</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="font-semibold">Full Name:</p>
-                            <p>{{ user.first_name }} {{ user.last_name }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Date of Birth:</p>
-                            <p>{{ user.date_of_birth }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Gender:</p>
-                            <p>{{ user.gender }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Marital Status:</p>
-                            <p>{{ user.maritul_status }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Phone Number:</p>
-                            <p>{{ user.phone_number }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">employe_id</p>
-                            <p>{{ user.employe_id }}</p>
-                        </div>
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Permanent Address:</p>
-                            <p>{{ address.permanent_address }}, {{ address.city }}, {{ address.country }}, {{ address.pincode }}</p>
-                        </div>
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Emergency Contact:</p>
-                            <p>{{ contact.contact_name }}, {{ contact.relationship }}, {{ contact.contact_number }}, {{ contact.permanent_address }}</p>
-                        </div>
-                      <div class="bg-white shadow-md rounded-lg p-6">
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Paid Annual Leave:</p>
-                            <p class="text-gray-900">{{ employe.available_leaves }}</p>
-                        </div>
+  <div class="px-4 lg:px-12 py-10 flex gap-6">
 
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Leaves Taken</p>
-                            <p class="text-gray-900">{{ employe.leaves_taken }}</p>
-                        </div>
-                       </div>
-                      <div class="bg-white shadow-md rounded-lg p-6">
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Medical leaves:</p>
-                            <p class="text-gray-900"> {{ employe.available_medical_leaves}}</p>
-                        </div>
+    <!-- Profile Sidebar -->
+    <div class="w-1/4 bg-white rounded-xl shadow p-6 text-center">
+      <img src="{{ employe.image.url }}" alt="Profile" class="w-28 h-28 mx-auto rounded-full object-cover mb-4">
+      <h2 class="text-lg font-semibold">{{ user.first_name }} {{ user.last_name }}</h2>
+      <p class="text-sm text-gray-500">{{ employe.designation }}</p>
+      <span class="inline-block mt-2 px-3 py-1 text-xs bg-green-100 text-green-600 rounded-full">ACTIVE</span>
 
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Medical leaves taken</p>
-                            <p class="text-gray-900">{{ employe.medical_leaves_taken}}</p>
-                        </div>
-                   
-                    </div>
+      <div class="mt-6 text-sm text-left space-y-2 text-gray-600">
+        <p><i class="fas fa-envelope"></i> {{ user.email }}</p>
+        <p><i class="fas fa-phone"></i> {{ user.phone_number }}</p>
+        <p><i class="fas fa-clock"></i> GMT +05:30</p>
+        <hr class="my-3">
+        <p><strong>Department:</strong> {{ employe.department }}</p>
+        <p><strong>Office:</strong> {{ employe.work_location }}</p>
+        <p><strong>Manager:</strong> {{ employe.reporting_manager }}</p>
+      </div>
 
-                    <div class="bg-white shadow-md rounded-lg p-6">
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Carry-forward:</p>
-                            <p class="text-gray-900"> {{employe.carryforward_available_leaves}}</p>
-                        </div>
+      <div class="mt-6 space-y-2">
+        <!-- Apply Leave will trigger drawer -->
+        <a href="#" id="apply-leave-btn" class="w-full bg-[#111827] hover:bg-indigo-700 text-white px-4 py-2 block text-center">Apply for Leave</a>
+        <a href="{% url 'employe:leavelist' %}" class="w-full border border-[#000000] hover:bg-gray-100 px-4 py-2 block text-gray-700 text-center">Leave List</a>
+      </div>
+    </div>
 
-                        <div class="sm:col-span-2">
-                            <p class="font-semibold">Carry-forward taken</p>
-                            <p class="text-gray-900">{{employe.carryforward_leaves_taken}}</p>
-                        </div>
-                    </div>
-                         </div>
-                </div>
-              
-                <!-- Employment Details Section -->
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <h2 class="text-lg font-bold mb-4">2. Employment Details</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="font-semibold">Employee ID:</p>
-                            <p>{{ user.employe_id }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Department:</p>
-                            <p>{{ employe.department }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Job Title:</p>
-                            <p>{{ employe.designation }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Date of Joining:</p>
-                            <p>{{ employe.date_of_joining }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Employment Type:</p>
-                            <p>{{ employe.employment_type }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Reporting Manager:</p>
-                            <p>{{ employe.reporting_manager }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Work Location:</p>
-                            <p>{{ employe.work_location }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Employee Status:</p>
-                            <p>{{ employe.employe_status }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Compensation & Benefits Section -->
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <h2 class="text-lg font-bold mb-4">3. Compensation & Benefits</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="font-semibold">Salary Details:</p>
-                            <p>{{ benefits.salary_details }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Bank Name:</p>
-                            <p>{{ benefits.bank_name }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Account Number:</p>
-                            <p>{{ benefits.account_number }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Branch Name:</p>
-                            <p>{{ benefits.branch_name }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">IFSC Code:</p>
-                            <p>{{ benefits.ifsc_code }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">PAN Card:</p>
-                            <p>{{ benefits.pancard }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">PF Fund:</p>
-                            <p>{{ benefits.pf_fund }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">State Insurance Number:</p>
-                            <p>{{ benefits.state_insurance_number }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Educational Background & Work Experience Section -->
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <h2 class="text-lg font-bold mb-4">4. Educational Background & Work Experience</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="font-semibold">Educational Qualifications:</p>
-                            <p>{{ background.educational_qualifications }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Previous Employment:</p>
-                            <p>{{ background.previous_details }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Identification Documents Section -->
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <h2 class="text-lg font-bold mb-4">5. Identification Documents</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="font-semibold">Government ID:</p>
-                            <p>{{ identification.government_id }}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Work Authorization:</p>
-                            <p>{{ identification.work_authorization }}</p>
-                        </div>
-                    </div>
-                </div>
-                   
-                   <!-- TOTAL LEAVE -->
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <h2 class="text-lg font-bold mb-4">6. Total leave</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="font-semibold">Total Leave:</p>
-                            <p>{{leave.total_leaves}}</p>
-                        </div>
-                    </div>
-                    
-                </div>
-
-                <!-- Work Schedule Section -->
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <h2 class="text-lg font-bold mb-4">7. Work Schedule</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="font-semibold">Work Hours:</p>
-                            <p>{{ schedule.start_time }} - {{ schedule.end_time }}</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-10 text-center mb-16">
-                    <div class="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                        <a href="{% url 'employe:leaveform' %}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-300 transition-transform transform hover:scale-105">
-                            Apply for leave
-                        </a>
-                        <a href="{% url 'employe:leavelist' %}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-300 transition-transform transform hover:scale-105">
-                            Leave list
-                        </a>
-                        <a href="{% url 'employe:edit_employe' id=employe.id %}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded mx-2 focus:outline-none focus:ring-2 focus:ring-yellow-300 transition-transform transform hover:scale-105 mt-[20px]">Edit Details</Details></a>
-                    </div>
-                </div>
-                
-            </div>
+    <!-- Main Content -->
+    <div class="flex-1">
+      <!-- Tabs -->
+      <div class="bg-white shadow rounded-xl mb-6">
+        <nav class="flex space-x-8 text-sm font-medium border-b border-gray-200 px-6">
+          <button class="tab-btn py-3 text-indigo-600 border-b-2 border-indigo-600" data-tab="general">General</button>
+          <button class="tab-btn py-3 hover:text-indigo-600" data-tab="schedule">Work Schedule</button>
+          <button class="tab-btn py-3 hover:text-indigo-600" data-tab="leave">Leave Details</button>
+        </nav>
+      
+      <!-- General Tab -->
+      <div id="general" class="tab-content space-y-6">
+        <!-- Personal Info -->
+        <div class="bg-white shadow rounded-xl p-6 relative">
+          <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+            <i class="fas fa-pencil-alt"></i>
+          </a>
+          <h3 class="font-semibold text-lg mb-4">Personal Info</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <p><strong>Full Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
+            <p><strong>Gender:</strong> {{ user.gender }}</p>
+            <p><strong>Date of Birth:</strong> {{ user.date_of_birth }}</p>
+            <p><strong>Marital Status:</strong> {{ user.maritul_status }}</p>
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Phone Number:</strong> {{ user.phone_number }}</p>
+          </div>
         </div>
-        <!-- End Right Section -->
 
-        
-    </section>
-</section>   <!--end-->
+        <!-- Address -->
+        <div class="bg-white shadow rounded-xl p-6 relative">
+          <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+            <i class="fas fa-pencil-alt"></i>
+          </a>
+          <h3 class="font-semibold text-lg mb-4">Address</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <p><strong>Primary Address:</strong> {{ address.permanent_address }}</p>
+            <p><strong>City:</strong> {{ address.city }}</p>
+            <p><strong>State:</strong> {{ address.state }}</p>
+            <p><strong>Country:</strong> {{ address.country }}</p>
+            <p><strong>Post Code:</strong> {{ address.pincode }}</p>
+          </div>
+        </div>
 
-<section class="mb-[70px]">
-    <section class="wrapper">
-   <div class="mt-10 w-full max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
-    <h2 class="text-xl font-semibold text-gray-700 mb-6 text-center">Mavendoer Holiday List</h2>
-    <div class="overflow-x-auto">
-        <table class="min-w-full border-collapse block md:table">
-            <thead class="block md:table-header-group">
-                <tr class="border-t-2 border-gray-300">
-                    <th class="p-2 md:border md:border-gray-300 text-left block md:table-cell">Holiday Name</th>
-                    <th class="p-2 md:border md:border-gray-300 text-left block md:table-cell">Date</th>
+        <!-- Emergency Contact -->
+        <div class="bg-white shadow rounded-xl p-6 relative">
+          <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+            <i class="fas fa-pencil-alt"></i>
+          </a>
+          <h3 class="font-semibold text-lg mb-4">Emergency Contact</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <p><strong>Contact Name:</strong> {{ contact.contact_name }}</p>
+            <p><strong>Relationship:</strong> {{ contact.relationship }}</p>
+            <p><strong>Contact Number:</strong> {{ contact.contact_number }}</p>
+          </div>
+        </div>
+
+        <!-- Bank & Benefits -->
+        <div class="bg-white shadow rounded-xl p-6 relative">
+          <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+            <i class="fas fa-pencil-alt"></i>
+          </a>
+          <h3 class="font-semibold text-lg mb-4">Bank & Benefits</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <p><strong>Bank Name:</strong> {{ benefits.bank_name }}</p>
+            <p><strong>Account Number:</strong> {{ benefits.account_number }}</p>
+            <p><strong>Branch:</strong> {{ benefits.branch_name }}</p>
+            <p><strong>IFSC:</strong> {{ benefits.ifsc_code }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Work Schedule -->
+      <div id="schedule" class="tab-content hidden">
+        <div class="bg-white shadow rounded-xl p-6 relative">
+          <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+            <i class="fas fa-pencil-alt"></i>
+          </a>
+          <h3 class="font-semibold text-lg mb-4">Work Schedule</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <p><strong>Start Time:</strong> {{ workschedule.start_time }}</p>
+            <p><strong>End Time:</strong> {{ workschedule.end_time }}</p>
+            <p><strong>Work Type:</strong> {{ workschedule.work_type }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leave Details -->
+      <div id="leave" class="tab-content hidden space-y-6">
+
+        <!-- Leave Summary -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div class="bg-indigo-50 text-indigo-700 p-6 rounded-xl shadow text-center">
+            <p class="text-2xl font-bold">{{ employe.available_leaves|add:employe.leaves_taken }}</p>
+            <p class="text-sm font-medium">Total Leaves</p>
+          </div>
+          <div class="bg-green-50 text-green-700 p-6 rounded-xl shadow text-center">
+            <p class="text-2xl font-bold">{{ employe.available_leaves }}</p>
+            <p class="text-sm font-medium">Available Leaves</p>
+          </div>
+          <div class="bg-red-50 text-red-700 p-6 rounded-xl shadow text-center">
+            <p class="text-2xl font-bold">{{ employe.leaves_taken }}</p>
+            <p class="text-sm font-medium">Leaves Taken</p>
+          </div>
+          <div class="bg-yellow-50 text-yellow-700 p-6 rounded-xl shadow text-center">
+            <p class="text-2xl font-bold">{{ employe.available_medical_leaves }}</p>
+            <p class="text-sm font-medium">Medical Available</p>
+          </div>
+          <div class="bg-yellow-100 text-yellow-800 p-6 rounded-xl shadow text-center">
+            <p class="text-2xl font-bold">{{ employe.medical_leaves_taken }}</p>
+            <p class="text-sm font-medium">Medical Taken</p>
+          </div>
+          <div class="bg-purple-50 text-purple-700 p-6 rounded-xl shadow text-center">
+            <p class="text-2xl font-bold">{{ employe.carryforward_available_leaves }}</p>
+            <p class="text-sm font-medium">Carry Forward Available</p>
+          </div>
+          <div class="bg-purple-100 text-purple-800 p-6 rounded-xl shadow text-center">
+            <p class="text-2xl font-bold">{{ employe.carryforward_taken_leaves }}</p>
+            <p class="text-sm font-medium">Carry Forward Taken</p>
+          </div>
+        </div>
+
+        <!-- Holiday Leave List -->
+        <div class="bg-white shadow rounded-xl p-6">
+          <h3 class="font-semibold text-lg mb-4">Holiday List</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm border-collapse">
+              <thead class="bg-gray-100 text-gray-600">
+                <tr>
+                  <th class="px-4 py-2 text-left">Holiday Name</th>
+                  <th class="px-4 py-2 text-left">Date</th>
                 </tr>
-            </thead>
-            <tbody class="block md:table-row-group">
+              </thead>
+              <tbody class="divide-y divide-gray-200">
                 {% for holiday in holidays %}
-                <tr class="border-t border-gray-200 block md:table-row">
-                    <td class="p-2 md:border md:border-gray-300 block md:table-cell">{{ holiday.title }}</td>
-                    <td class="p-2 md:border md:border-gray-300 block md:table-cell">{{ holiday.date }}</td>
-                  
+                <tr>
+                  <td class="px-4 py-2">{{ holiday.name }}</td>
+                  <td class="px-4 py-2">{{ holiday.date|date:"d M Y" }}</td>
                 </tr>
                 {% empty %}
-                <tr class="block md:table-row">
-                    <td colspan="3" class="text-center p-4 block md:table-cell">No holidays added yet.</td>
+                <tr>
+                  <td colspan="2" class="text-center py-4 text-gray-500">No holiday records found.</td>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
- 
+  </div>
+</div>
+<!-- Overlay -->
+<div id="drawer-overlay" class="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm hidden z-40"></div>
+
+<!-- Drawer -->
+<div id="leave-drawer" class="fixed top-0 right-0 w-full sm:w-[400px] h-full bg-white shadow-lg transform translate-x-full transition-transform duration-300 ease-in-out z-50 overflow-y-auto">
+  <div class="p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-semibold">Leave Application Form</h2>
+      <button id="close-drawer" class="text-gray-500 hover:text-red-600 text-xl">&times;</button>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" action="{% url 'employe:apply_leave' %}">
+      {% csrf_token %}
+      
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Subject</label>
+        <input type="text" name="subject" required class="mt-1 block w-full border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Start Date</label>
+        <input type="date" name="start_date" required class="mt-1 block w-full border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">End Date</label>
+        <input type="date" name="end_date" required class="mt-1 block w-full border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Attachment</label>
+        <input type="file" name="file" class="mt-1 block w-full border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Leave Type</label>
+        <select name="leave_type" required class="mt-1 block w-full border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+          <option value="AL">Annual Leave</option>    
+          <option value="ML">Medical Leave</option>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Reason</label>
+        <textarea name="description" rows="4" required class="mt-1 block w-full border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
+      </div>
+
+      <div class="text-center">
+        <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded hover:bg-indigo-700 focus:outline-none">
+          Submit
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
-    </section>
-</section>
+
+<!-- Drawer + Tabs JS -->
+<script>
+// Drawer toggle
+  const drawer = document.getElementById('leave-drawer');
+  const overlay = document.getElementById('drawer-overlay');
+  const openBtn = document.getElementById('apply-leave-btn');
+  const closeBtn = document.getElementById('close-drawer');
+
+  openBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    drawer.classList.remove('translate-x-full');
+    overlay.classList.remove('hidden');
+  });
+
+  function closeDrawer() {
+    drawer.classList.add('translate-x-full');
+    overlay.classList.add('hidden');
+  }
+
+  closeBtn.addEventListener('click', closeDrawer);
+  overlay.addEventListener('click', closeDrawer);
+
+// Tabs toggle
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('text-indigo-600','border-b-2','border-indigo-600');
+      b.classList.add('hover:text-indigo-600');
+    });
+    btn.classList.add('text-indigo-600','border-b-2','border-indigo-600');
+
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+    document.getElementById(btn.dataset.tab).classList.remove('hidden');
+  });
+});
+
+// Fixed: Profile dropdown toggle
+const profileBtn = document.getElementById('profile-dropdown-btn');
+const profileDropdown = document.getElementById('profile-dropdown');
+
+if (profileBtn && profileDropdown) {
+  profileBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    profileDropdown.classList.toggle('hidden');
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+      profileDropdown.classList.add('hidden');
+    }
+  });
+}
+</script>
 
 {% endblock %}

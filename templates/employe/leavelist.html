@@ -2,101 +2,177 @@
 {% block container %}
 {% load static %}
 
-{% include 'includes/employee-nav.html' %}
 
-<section>
-    <section class="wrapper pt-[13vh]">
-        <div class="container mx-auto p-4">
-            <!-- Table container for larger screens (hidden on small screens) -->
-            <div class="overflow-x-auto hidden sm:block">
-                <!-- <table class="min-w-full bg-white border rounded-lg shadow-lg">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Name</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Employee ID</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Date</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Leave Type</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for instance in instances %}
-                        <tr class="border-t">
-                            <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</td>
-                            <td class="py-3 px-4 text-gray-700">{{ instance.employe.employe_id }}</td>
-                            <td class="py-3 px-4 text-gray-700">{{ instance.start_date }} {{ instance.end_date }}</td>
-                            <td class="py-3 px-4 text-gray-700">{{ instance.get_leave_type_display }}</td>
-                            <td class="py-3 px-4">
-                                <a href="{% url 'employe:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2">View</a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="py-3 px-4 text-center text-gray-700">No leave requests found.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table> -->
+  <!-- Header -->
+  <header class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center">
+      <input type="text" placeholder="Search anything..." class="w-64 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
+      <span class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">F</span>
+    </div>
+    <div class="flex items-center space-x-6">
+      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
+      <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
+      <img src="{{ employe.image.url }}" class="w-8 h-8 rounded-full object-cover cursor-pointer">
+    </div>
+  </header>
 
-                <table class="min-w-full bg-white border rounded-lg shadow-lg">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Name</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Employee ID</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Subject</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Requesting Date</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Date</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Leave Type</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for instance in instances %}
-                        <tr class="border-t">
-                            <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</td>
-                            <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.employe_id }}</td>
-                            <td class="py-3 px-4 text-gray-700">{{ instance.subject }}</td>
-                            <td class="py-3 px-4 text-gray-700">{{ instance.created_date }}</td>
-                            <td class="py-3 px-4 text-gray-700">
-                                {{ instance.start_date }} - {{ instance.end_date }} <br>
-                                <span class="text-sm text-gray-500">({{ instance.leave_duration }} days)</span>
-                            </td>
-                            <td class="py-3 px-4 text-gray-700">{{ instance.get_leave_type_display }}</td>
-                            <td class="py-3 px-4">
-                                <a href="{% url 'employe:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2">View</a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="py-3 px-4 text-center text-gray-700">No leave requests found.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Stacked layout for small screens (shown only on small screens) -->
-            <div class="block sm:hidden">
-                {% for instance in instances %}
-                <div class="bg-white border rounded-lg shadow-lg mt-4 p-4">
-                    <p class="text-gray-600"><strong>Name:</strong> {{ instance.user.first_name }} {{ instance.user.last_name }}</p>
-                    <p class="text-gray-600"><strong>Employee ID:</strong> {{ instance.user.employee_id }}</p>
-                    <td class="py-3 px-4 text-gray-700">{{ instance.subject }}</td>
-                    <td class="py-3 px-4 text-gray-700">{{ instance.created_date }}</td>
-                    <p class="text-gray-600"><strong>Date:</strong> {{ instance.start_date }} {{ instance.end_date }}  <span class="text-sm text-gray-500">({{ instance.leave_duration }} days)</span></p>
-                    <p class="text-gray-600"><strong>Leave Type:</strong> {{ instance.get_leave_type_display }}</p>
-                    <div class="mt-2">
-                        <a href="{% url 'managers:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2">View List</a>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="text-center mt-4">
-                    <p class="text-gray-700">No leave requests found.</p>
-                </div>
-                {% endfor %}
-            </div>
+<section class="pt-[10vh]">
+  <div class="container mx-auto p-4">
+
+    <!-- Django Messages Framework -->
+    {% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+        <div class="p-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}" role="alert">
+            <p>{{ message }}</p>
         </div>
-    </section>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- FILTERS -->
+    <div class="flex flex-wrap gap-4 mb-6">
+      <input type="text" placeholder="01 Jan 2023 – 10 May 2023" 
+             class="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto">
+      <select id="typeFilter" class="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto">
+        <option value="">All Type</option>
+        <option value="Annual Leave">Annual Leave</option>
+        <option value="Medical Leave">Medical Leave</option>
+      </select>
+      <select id="statusFilter" class="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto">
+        <option value="">All Status</option>
+        <option value="APPROVED">Approved</option>
+        <option value="PENDING">Pending</option>
+        <option value="REJECTED">Rejected</option>
+      </select>
+    </div>
+
+    <!-- TABLE -->
+    <div class="overflow-x-auto hidden sm:block">
+      <table id="leaveTable" class="min-w-full bg-white border rounded-lg shadow">
+        <thead class="bg-gray-100 text-gray-600 text-sm uppercase">
+          <tr>
+            <th class="py-3 px-4 text-left">Employee Name</th>
+            <th class="py-3 px-4 text-left">Subject</th>
+            <th class="py-3 px-4 text-left">From</th>
+            <th class="py-3 px-4 text-left">To</th>
+            <th class="py-3 px-4 text-left">Total</th>
+            <th class="py-3 px-4 text-left">Type</th>
+            <th class="py-3 px-4 text-left">Attachment</th>
+            <th class="py-3 px-4 text-left">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for instance in instances %}
+          <tr class="border-t hover:bg-gray-50">
+            <td class="py-3 px-4 text-gray-800 font-medium flex items-center gap-2">
+              {% if instance.employe.image %}
+                <img src="{{ instance.employe.image.url }}" alt="" class="w-8 h-8 rounded-full object-cover">
+              {% else %}
+                <img src="{% static 'images/default-avatar.png' %}" alt="" class="w-8 h-8 rounded-full object-cover">
+              {% endif %}
+              {{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}
+            </td>
+            <td class="py-3 px-4">{{ instance.subject }}</td>
+            <td class="py-3 px-4">{{ instance.start_date }}</td>
+            <td class="py-3 px-4">{{ instance.end_date }}</td>
+            <td class="py-3 px-4">{{ instance.leave_duration }} Days</td>
+            <td class="py-3 px-4 type-col">{{ instance.get_leave_type_display }}</td>
+            <td class="py-3 px-4">
+              {% if instance.attachment %}
+                <a href="{{ instance.attachment.url }}" class="text-blue-500 underline">File</a>
+              {% else %}
+                –
+              {% endif %}
+            </td>
+            <td class="py-3 px-4 status-col">
+              <!-- FIX: Use the correct model fields for status -->
+              {% if instance.is_approved %}
+                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">APPROVED</span>
+              {% elif instance.is_rejected %}
+                <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded">REJECTED</span>
+              {% else %}
+                <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded">PENDING</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="py-4 text-center text-gray-600">No leave requests found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- MOBILE CARDS -->
+    <div class="block sm:hidden">
+      {% for instance in instances %}
+      <div class="bg-white border rounded-lg shadow p-4 mb-4">
+        <div class="flex items-center gap-3 mb-2">
+          {% if instance.employe.image %}
+            <img src="{{ instance.employe.image.url }}" alt="" class="w-10 h-10 rounded-full object-cover">
+          {% else %}
+            <img src="{% static 'images/default-avatar.png' %}" alt="" class="w-10 h-10 rounded-full object-cover">
+          {% endif %}
+          <div>
+            <p class="font-semibold">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</p>
+            <p class="text-xs text-gray-500">{{ instance.get_leave_type_display }}</p>
+          </div>
+        </div>
+        <p><strong>Subject:</strong> {{ instance.subject }}</p>
+        <p><strong>From:</strong> {{ instance.start_date }}</p>
+        <p><strong>To:</strong> {{ instance.end_date }}</p>
+        <p><strong>Total:</strong> {{ instance.leave_duration }} Days</p>
+        <p><strong>Attachment:</strong> 
+          {% if instance.attachment %}
+            <a href="{{ instance.attachment.url }}" class="text-blue-500 underline">File</a>
+          {% else %}
+            –
+          {% endif %}
+        </p>
+        <div class="mt-2">
+          {% if instance.is_approved %}
+            <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">APPROVED</span>
+          {% elif instance.is_rejected %}
+            <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded">REJECTED</span>
+          {% else %}
+            <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded">PENDING</span>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-center text-gray-600 mt-4">No leave requests found.</p>
+      {% endfor %}
+    </div>
+
+  </div>
 </section>
+
+<!-- JS FILTERS -->
+<script>
+document.getElementById("searchInput").addEventListener("keyup", function() {
+  let filter = this.value.toLowerCase();
+  document.querySelectorAll("#leaveTable tbody tr").forEach(row => {
+    row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+  });
+});
+
+document.getElementById("typeFilter").addEventListener("change", function() {
+  let filter = this.value;
+  document.querySelectorAll("#leaveTable tbody tr").forEach(row => {
+    let type = row.querySelector(".type-col")?.innerText.trim();
+    row.style.display = filter === "" || type === filter ? "" : "none";
+  });
+});
+
+document.getElementById("statusFilter").addEventListener("change", function() {
+  let filter = this.value;
+  document.querySelectorAll("#leaveTable tbody tr").forEach(row => {
+    let status = row.querySelector(".status-col span")?.innerText.trim();
+    row.style.display = filter === "" || status === filter ? "" : "none";
+  });
+});
+</script>
 
 {% endblock %}

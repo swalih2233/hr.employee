@@ -1,9 +1,10 @@
 from django.db import models
+from datetime import datetime, timedelta
 
 from common.models import CommonModel
 
 from users.models import User
-
+from managers.models import Manager
 
 EMPLOYE_CHOICES = (
    ('FT', 'FULL TIME'),
@@ -26,14 +27,14 @@ ID_CHOICES = (
 
 )
 
-LEAVE_CHOICES =(
-    ('ML', 'MEDICAL LEAVE'),
-    ('PR', 'PRIVILEGE'),
-    ('CA', 'CASUAL')
+LEAVE_CHOICES = (
+    ('ML', 'Medical Leave'),
+    ('AL', 'Annual Leave'),  
 )
 
 class Employe(CommonModel):
     user = models.ForeignKey(User ,on_delete=models.CASCADE)
+    manager =models.ForeignKey(Manager, on_delete=models.CASCADE, null=True, blank=True)
     department = models.CharField(max_length=100, null=True, blank=True)
     designation = models.CharField(max_length=100, null=True, blank=True)
     date_of_joining = models.DateField(null=True, blank=True)
@@ -192,29 +193,70 @@ class WorkSchedule(CommonModel):
 
 
 
-class LeaveReaquest(CommonModel):
+# Fixed: Corrected model name from LeaveReaquest to LeaveRequest and added status field
+class LeaveRequest(CommonModel):
     subject = models.CharField(max_length=100)
     start_date= models.DateField(null=True, blank=True)
     end_date= models.DateField(null=True, blank=True)
     leave_type = models.CharField(max_length=100, choices=LEAVE_CHOICES, null=True, blank=True)
     description = models.CharField(max_length=200, null=True, blank=True)
     file = models.FileField(null=True, blank=True, upload_to='file')
-    employe = models.ForeignKey(Employe, on_delete=models.CASCADE)
+    employee = models.ForeignKey(User, on_delete=models.CASCADE)  # Fixed: Changed to User model and renamed field
+    status = models.CharField(max_length=20, default='Pending', choices=[
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected')
+    ])  # Fixed: Added status field as required
     is_approved = models.BooleanField(default=False)
-    approval_date = models.DateField(null=True, blank=True)  # Add approval_date field
-    is_rejected = models.BooleanField(default=False)  # New
-    rejection_date = models.DateField(null=True, blank=True)  # To store rejection time
-    leave_duration = models.IntegerField(default=0) 
-   
+    approval_date = models.DateField(null=True, blank=True)
+    is_rejected = models.BooleanField(default=False)
+    rejection_date = models.DateField(null=True, blank=True)
+    leave_duration = models.IntegerField(default=0)
+
     class Meta:
-        db_table = 'employe_leave_reaquest'
-        verbose_name = 'leave_reaquest'
-        verbose_name_plural ='leave_reaquests'
+        db_table = 'employe_leave_request'  # Fixed: Corrected table name
+        verbose_name = 'leave_request'  # Fixed: Corrected verbose name
+        verbose_name_plural ='leave_requests'  # Fixed: Corrected plural name
         ordering = ["-id"]
 
+    def calculate_working_days(self):
+        """Calculate working days between start_date and end_date (excluding weekends)"""
+        if not self.start_date or not self.end_date:
+            return 0
+
+        # Convert string dates to date objects if needed
+        start_date = self.start_date
+        end_date = self.end_date
+
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+        # Ensure start_date is not after end_date
+        if start_date > end_date:
+            return 0
+
+        # Count working days (Monday=0, Sunday=6)
+        working_days = 0
+        current_date = start_date
+
+        while current_date <= end_date:
+            # Monday=0, Tuesday=1, ..., Saturday=5, Sunday=6
+            if current_date.weekday() < 5:  # Monday to Friday
+                working_days += 1
+            current_date += timedelta(days=1)
+
+        return working_days
+
+    def save(self, *args, **kwargs):
+        """Override save to automatically calculate leave duration"""
+        # Calculate working days before saving
+        self.leave_duration = self.calculate_working_days()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.employe.user.email
+        return f"{self.employee.email} - {self.subject}"  # Fixed: Updated to use employee field
 
 
 class Leave(models.Model):

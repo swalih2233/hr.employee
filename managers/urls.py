@@ -5,23 +5,27 @@ from managers import views
 app_name ="managers"
 
 urlpatterns=[
+
     path("",views.index, name="index"),
+    path("founder-dashboard/", views.founder_dashboard, name="founder_dashboard"),
+    path("manager-dashboard/", views.manager_dashboard, name="manager_dashboard"),
     path("login/",views.login, name="login"),
     path("logout/",views.logout, name="logout"),
 
-    path("manager/<int:id>/",views.manager_details, name="manager_details"),
-    path("manager/add/",views.manager_add, name="manager_add"),
-    path("manager/edit/<int:id>/",views.manager_edit, name="manager_edit"),
+    # path("manager/<int:id>/",views.manager_details, name="manager_details"),  # TODO: Create manager_details view function
+    
 
-    path("leavelist/",views.leavelist, name="leavelist"),
+    path("leavelist/",views.leave_requests, name="leavelist"),
     path("leave/<int:id>/",views.viewlist, name="viewlist"),
-    path("approve/<int:id>/",views.approve_leave, name="approve_leave"),
-    path('leave/reject/<int:id>/', views.reject_leave, name='reject_leave'),
+    # FIX: Consistent and non-conflicting URL structure for employee leave actions.
+    path('leave/<int:pk>/approve/', views.approve_leave, name='approve_leave'),
+    path('leave/<int:pk>/reject/', views.reject_leave, name='reject_leave'),
 
-    path("update/yearly/",views.update_yearly, name="update_yearly"),
-    path("update/march/",views.update_march, name="update_march"),
+    # Employee leave actions
+    path('employe/leave/approve/<int:leave_id>/', views.approve_employee_leave, name='approve_employee_leave'),
+    path('employe/leave/reject/<int:leave_id>/', views.reject_employee_leave, name='reject_employee_leave'),
 
-    path("employe/add/", views.add_employe, name="add_employe"),
+    path("employee/add/", views.add_employe, name="add_employe"),
     path("employe/edit/<int:id>/", views.edit_employe, name="edit_employe"),
     
     path("employe/details/<int:id>/", views.details, name="details"),
@@ -33,4 +37,30 @@ urlpatterns=[
     path('forget-password/', views.manager_forget_password, name='forget_password'),
     path('reset-password/', views.manager_reset_password, name='reset_password'),
 
+    path("founder/add/", views.founder_add, name="add_founder"),
+    path("founder/delete/<int:id>/", views.delete_founder, name="delete_founder"),
+    path("manager/add/", views.add_manager, name="add_manager"),
+    path("manager/delete/<int:id>/", views.delete_manager, name="delete_manager"),
+    path("employee/delete/<int:id>/", views.delete_employee, name="delete_employee"),
+
+    # Holiday Management URLs
+    path("holidays/", views.holidays_list, name="holidays_list"),
+    path("employees/", views.employees_list, name="employees_list"),
+
+    # Manager Leave Management URLs
+    path("leave/apply/", views.manager_apply_leave, name="manager_apply_leave"),
+    path("leave/history/", views.manager_leave_history, name="manager_leave_history"),
+    # Manager leave actions
+    path("manager/leave/requests/", views.manager_leave_requests_list, name="manager_leave_requests_list"),
+    path("manager/leave/view/<int:id>/", views.view_manager_leave_request, name="view_manager_leave_request"),
+    path("manager/leave/approve/<int:id>/", views.approve_manager_leave, name="approve_manager_leave"),
+    path("manager/leave/reject/<int:id>/", views.reject_manager_leave, name="reject_manager_leave"),
+
+    # All Leave History (for founders)
+    path("all-leave-history/", views.all_leave_history, name="all_leave_history"),
+    path("leave-summary/", views.leave_summary, name="leave_summary"),
+
+    # New URLs
+    path("employee-leave-history/", views.employee_leave_history, name="employee_leave_history"),
+    path("employee_detail/<int:id>/", views.employee_detail, name="employee_detail"),
 ]

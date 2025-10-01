@@ -1,0 +1,31 @@
+{% extends 'base/dashboard_base.html' %}
+
+{% block content %}
+<div class="p-4">
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Manager Leave History</h1>
+    <div class="mt-4 overflow-x-auto">
+        <table class="min-w-full bg-white dark:bg-gray-800">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Employee</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Leave Type</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Start Date</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">End Date</th>
+                    <th class="py-2 px-4 border-b dark:border-gray-700">Approved By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in leaves %}
+                <tr>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave.employee.user.first_name }} {{ leave.employee.user.last_name }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave.leave_type }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave.start_date }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave.end_date }}</td>
+                    <td class="py-2 px-4 border-b dark:border-gray-700">{{ leave.approved_by }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

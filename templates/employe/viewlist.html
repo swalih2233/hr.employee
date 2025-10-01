@@ -23,7 +23,7 @@
                 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700">Employe ID</label>
-                            <p class="text-gray-900">{{ user.employe_id }}</p>
+                            <p class="text-gray-900">{{ employe.user.employe_id }}</p>
                         </div>
                 
                         <div class="mb-4">
@@ -66,23 +66,25 @@
                             {% endif %}
                         </div>
                 
-                        <div class="flex justify-end">
-                            {% if leave_request.is_approved %}
-                            <a class="bg-gray-600 text-white font-medium py-2 px-4 rounded">
-                                Approved
-                            </a>
-                            <p class="text-green-500 font-semibold ml-[20px] ">{{ leave_request.approval_date}}</p> <!-- Display approval date -->
+                       <div class="flex justify-end">
+                                {% if leave_request.is_approved %}
+                                    <span class="bg-green-600 text-white font-medium py-2 px-4 rounded">
+                                        Approved
+                                    </span>
+                                    <p class="text-green-500 font-semibold ml-[20px]">{{ leave_request.approval_date }}</p>
 
-                            {% elif leave_request.is_rejected %}
-                            <a class="bg-red-600 text-white font-medium py-2 px-4 rounded">
-                                Rejected
-                            </a>
-                            <p class="text-red-500 font-semibold ml-[20px]">{{ leave_request.rejection_date }}</p> <!-- Display rejection date -->
+                                {% elif leave_request.is_rejected %}
+                                    <span class="bg-red-600 text-white font-medium py-2 px-4 rounded">
+                                        Rejected
+                                    </span>
+                                    <p class="text-red-500 font-semibold ml-[20px]">{{ leave_request.rejection_date }}</p>
 
-                            {% else %}
-                          
-                            {% endif %} 
-                        </div>
+                                {% else %}
+                                    <span class="bg-yellow-500 text-white font-medium py-2 px-4 rounded">
+                                        Pending
+                                    </span>
+                                {% endif %}
+                            </div>
 
                         
                     </div>

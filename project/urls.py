@@ -7,13 +7,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     path("",include("employe.urls", namespace="employe")),
-    path("managers/",include("managers.urls", namespace="managers"))
+    path("managers/",include("managers.urls", namespace="managers")),
+    path("leaves/",include("leaves.urls", namespace="leaves")),
 ]
 
 
 if settings.DEBUG:
-    urlpatterns += (
-        static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) +
-        static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    )
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

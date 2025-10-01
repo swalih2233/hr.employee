@@ -6,8 +6,10 @@ app_name ="employe"
 
 urlpatterns=[
     path("",views.details, name="details"),
+    path("dashboard/", views.employee_dashboard, name="employee_dashboard"),
     path("login/",views.login, name="login"),
     path("leaveform/",views.leaveform, name="leaveform"),
+    path("apply-leave/", views.apply_leave, name="apply_leave"),  # Fixed: Added required URL pattern
 
     path("logout/",views.logout, name="logout"),
 
@@ -18,10 +20,4 @@ urlpatterns=[
 
     path('forget-password/',views.forget_password, name='forget_password'),
     path('reset-password/', views.reset_password, name='reset_password'),
-
-
-
-
-    
-
 ]
