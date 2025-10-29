@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 
 # FIX: Added a Profile model to store user-specific profile information.
 # This model is linked one-to-one with the User model.
@@ -94,3 +95,6 @@ class OTP(models.Model):
 
     def __str__(self):
         return f"OTP for {self.user.email}"
+
+    def is_expired(self):
+        return self.expires_at < timezone.now()

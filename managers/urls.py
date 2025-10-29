@@ -12,6 +12,9 @@ urlpatterns=[
     path("login/",views.login, name="login"),
     path("logout/",views.logout, name="logout"),
 
+    path("profile/", views.view_profile, name="view_profile"),
+    path("profile/edit/", views.edit_profile, name="edit_profile"),
+
     # path("manager/<int:id>/",views.manager_details, name="manager_details"),  # TODO: Create manager_details view function
     
 
@@ -41,7 +44,7 @@ urlpatterns=[
     path("founder/delete/<int:id>/", views.delete_founder, name="delete_founder"),
     path("manager/add/", views.add_manager, name="add_manager"),
     path("manager/delete/<int:id>/", views.delete_manager, name="delete_manager"),
-    path("employee/delete/<int:id>/", views.delete_employee, name="delete_employee"),
+    path("delete_employee/<int:id>/", views.delete_employee, name="delete_employee"),
 
     # Holiday Management URLs
     path("holidays/", views.holidays_list, name="holidays_list"),

@@ -146,7 +146,7 @@
                                     <p class="text-xs text-gray-500">{{ user.email }}</p>
                                 </div>
                                 {% if is_manager %}
-                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit Profile</a>
+                                    <a href="{% url 'managers:view_profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Profile</a>
                                 {% endif %}
                                 <div class="border-t border-gray-100"></div>
                                 <form action="{% url 'managers:logout' %}" method="post" class="w-full">

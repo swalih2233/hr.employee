@@ -86,13 +86,7 @@
 
     <!-- Section -->
     <section class="p-6">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">My Leave History</h1>
-        <a href="{% url 'managers:manager_apply_leave' %}" 
-           class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition">
-          Apply for Leave
-        </a>
-      </div>
+
 
       <!-- Leave Balance Summary -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -215,10 +209,7 @@
           </div>
           <h3 class="text-lg font-medium text-gray-900 mb-2">No leave requests found</h3>
           <p class="text-gray-500 mb-4">You haven't applied for any leaves yet.</p>
-          <a href="{% url 'managers:manager_apply_leave' %}"
-             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-            Apply for Leave
-          </a>
+     
         </div>
         {% endif %}
       </div>

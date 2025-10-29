@@ -21,7 +21,7 @@ from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.shortcuts import render, redirect
-from django.utils.timezone import now
+from django.utils import timezone
 from datetime import timedelta
 import random
 from django.core.exceptions import ValidationError
@@ -177,6 +177,11 @@ def logout(request):
 
 
 def login(request):
+    if request.method == "GET":
+        # Clear any existing messages
+        storage = messages.get_messages(request)
+        storage.used = True
+
     if request.method == 'POST':
         email = request.POST.get("email")
         password = request.POST.get("password")

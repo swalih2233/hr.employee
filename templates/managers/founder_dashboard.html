@@ -23,7 +23,7 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans" x-data="founderDashboard()">
+<body class="bg-gray-100 text-gray-800 font-sans" x-data="{ open: false, ...founderDashboard() }">
 
 <!-- Header -->
 <nav class="bg-[#1F2937] text-white px-[90px] py-4 shadow h-[160px]">
@@ -51,11 +51,18 @@
       </a>
 
       <!-- Profile Image -->
-      {% if user.profile.image %}
-        <img src="{{ user.profile.image.url }}" class="w-8 h-8 rounded-full object-cover" alt="Avatar">
-      {% else %}
-        <img src="{% static 'images/default-avatar.png' %}" class="w-8 h-8 rounded-full object-cover" alt="Default Avatar">
-      {% endif %}
+      <div class="relative" @click.away="open = false">
+        <button @click="open = !open" class="flex items-center space-x-2 focus:outline-none">
+          {% if founder.image %}
+            <img src="{{ founder.image.url }}" class="w-8 h-8 rounded-full object-cover" alt="Avatar">
+          {% else %}
+            <img src="{% static 'images/default-avatar.png' %}" class="w-8 h-8 rounded-full object-cover" alt="Default Avatar">
+          {% endif %}
+        </button>
+        <div x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100" x-transition:leave-end="transform opacity-0 scale-95" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 text-gray-800">
+          <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm hover:bg-gray-100">Sign Out</a>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -218,9 +225,9 @@
                         <th class="px-6 py-3">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody id="founders-list-body" class="bg-white divide-y divide-gray-200">
                     {% for founder in founders %}
-                    <tr>
+                    <tr data-id="{{ founder.id }}">
                         <td class="px-6 py-4 whitespace-nowrap flex items-center">
                           <img 
                             src="{% if founder.image %}{{ founder.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
@@ -235,7 +242,7 @@
                             <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
                         </td>
                         <td class="px-6 py-4">
-                            <a href="{% url 'managers:delete_founder' founder.id %}" onclick="return confirm('Are you sure you want to delete this founder?')" class="text-red-600 hover:text-red-900">Delete</a>
+                            <a href="javascript:void(0);" onclick="deleteItem(`{% url 'managers:delete_founder' founder.id %}`, '{{ founder.id }}', 'founder')" class="text-red-600 hover:text-red-900">Delete</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -260,9 +267,9 @@
                         <th class="px-6 py-3">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody id="managers-list-body" class="bg-white divide-y divide-gray-200">
                     {% for manager in managers %}
-                    <tr>
+                    <tr data-id="{{ manager.id }}">
                         <td class="px-6 py-4 whitespace-nowrap flex items-center">
                           <img 
                             src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
@@ -277,7 +284,7 @@
                             <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
                         </td>
                         <td class="px-6 py-4">
-                            <a href="{% url 'managers:delete_manager' manager.id %}" onclick="return confirm('Are you sure you want to delete this manager?')" class="text-red-600 hover:text-red-900">Delete</a>
+                            <a href="javascript:void(0);" onclick="deleteItem(`{% url 'managers:delete_manager' manager.id %}`, '{{ manager.id }}', 'manager')" class="text-red-600 hover:text-red-900">Delete</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -312,48 +319,83 @@
                 </div>
               </div>
               <div class="relative flex-1 py-6 px-4 sm:px-6">
-                <form action="{% url 'managers:add_manager' %}" method="post" enctype="multipart/form-data" class="bg-white p-6 rounded-lg">
-                    {% csrf_token %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="first_name" class="block text-sm font-medium text-gray-700">First Name</label>
-                            <input type="text" name="first_name" id="first_name_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
-                        </div>
-                        <div>
-                            <label for="last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
-                            <input type="text" name="last_name" id="last_name_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
-                        </div>
-                        <div>
-                            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                            <input type="email" name="email" id="email_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
-                        </div>
-                        <div>
-                            <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
-                            <input type="text" name="phone" id="phone_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
-                        </div>
-                        <div>
-                            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                            <input type="password" name="password" id="password_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
-                        </div>
-                        <div>
-                            <label for="image" class="block text-sm font-medium text-gray-700">Profile Image</label>
-                            <input type="file" name="image" id="image_manager" class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
-                        </div>
-                        <div>
-                            <label for="joining_date" class="block text-sm font-medium text-gray-700">Joining Date</label>
-                            <input type="date" name="joining_date" id="joining_date_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
-                        </div>
-                        <div>
-                            <label for="job_role" class="block text-sm font-medium text-gray-700">Job Role</label>
-                            <input type="text" name="job_role" id="job_role_manager" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
-                        </div>
-                    </div>
-                    <div class="mt-6">
-                        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            Add Manager
-                        </button>
-                    </div>
-                </form>
+            <form id="addManagerForm" action="{% url 'managers:add_manager' %}" method="post" enctype="multipart/form-data" class="bg-white p-6 rounded-xl shadow-sm">
+  {% csrf_token %}
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <!-- First Name -->
+    <div>
+      <label for="first_name" class="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
+      <input type="text" name="first_name" id="first_name_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+
+    <!-- Last Name -->
+    <div>
+      <label for="last_name" class="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
+      <input type="text" name="last_name" id="last_name_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+
+    <!-- Email -->
+    <div>
+      <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+      <input type="email" name="email" id="email_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+
+    <!-- Phone -->
+    <div>
+      <label for="phone" class="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
+      <input type="text" name="phone" id="phone_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+
+    <!-- Password -->
+    <div>
+      <label for="password" class="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+      <input type="password" name="password" id="password_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+
+    <!-- Profile Image -->
+    <div>
+      <label for="image" class="block text-sm font-semibold text-gray-700 mb-1">Profile Image</label>
+      <input type="file" name="image" id="image_manager"
+             class="w-full text-sm border border-gray-300 rounded-lg bg-gray-50 px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition cursor-pointer">
+    </div>
+
+    <!-- Joining Date -->
+    <div>
+      <label for="joining_date" class="block text-sm font-semibold text-gray-700 mb-1">Joining Date</label>
+      <input type="date" name="joining_date" id="joining_date_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+
+    <!-- Job Role -->
+    <div>
+      <label for="job_role" class="block text-sm font-semibold text-gray-700 mb-1">Job Role</label>
+      <input type="text" name="job_role" id="job_role_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+  </div>
+
+  <div class="mt-8 flex justify-end">
+    <button type="submit"
+      class="bg-gray-800 hover:bg-gray-900 text-white font-semibold px-6 py-2.5 rounded-lg shadow-sm transition focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      Add Manager
+    </button>
+  </div>
+</form>
+
+
               </div>
             </div>
           </div>
@@ -384,7 +426,7 @@
                 </div>
               </div>
               <div class="relative flex-1 py-6 px-4 sm:px-6">
-                <form method="post" action="{% url 'managers:add_founder' %}" enctype="multipart/form-data" class="bg-white p-6 rounded-lg">
+                <form method="post" action="{% url 'managers:add_founder' %}" enctype="multipart/form-data" @submit.prevent="submitAddFounderForm($event)" class="bg-white p-6 rounded-lg">
                     {% csrf_token %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -421,7 +463,7 @@
                         <input type="text" id="job_role_founder" name="job_role" value="{{ job_role }}" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
                     </div>
                     <div class="mt-6 text-center">
-                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-300">
+                        <button type="submit" class="w-full bg-gray-800 text-white py-2 rounded-lg hover:bg-gray-900 focus:outline-none focus:ring focus:ring-blue-300">
                             Submit
                         </button>
                     </div>
@@ -453,9 +495,135 @@
             } else {
                 this.activeSidebar = sidebarName;
             }
+        },
+        submitAddFounderForm(event) {
+          const form = event.target;
+          const formData = new FormData(form);
+
+          // Clear previous errors
+          form.querySelectorAll('.error-message').forEach(el => el.remove());
+
+          fetch(form.action, {
+            method: "POST",
+            headers: {
+              "X-CSRFToken": form.querySelector('[name=csrfmiddlewaretoken]').value,
+              "X-Requested-With": "XMLHttpRequest"
+            },
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.status === 'success') {
+              alert(data.message);
+              this.closeSidebar();
+              form.reset();
+
+              // Dynamically add the new founder to the table
+              const founder = data.founder;
+              const tableBody = document.getElementById('founders-list-body');
+              const newRow = document.createElement('tr');
+              newRow.setAttribute('data-id', founder.id);
+              newRow.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                  <img 
+                    src="${founder.image_url}" 
+                    alt="${founder.full_name}" 
+                    class="h-8 w-8 rounded-full object-cover mr-3"
+                  >
+                  <span class="text-gray-800 font-medium">${founder.full_name}</span>
+                </td>
+                <td class="px-6 py-4">${founder.email}</td>
+                <td class="px-6 py-4">Founder</td>
+                <td class="px-6 py-4">
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
+                </td>
+                <td class="px-6 py-4">
+                    <a href="javascript:void(0);" onclick="deleteItem('/managers/delete_founder/${founder.id}/', '${founder.id}', 'founder')" class="text-red-600 hover:text-red-900">Delete</a>
+                </td>
+              `;
+              tableBody.appendChild(newRow);
+
+            } else if (data.status === 'error' && data.errors) {
+              // Display validation errors
+              for (const [field, message] of Object.entries(data.errors)) {
+                const input = form.querySelector(`[name=${field}]`);
+                if (input) {
+                  const errorElement = document.createElement('p');
+                  errorElement.className = 'text-red-500 text-xs mt-1 error-message';
+                  errorElement.textContent = message;
+                  input.parentElement.appendChild(errorElement);
+                }
+              }
+            } else {
+              alert(data.message || "An unknown error occurred.");
+            }
+          })
+          .catch(error => {
+            console.error("Error:", error);
+            alert("An error occurred while submitting the form.");
+          });
         }
       }
     }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function deleteItem(url, id, type) {
+      if (confirm(`Are you sure you want to delete this ${type}?`)) {
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+          },
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'success') {
+            const row = document.querySelector(`tr[data-id='${id}']`);
+            if (row) {
+              row.remove();
+            }
+          } else {
+            alert(data.message);
+          }
+        });
+      }
+    }
   </script>
+<script>
+document.querySelector('#addManagerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    const response = await fetch("{% url 'managers:add_manager' %}", {
+        method: "POST",
+        body: formData,
+        headers: { "X-CSRFToken": "{{ csrf_token }}" }
+    });
+
+    const data = await response.json();
+    if (data.status === "success") {
+        alert("Manager added successfully!");
+        this.reset();
+        location.reload(); // refresh dashboard list
+    } else {
+        alert(data.message);
+    }
+});
+</script>
 </body>
 </html>

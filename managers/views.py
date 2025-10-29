@@ -36,12 +36,14 @@ from django.conf import settings
 from django.core.validators import validate_email
 import secrets
 import logging
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
 # Google Calendar integration
 from .google_calendar_service import get_google_calendar_service
-from .forms import UnifiedLeaveRequestForm, AddUserForm, AddEmployeModelForm
+from .forms import ManagerProfileForm, UnifiedLeaveRequestForm, AddUserForm, AddEmployeModelForm
 from common.decorators import role_required, allow_founder
 from common.utils import get_user_role, is_founder, is_manager, get_user_profile, generate_manager_id, calculate_leave_days
 
@@ -129,8 +131,9 @@ def index(request):
 @login_required(login_url='/managers/login')
 @allow_founder
 def founder_dashboard(request):
-    founders = Founder.objects.all()
-    managers = Manager.objects.all()
+    logged_in_founder = get_object_or_404(Founder, user=request.user)
+    founders = Founder.objects.filter(user__is_superuser=True)
+    managers = Manager.objects.filter(user__is_manager=True, user__is_superuser=False)
     employes = Employe.objects.all()
     holidays = Holiday.objects.all()
 
@@ -186,6 +189,7 @@ def founder_dashboard(request):
     recent_approved_leaves = recent_approved_leaves[:5]
 
     context = {
+        'founder': logged_in_founder,
         'founders': founders,
         'managers': managers,
         'employees': employes,
@@ -237,10 +241,13 @@ def manager_dashboard(request):
     ).order_by('-created_date')[:5]
     
     leave_history = LeaveRequest.objects.filter(employee__in=[emp.user for emp in employees]).order_by('-created_date')
+    
+    holidays = Holiday.objects.all().order_by('date')
 
     context = {
         'manager': manager,
         'employees': employees,
+        'holidays': holidays,
         'employee_count': employees.count(),
         'pending_employee_requests': pending_employee_requests,
         'pending_count': pending_employee_requests.count(),
@@ -495,6 +502,11 @@ def leave_requests(request):
 
 
 def login(request):
+    if request.method == "GET":
+        # Clear any existing messages
+        storage = messages.get_messages(request)
+        storage.used = True
+        
     context = {"title": "Login"}
     
     if request.method == 'POST':
@@ -688,78 +700,87 @@ def details(request, id):
     return render(request, 'managers/details.html', context)
 
 
+@csrf_exempt
 @login_required(login_url='/managers/login')
 @role_required('manager', 'founder')
 def delete_employee(request, id):
     employe = get_object_or_404(Employe, id=id)
-    user = employe.user
     
-    if request.method == 'POST':
+    # Permission check
+    if is_manager(request.user):
+        manager = get_object_or_404(Manager, user=request.user)
+        if employe.manager != manager:
+            return JsonResponse({'error': 'You do not have permission to delete this employee.'}, status=403)
+
+    if request.method == 'DELETE' or request.method == 'POST':
         try:
-            user_name = user.get_full_name()
+            user = employe.user
             user.delete()
-            messages.success(request, f"Employee {user_name} deleted successfully!")
+            return JsonResponse({'success': True})
         except Exception as e:
-            messages.error(request, f"Error deleting employee: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=500)
     
-    return redirect(reverse('managers:employees_list'))
+    return JsonResponse({'error': 'Invalid request method.'}, status=405)
 
 
+@csrf_exempt
 @login_required(login_url='/managers/login')
 @allow_founder
 def add_manager(request):
     if request.method == 'POST':
         try:
+            first_name = request.POST.get("first_name")
+            last_name = request.POST.get("last_name")
+            email = request.POST.get("email")
+            phone = request.POST.get("phone")
+            password = request.POST.get("password")
+            joining_date = request.POST.get("joining_date")
+            job_role = request.POST.get("job_role")
+            image = request.FILES.get("image")
+
+            # check duplicate email
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({"status": "error", "message": "Email already exists."})
+
+            # create user
             user = User.objects.create_user(
-                email=request.POST['email'],
-                password=request.POST['password'],
-                first_name=request.POST['first_name'],
-                last_name=request.POST['last_name'],
-                phone_number=request.POST.get('phone_number', ''),
-                gender=request.POST.get('gender', ''),
-                is_manager=True
+                username=email,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                password=password,
             )
-            
-            manager_id = generate_manager_id()
-            
+            user.phone_number = phone
+            user.is_manager = True
+            user.save()
+
+            # create manager profile
             manager = Manager.objects.create(
                 user=user,
-                manager_id=manager_id,
-                department=request.POST.get('department', ''),
-                designation=request.POST.get('designation', ''),
-                date_of_joining=request.POST.get('date_of_joining'),
-                employment_Type=request.POST.get('employment_Type', ''),
-                work_location=request.POST.get('work_location', ''),
+                date_of_joining=joining_date,
+                designation=job_role,
+                image=image,
             )
-            
-            if request.FILES.get('image'):
-                manager.image = request.FILES['image']
-                manager.save()
-            
-            messages.success(request, f"Manager {user.get_full_name()} added successfully!")
-            return redirect(reverse('managers:founder_dashboard'))
-            
+
+            return JsonResponse({"status": "success", "message": "Manager added successfully."})
         except Exception as e:
-            messages.error(request, f"Error creating manager: {str(e)}")
+            logger.error(f"Error adding manager: {e}", exc_info=True)
+            return JsonResponse({"status": "error", "message": str(e)})
     
-    return render(request, 'managers/add_manager.html')
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 
 @login_required(login_url='/managers/login')
 @allow_founder
 def delete_manager(request, id):
     manager = get_object_or_404(Manager, id=id)
-    user = manager.user
-    
     if request.method == 'POST':
         try:
-            user_name = user.get_full_name()
-            user.delete()
-            messages.success(request, f"Manager {user_name} deleted successfully!")
+            manager.user.delete()
+            return JsonResponse({'status': 'success', 'message': 'Manager deleted successfully.'})
         except Exception as e:
-            messages.error(request, f"Error deleting manager: {str(e)}")
-    
-    return redirect(reverse('managers:founder_dashboard'))
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'})
 
 
 @login_required(login_url='/managers/login')
@@ -767,54 +788,65 @@ def delete_manager(request, id):
 def founder_add(request):
     if request.method == 'POST':
         try:
+            # Basic validation
+            required_fields = ['first_name', 'last_name', 'email', 'password']
+            errors = {field: f"{field.replace('_', ' ').title()} is required." for field in required_fields if not request.POST.get(field)}
+
+            if User.objects.filter(email=request.POST.get('email')).exists():
+                errors['email'] = "A user with this email already exists."
+
+            if errors:
+                return JsonResponse({'status': 'error', 'errors': errors}, status=400)
+
             user = User.objects.create_user(
+                username=request.POST['email'],
                 email=request.POST['email'],
                 password=request.POST['password'],
                 first_name=request.POST['first_name'],
                 last_name=request.POST['last_name'],
-                phone_number=request.POST.get('phone_number', ''),
-                gender=request.POST.get('gender', ''),
+                phone_number=request.POST.get('phone', ''),
                 is_superuser=True,
                 is_staff=True
             )
             
             founder = Founder.objects.create(
                 user=user,
-                department=request.POST.get('department', ''),
-                designation=request.POST.get('designation', ''),
-                date_of_joining=request.POST.get('date_of_joining'),
-                employment_Type=request.POST.get('employment_Type', ''),
-                work_location=request.POST.get('work_location', ''),
+                date_of_joining=request.POST.get('joining_date'),
+                designation=request.POST.get('job_role', ''),
             )
             
             if request.FILES.get('image'):
                 founder.image = request.FILES['image']
                 founder.save()
             
-            messages.success(request, f"Founder {user.get_full_name()} added successfully!")
-            return redirect(reverse('managers:founder_dashboard'))
+            return JsonResponse({
+                'status': 'success',
+                'message': f"Founder {user.get_full_name()} added successfully!",
+                'founder': {
+                    'id': founder.id,
+                    'full_name': user.get_full_name(),
+                    'email': user.email,
+                    'image_url': founder.image.url if founder.image else '/static/images/default-avatar.png'
+                }
+            })
             
         except Exception as e:
-            messages.error(request, f"Error creating founder: {str(e)}")
+            return JsonResponse({'status': 'error', 'message': f"An unexpected error occurred: {str(e)}"}, status=500)
     
-    return render(request, 'managers/add_founder.html')
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 
 @login_required(login_url='/managers/login')
 @allow_founder
 def delete_founder(request, id):
     founder = get_object_or_404(Founder, id=id)
-    user = founder.user
-    
     if request.method == 'POST':
         try:
-            user_name = user.get_full_name()
-            user.delete()
-            messages.success(request, f"Founder {user_name} deleted successfully!")
+            founder.user.delete()
+            return JsonResponse({'status': 'success', 'message': 'Founder deleted successfully.'})
         except Exception as e:
-            messages.error(request, f"Error deleting founder: {str(e)}")
-    
-    return redirect(reverse('managers:founder_dashboard'))
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'})
 
 
 @login_required(login_url='/managers/login')
@@ -981,12 +1013,16 @@ def manager_forget_password(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         try:
-            user = User.objects.get(email=email, is_manager=True)
+            user = User.objects.get(Q(email=email) & (Q(is_manager=True) | Q(is_superuser=True)))
             
             otp_code = str(random.randint(100000, 999999))
-            otp, created = OTP.objects.get_or_create(user=user)
-            otp.otp = otp_code
-            otp.save()
+            otp, created = OTP.objects.update_or_create(
+                user=user,
+                defaults={
+                    'otp': otp_code,
+                    'expires_at': timezone.now() + timedelta(minutes=10)
+                }
+            )
             
             subject = "Password Reset OTP"
             message = f"Your OTP for password reset is: {otp_code}\nThis OTP is valid for 10 minutes."
@@ -1006,7 +1042,7 @@ def manager_reset_password(request):
     if request.method == 'POST':
         email = request.session.get('reset_email')
         otp_code = request.POST.get('otp')
-        new_password = request.POST.get('password')
+        new_password = request.POST.get('new_password')
         confirm_password = request.POST.get('confirm_password')
         
         if new_password != confirm_password:
@@ -1036,3 +1072,63 @@ def manager_reset_password(request):
             messages.error(request, "Invalid OTP!")
     
     return render(request, 'managers/reset_password.html')
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager')
+def view_profile(request):
+    manager = get_object_or_404(Manager, user=request.user)
+    
+    try:
+        address = AddressManager.objects.get(manager=manager)
+    except AddressManager.DoesNotExist:
+        address = None
+        
+    try:
+        contact = EmergencyContactManager.objects.get(manager=manager)
+    except EmergencyContactManager.DoesNotExist:
+        contact = None
+        
+    try:
+        benefits = BenefitsManager.objects.get(manager=manager)
+    except BenefitsManager.DoesNotExist:
+        benefits = None
+
+    context = {
+        'employe': manager,
+        'user': manager.user,
+        'address': address,
+        'contact': contact,
+        'benefits': benefits,
+    }
+    return render(request, 'managers/details.html', context)
+
+
+@login_required(login_url='/managers/login')
+@role_required('manager')
+def edit_profile(request):
+    manager = get_object_or_404(Manager, user=request.user)
+    
+    if request.method == 'POST':
+        form = ManagerProfileForm(request.POST, request.FILES, instance=manager)
+        if form.is_valid():
+            # Update User model fields
+            user = manager.user
+            user.first_name = form.cleaned_data['first_name']
+            user.last_name = form.cleaned_data['last_name']
+            user.phone_number = form.cleaned_data['phone_number']
+            user.save()
+            
+            # Update Manager model fields
+            form.save()
+            
+            messages.success(request, "Profile updated successfully!")
+            return redirect('managers:view_profile')
+    else:
+        form = ManagerProfileForm(instance=manager)
+    
+    context = {
+        'manager': manager,
+        'form': form,
+    }
+    return render(request, 'managers/view_profile.html', context)
