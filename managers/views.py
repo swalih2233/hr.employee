@@ -51,18 +51,19 @@ logger = logging.getLogger(__name__)
 
 # ==================== EMAIL FUNCTIONS ====================
 
-def send_leave_notification(request, leave, email_type, recipient_email, manager_name=None):
+def send_leave_notification(request, leave, email_type, recipient_email, manager_name=None, cc_founder=False):
     """
     Generic function to send leave notifications.
     - `leave`: The leave request object (LeaveRequest or UnifiedLeaveRequest).
     - `email_type`: 'new_request', 'approved', 'rejected', or 'submission_confirmation'.
     - `recipient_email`: The email address of the recipient.
     - `manager_name`: The name of the manager (for notifications to managers).
+    - `cc_founder`: If True, CC the founder on the email.
     """
     
     if isinstance(leave, LeaveRequest):
-        requester_profile = get_object_or_404(Employe, user=leave.employee)
-        requester_name = leave.employee.get_full_name()
+        requester_profile = leave.employee
+        requester_name = leave.employee.user.get_full_name()
         leave_model_name = 'LeaveRequest'
     elif isinstance(leave, UnifiedLeaveRequest):
         requester_profile = leave.manager
@@ -103,11 +104,18 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
     })
 
     try:
+        cc_list = []
+        if cc_founder:
+            founders = Founder.objects.all()
+            for founder in founders:
+                cc_list.append(founder.user.email)
+
         email = EmailMessage(
             subject,
             body=html_content,
             from_email=settings.EMAIL_HOST_USER,
-            to=[recipient_email]
+            to=[recipient_email],
+            cc=cc_list
         )
         email.content_subtype = 'html'
         email.send()
@@ -167,18 +175,13 @@ def founder_dashboard(request):
 
     recent_employee_leaves = LeaveRequest.objects.filter(
         status='Approved'
-    ).select_related('employee').order_by('-id')[:5]
-
-    employee_users = [leave.employee for leave in recent_employee_leaves]
-    employe_objects = Employe.objects.filter(user__in=employee_users).select_related('user')
-    employe_map = {employe.user.id: employe for employe in employe_objects}
+    ).select_related('employee__user').order_by('-id')[:5]
 
     for leave in recent_employee_leaves:
-        employee_profile = employe_map.get(leave.employee.id)
         recent_approved_leaves.append({
-            'requester_name': f"{leave.employee.first_name} {leave.employee.last_name}",
+            'requester_name': f"{leave.employee.user.first_name} {leave.employee.user.last_name}",
             'requested_by_role': 'employee',
-            'employee': employee_profile,
+            'employee': leave.employee,
             'subject': leave.subject,
             'start_date': leave.start_date,
             'end_date': leave.end_date,
@@ -226,7 +229,7 @@ def manager_dashboard(request):
     employees = get_employees_under_manager(manager)
 
     pending_employee_requests = LeaveRequest.objects.filter(
-        employee__in=[emp.user for emp in employees],
+        employee__in=employees,
         status='Pending'
     ).order_by('-created_date')
 
@@ -236,11 +239,11 @@ def manager_dashboard(request):
     ).order_by('-created_date')[:5]
 
     recent_approved_employee_leaves = LeaveRequest.objects.filter(
-        employee__in=[emp.user for emp in employees],
+        employee__in=employees,
         status='Approved'
     ).order_by('-created_date')[:5]
     
-    leave_history = LeaveRequest.objects.filter(employee__in=[emp.user for emp in employees]).order_by('-created_date')
+    leave_history = LeaveRequest.objects.filter(employee__in=employees).order_by('-created_date')
     
     holidays = Holiday.objects.all().order_by('date')
 
@@ -268,7 +271,7 @@ def manager_dashboard(request):
 @role_required('manager', 'founder')
 def approve_employee_leave(request, leave_id):
     leave_request = get_object_or_404(LeaveRequest, id=leave_id)
-    employee_profile = get_object_or_404(Employe, user=leave_request.employee)
+    employee_profile = leave_request.employee
 
     if request.method == 'POST':
         if not (request.user.is_superuser or employee_profile.manager.user == request.user):
@@ -300,9 +303,11 @@ def approve_employee_leave(request, leave_id):
         leave_request.leave_duration = leave_days
         leave_request.save()
 
-        send_leave_notification(request, leave_request, 'approved', leave_request.employee.email)
+        employee_profile.recalculate_leave_counts()
 
-        messages.success(request, f"Leave request for {leave_request.employee.get_full_name()} approved.")
+        send_leave_notification(request, leave_request, 'approved', leave_request.employee.user.email)
+
+        messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} approved.")
         return redirect('managers:leavelist')
 
     return redirect('managers:leavelist')
@@ -312,7 +317,7 @@ def approve_employee_leave(request, leave_id):
 @role_required('manager', 'founder')
 def reject_employee_leave(request, leave_id):
     leave_request = get_object_or_404(LeaveRequest, id=leave_id)
-    employee_profile = get_object_or_404(Employe, user=leave_request.employee)
+    employee_profile = leave_request.employee
 
     if request.method == 'POST':
         if not (request.user.is_superuser or employee_profile.manager.user == request.user):
@@ -324,9 +329,9 @@ def reject_employee_leave(request, leave_id):
         leave_request.rejection_date = timezone.now()
         leave_request.save()
 
-        send_leave_notification(request, leave_request, 'rejected', leave_request.employee.email)
+        send_leave_notification(request, leave_request, 'rejected', leave_request.employee.user.email)
 
-        messages.success(request, f"Leave request for {leave_request.employee.get_full_name()} rejected.")
+        messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} rejected.")
         return redirect('managers:leavelist')
 
     return redirect('managers:leavelist')
@@ -373,10 +378,10 @@ def approve_manager_leave(request, id):
     actual_leave_days = calculate_leave_days(leave_request.start_date, leave_request.end_date)
 
     leave_request.is_approved = True
+    leave_request.is_rejected = False
     leave_request.approval_date = timezone.now()
     leave_request.approved_by = request.user
     leave_request.leave_duration = actual_leave_days
-    leave_request.status = 'approved'
     leave_request.save()
 
     if leave_request.leave_type == 'ML':
@@ -400,9 +405,9 @@ def reject_manager_leave(request, id):
     leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
 
     leave_request.is_rejected = True
+    leave_request.is_approved = False
     leave_request.rejection_date = timezone.now()
     leave_request.rejected_by = request.user
-    leave_request.status = 'rejected'
     leave_request.save()
 
     send_leave_notification(request, leave_request, 'rejected', leave_request.manager.user.email)
@@ -489,7 +494,7 @@ def leave_requests(request):
     employees = get_employees_under_manager(manager)
 
     pending_employee_requests = LeaveRequest.objects.filter(
-        employee__in=[emp.user for emp in employees],
+        employee__in=employees,
         status='Pending'
     ).order_by('-created_date')
 
@@ -542,12 +547,12 @@ def logout(request):
 @role_required('manager', 'founder')
 def viewlist(request, id):
     leave_request = get_object_or_404(LeaveRequest, id=id)
-    employe = get_object_or_404(Employe, user=leave_request.employee)
+    employe = leave_request.employee
     
     context = {
         'leave_request': leave_request,
         'employe': employe,
-        'user': leave_request.employee,
+        'user': employe.user,
     }
     return render(request, 'managers/viewlist.html', context)
 
@@ -608,7 +613,7 @@ def add_employe(request):
             employees = get_employees_under_manager(manager)
 
             pending_employee_requests = LeaveRequest.objects.filter(
-                employee__in=[emp.user for emp in employees],
+                employee__in=employees,
                 status='Pending'
             ).order_by('-created_date')
 
@@ -618,11 +623,11 @@ def add_employe(request):
             ).order_by('-created_date')[:5]
 
             recent_approved_employee_leaves = LeaveRequest.objects.filter(
-                employee__in=[emp.user for emp in employees],
+                employee__in=employees,
                 status='Approved'
             ).order_by('-created_date')[:5]
             
-            leave_history = LeaveRequest.objects.filter(employee__in=[emp.user for emp in employees]).order_by('-created_date')
+            leave_history = LeaveRequest.objects.filter(employee__in=employees).order_by('-created_date')
 
             context = {
                 'manager': manager,
@@ -705,21 +710,33 @@ def details(request, id):
 @role_required('manager', 'founder')
 def delete_employee(request, id):
     employe = get_object_or_404(Employe, id=id)
-    
-    # Permission check
-    if is_manager(request.user):
-        manager = get_object_or_404(Manager, user=request.user)
-        if employe.manager != manager:
-            return JsonResponse({'error': 'You do not have permission to delete this employee.'}, status=403)
 
-    if request.method == 'DELETE' or request.method == 'POST':
+    # Permission check
+    is_allowed = False
+    if request.user.is_superuser or is_founder(request.user):
+        is_allowed = True
+    elif is_manager(request.user):
+        try:
+            # Check if the employee belongs to this manager
+            if employe.manager and employe.manager.user == request.user:
+                is_allowed = True
+        except Manager.DoesNotExist:
+            is_allowed = False
+
+    if not is_allowed:
+        return JsonResponse({'error': 'You do not have permission to delete this employee.'}, status=403)
+
+    # Handle deletion only for POST or DELETE
+    if request.method in ['POST', 'DELETE']:
         try:
             user = employe.user
             user.delete()
-            return JsonResponse({'success': True})
+            # ✅ Redirect to employees list page after success
+            return redirect('/managers/employees/')
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-    
+            logger.error(f"Error deleting employee with id {id}: {e}", exc_info=True)
+            return JsonResponse({'error': 'An error occurred during deletion.'}, status=500)
+
     return JsonResponse({'error': 'Invalid request method.'}, status=405)
 
 
@@ -935,15 +952,23 @@ def employees_list(request):
 @login_required(login_url='/managers/login')
 @allow_founder
 def all_leave_history(request):
-    employee_leaves = LeaveRequest.objects.all().select_related('employee').order_by('-created_date')
-    
+    # Fetch all leave requests for employees
+    employee_leaves = LeaveRequest.objects.all().select_related('employee')
+
+    # Fetch all leave requests for managers
     manager_leaves = UnifiedLeaveRequest.objects.filter(
         requested_by_role='manager'
-    ).select_related('manager__user').order_by('-created_date')
-    
+    ).select_related('manager__user')
+
+    # Combine and sort all leave requests by creation date
+    all_leaves = sorted(
+        list(employee_leaves) + list(manager_leaves),
+        key=lambda x: x.created_date,
+        reverse=True
+    )
+
     context = {
-        'employee_leaves': employee_leaves,
-        'manager_leaves': manager_leaves,
+        'all_leaves': all_leaves,
     }
     return render(request, 'managers/all_leave_history.html', context)
 
@@ -959,13 +984,13 @@ def employee_leave_history(request):
             from common.utils import get_employees_under_manager
             employees = get_employees_under_manager(manager)
             leave_requests = LeaveRequest.objects.filter(
-                employee__in=[emp.user for emp in employees]
+                employee__in=employees
             ).order_by('-created_date')
         except Manager.DoesNotExist:
             leave_requests = LeaveRequest.objects.none()
     
     context = {
-        'leave_requests': leave_requests,
+        'leave_history': leave_requests,
     }
     return render(request, 'managers/employee_leave_history.html', context)
 

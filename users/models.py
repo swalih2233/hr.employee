@@ -63,6 +63,9 @@ class User(AbstractUser):
     is_manager = models.BooleanField(default=False)
     is_employee = models.BooleanField(default=True)
 
+    manager = models.OneToOneField('managers.Manager', on_delete=models.CASCADE, null=True, blank=True, related_name='user_manager')
+    employee = models.OneToOneField('employe.Employe', on_delete=models.CASCADE, null=True, blank=True, related_name='user_employee')
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 

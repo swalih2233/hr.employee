@@ -75,7 +75,7 @@
     <div class="flex items-center space-x-6 text-sm">
       <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
       <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
-      <a href="{% url 'managers:leave_summary' %}" class="hover:underline">Leave Management</a>
+      <a href="{% url 'managers:all_leave_history' %}" class="hover:underline">Leave Management</a>
       <a href="#" @click.prevent="toggleSidebar('addFounder')" class="hover:underline">Add Founder</a>
       <a href="#" @click.prevent="toggleSidebar('addManager')" class="hover:underline">Add Manager</a>
     </div>
@@ -123,7 +123,7 @@
                         <td class="px-6 py-4">{{ request.subject }}</td>
                         <td class="px-6 py-4">{{ request.start_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ request.end_date|date:"d M Y" }}</td>
-                       <td class="px-6 py-4">{{ request.applied_on|date:"d M Y H:i" }}</td>
+                       <td class="px-6 py-4">{{ request.created_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">
                             <span class="
                                 {% if request.status == 'pending' %}bg-blue-100 text-blue-800
@@ -136,8 +136,8 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             {% if request.status|lower == 'pending' %}
-                                <a href="{% url 'managers:approve_leave' request.id %}" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md">Approve</a>
-                                <a href="{% url 'managers:reject_leave' request.id %}" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md ml-2">Reject</a>
+                                <a href="{% url 'managers:approve_manager_leave' request.id %}" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md">Approve</a>
+                                <a href="{% url 'managers:reject_manager_leave' request.id %}" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md ml-2">Reject</a>
                             {% elif request.status|lower == 'approved' %}
                                 <span class="bg-green-100 text-green-700 px-3 py-1 rounded-md">Approved</span>
                             {% elif request.status|lower == 'rejected' %}
@@ -177,23 +177,42 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for leave in recent_approved_leaves %}
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
-                            <img 
-                                src="{% if leave.requester.image %}{{ leave.requester.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
-                                alt="{{ leave.requester_name }}" 
-                                class="h-8 w-8 rounded-full object-cover mr-3"
-                            >
-                            <div>
-                                <div class="font-medium text-gray-900">{{ leave.requester_name }}</div>
-                                <div class="text-xs text-gray-500">
-                                    {% if leave.requester_role == 'manager' %}
-                                        {{ leave.manager.user.email }}
-                                    {% elif leave.requester_role == 'employee' %}
-                                        {{ leave.employee.user.email }}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </td>
+                    <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                          {% if leave.employee and leave.employee.image %}
+                              <img src="{{ leave.employee.image.url }}" 
+                                  alt="{{ leave.employee.user.get_full_name }}" 
+                                  class="h-8 w-8 rounded-full object-cover mr-3">
+                          {% elif leave.manager and leave.manager.image %}
+                              <img src="{{ leave.manager.image.url }}" 
+                                  alt="{{ leave.manager.user.get_full_name }}" 
+                                  class="h-8 w-8 rounded-full object-cover mr-3">
+                          {% else %}
+                              <img src="{% static 'images/default-avatar.png' %}" 
+                                  alt="Default Avatar" 
+                                  class="h-8 w-8 rounded-full object-cover mr-3">
+                          {% endif %}
+
+                          <div>
+                              <div class="font-medium text-gray-900">
+                                  {% if leave.employee %}
+                                      {{ leave.employee.user.first_name }} {{ leave.employee.user.last_name }}
+                                  {% elif leave.manager %}
+                                      {{ leave.manager.user.first_name }} {{ leave.manager.user.last_name }}
+                                  {% else %}
+                                      Unknown
+                                  {% endif %}
+                              </div>
+
+                              <div class="text-xs text-gray-500">
+                                  {% if leave.employee %}
+                                      {{ leave.employee.user.email }}
+                                  {% elif leave.manager %}
+                                      {{ leave.manager.user.email }}
+                                  {% endif %}
+                              </div>
+                          </div>
+                      </td>
+
                         <td class="px-6 py-4">{{ leave.start_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ leave.end_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ leave.total_days }} Days</td>

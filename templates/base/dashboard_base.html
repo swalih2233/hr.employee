@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -127,13 +128,21 @@
                                         {% if is_founder %}Founder{% elif is_manager %}Manager{% elif is_employee %}Employee{% endif %}
                                     </p>
                                 </div>
-                                <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                                    {% if profile and profile.image %}
-                                        <img src="{{ profile.image.url }}" alt="Profile" class="w-8 h-8 rounded-full object-cover">
-                                    {% else %}
-                                        <span class="text-sm font-medium text-gray-600">{{ user.first_name.0 }}{{ user.last_name.0 }}</span>
-                                    {% endif %}
-                                </div>
+                                {% if user.is_authenticated %}
+                                  {% if user.is_manager and user.manager.image %}
+                                    <img src="{{ user.manager.image.url }}"
+                                         class="w-10 h-10 rounded-full border-2 border-gray-200 object-cover cursor-pointer"
+                                         alt="{{ user.get_full_name }}">
+                                  {% elif user.is_employee and user.employee.image %}
+                                    <img src="{{ user.employee.image.url }}"
+                                         class="w-10 h-10 rounded-full border-2 border-gray-200 object-cover cursor-pointer"
+                                         alt="{{ user.get_full_name }}">
+                                  {% else %}
+                                    <img src="{% static 'images/default-profile.png' %}"
+                                         class="w-10 h-10 rounded-full border-2 border-gray-200 object-cover cursor-pointer"
+                                         alt="Default Profile">
+                                  {% endif %}
+                                {% endif %}
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>

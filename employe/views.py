@@ -79,11 +79,11 @@ def employee_dashboard(request):
         return redirect(reverse('employe:login'))
 
     leave_requests = LeaveRequest.objects.filter(
-        employee=employee.user
+        employee=employee
     ).order_by('-created_date')[:5]
 
     pending_requests = LeaveRequest.objects.filter(
-        employee=employee.user,
+        employee=employee,
         status='Pending'
     ).count()
 
@@ -138,7 +138,7 @@ def apply_leave(request):
                 leave_type=leave_type,
                 description=description,
                 file=file,
-                employee=user,
+                employee=employe,
                 start_date=start_date,
                 end_date=end_date,
                 status='Pending'
@@ -210,7 +210,7 @@ def leavelist(request):
         messages.error(request, "Employee profile not found.")
         return redirect(reverse('employe:login'))
 
-    instances = LeaveRequest.objects.filter(employee=employee.user).order_by('-created_date')
+    instances = LeaveRequest.objects.filter(employee=employee).order_by('-created_date')
 
     for instance in instances:
         if instance.start_date and instance.end_date:
@@ -231,13 +231,13 @@ def viewlist(request, id):
         return redirect(reverse('employe:leavelist'))
 
     try:
-        leave_request = LeaveRequest.objects.get(id=id, employee=current_employee.user)
+        leave_request = LeaveRequest.objects.get(id=id, employee=current_employee)
     except LeaveRequest.DoesNotExist:
         messages.error(request, "Leave request not found or access denied.")
         return redirect(reverse('employe:leavelist'))
 
     try:
-        employee = Employe.objects.get(user=leave_request.employee)
+        employee = leave_request.employee
         user = employee.user
     except Employe.DoesNotExist:
         messages.error(request, "Employee profile not found for this leave request.")

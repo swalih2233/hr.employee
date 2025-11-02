@@ -86,7 +86,7 @@
             <span :class="{ 'rotate-180': open }" class="ml-auto transition-transform">▼</span>
           </button>
           <div x-show="open" class="ml-8 mt-1 space-y-1 text-sm">
-            <a href="{% url 'managers:manager_leave_history' %}" class="block py-2 text-gray-600 hover:text-indigo-600">Manager Leave History</a>
+            <a href="{% url 'managers:manager_leave_history' %}" class="block py-2 text-gray-600 hover:text-indigo-600">My Leave History</a>
             <a href="#" @click.prevent="openApplyLeave = true" class="block py-2 text-gray-600 hover:text-indigo-600">Apply for Leave</a>
           </div>
         </div>

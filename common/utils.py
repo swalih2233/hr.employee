@@ -219,4 +219,4 @@ def calculate_leave_days(start_date, end_date):
             working_days += 1
         current_date += timedelta(days=1)
         
-    return working_days
+    return working_days if working_days > 0 else 1

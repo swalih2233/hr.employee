@@ -11,132 +11,126 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-50">
+
 <div class="flex h-screen">
-  <!-- Sidebar -->
-<!-- Sidebar -->
-<aside class="w-64 bg-white border-r flex flex-col justify-between">
-  <div>
-    <div class="px-6 py-4 flex items-center space-x-2 bg-[#1E184D]">
-      <span class="text-xl font-bold text-white">HR Dashboard</span>
-    </div>
-    <nav class="mt-6 space-y-1">
-      <!-- Dashboard -->
-      <a href="{% url 'managers:manager_dashboard' %}" class="flex items-center px-6 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
-        📊 <span class="ml-3">Dashboard</span>
-      </a>
-
-      <!-- Employees Dropdown -->
-      <div x-data="{ open: false }" class="px-6">
-        <button @click="open = !open" class="flex items-center w-full py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
-          👥 <span class="ml-3 flex-1 text-left">Employees</span>
-          <span :class="{ 'rotate-180': open }" class="ml-auto transition-transform">▼</span>
-        </button>
-        <div x-show="open" class="ml-8 mt-1 space-y-1 text-sm">
-          <a href="{% url 'managers:employee_leave_history' %}" class="block py-2 text-gray-600 hover:text-indigo-600">Leave History</a>
-          <a href="{% url 'managers:leavelist' %}" class="block py-2 text-gray-600 hover:text-indigo-600">Leave Requests</a>
-        </div>
-      </div>
-
-      <!-- Time Off Dropdown -->
-      <div x-data="{ open: false }" class="px-6">
-        <button @click="open = !open" class="flex items-center w-full py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
-          🗓 <span class="ml-3 flex-1 text-left">Time Off</span>
-          <span :class="{ 'rotate-180': open }" class="ml-auto transition-transform">▼</span>
-        </button>
-        <div x-show="open" class="ml-8 mt-1 space-y-1 text-sm">
-          <a href="{% url 'managers:manager_leave_history' %}" class="block py-2 text-gray-600 hover:text-indigo-600">Manager Leave History</a>
-          <a href="{% url 'managers:manager_apply_leave' %}" class="block py-2 text-gray-600 hover:text-indigo-600">Apply for Leave</a>
-        </div>
-      </div>
-
-      <!-- Add Employee -->
-      <a href="{% url 'managers:add_employe' %}" class="flex items-center px-6 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600">
-        ➕ <span class="ml-3">Add Employee</span>
-      </a>
-    </nav>
-  </div>
-</aside>
-
-<!-- Add Alpine.js for dropdown functionality -->
-<script src="https://unpkg.com/alpinejs" defer></script>
-
+  <!-- Add Alpine.js for dropdown functionality -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
 
   <!-- Main Content -->
   <div class="flex-1 overflow-y-auto">
-    <!-- Header -->
-    <header class="flex items-center justify-between bg-white px-6 py-4 border-b">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Hi, {{ manager.user.first_name }}</h1>
-        <p class="text-sm text-gray-500">Here’s your HR report so far</p>
-      </div>
-      <div class="flex items-center space-x-4">
-        <input type="text" placeholder="Search…" class="px-3 py-2 border rounded-lg" />
-        <button class="relative">🔔 <span class="absolute top-0 right-0 bg-red-500 text-white text-xs px-1 rounded-full">3</span></button>
-        <img src="{% static 'images/avatar.png' %}" class="w-8 h-8 rounded-full" alt="Profile">
-      </div>
-    </header>
+    
+ <!-- Header -->
+<header class="flex items-center justify-between px-8 py-5 border-b bg-white shadow-sm">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Hi, {{ manager.user.first_name }}</h1>
+    <p class="text-sm text-gray-500">Here’s your HR report so far</p>
+  </div>
+  <div class="flex items-center space-x-5">
+    <!-- Search -->
+    <input type="text" placeholder="Search…" 
+           class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
 
-<div class="bg-white rounded-lg shadow mx-6 p-6">
-  <h3 class="text-lg font-semibold text-gray-900 mb-4">Employee Leave History</h3>
-  <table class="min-w-full divide-y divide-gray-200">
-    <thead class="bg-gray-50">
-      <tr>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">End Date</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-      </tr>
-    </thead>
-    <tbody class="bg-white divide-y divide-gray-200">
-      {% for leave in leave_history %}
-      <tr>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ leave.employe.user.first_name }} {{ leave.employe.user.last_name }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ leave.get_leave_type_display }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ leave.start_date }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ leave.end_date }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">
-          {% if leave.is_approved %}
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
-          {% elif leave.is_rejected %}
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
-          {% else %}
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    <!-- Notification -->
+    <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+        {% if notification_count > 0 %}
+        <span class="absolute top-0 right-0 block h-5 w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
+        {% endif %}
+    </a>
+
+    <!-- Profile Image — shows only logged-in user's image -->
+     <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open" class="flex items-center focus:outline-none">
+            <img src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-8 h-8 rounded-full" alt="Profile">
+          </button>
+          <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
+            <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
+          </div>
+        </div>
+
+  </div>
+</header>
+
+    <!-- Back Link (Below Header) -->
+    <div class="px-8 py-4">
+      <a href="{% url 'managers:manager_dashboard' %}" class="text-blue-600 hover:underline text-sm font-medium">
+        ← Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Employee Leave History Section -->
+    <div class="bg-white rounded-lg shadow mx-8 p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Employee Leave History</h3>
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">End Date</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for leave in leave_history %}
+          <tr>
+          <td class="px-6 py-4 text-sm text-gray-900">
+            {{ leave.employee.user.first_name }} {{ leave.employee.user.last_name }}
+          </td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ leave.get_leave_type_display }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ leave.start_date }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ leave.end_date }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">
+              {% if leave.is_approved %}
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
+              {% elif leave.is_rejected %}
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
+              {% else %}
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="px-6 py-4 text-center text-gray-500 text-sm">No leave records found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- Chart.js Scripts -->
 <script>
   const ctx1 = document.getElementById('employeeChart');
-  new Chart(ctx1, {
-    type: 'pie',
-    data: {
-      labels: ['Others', 'Onboarding', 'Offboarding'],
-      datasets: [{
-        data: [71, 27, 23],
-        backgroundColor: ['#6366F1', '#FACC15', '#F87171']
-      }]
-    }
-  });
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'pie',
+      data: {
+        labels: ['Others', 'Onboarding', 'Offboarding'],
+        datasets: [{
+          data: [71, 27, 23],
+          backgroundColor: ['#6366F1', '#FACC15', '#F87171']
+        }]
+      }
+    });
+  }
 
   const ctx2 = document.getElementById('jobChart');
-  new Chart(ctx2, {
-    type: 'doughnut',
-    data: {
-      labels: ['Designers', 'Managers', 'Developers', 'HR'],
-      datasets: [{
-        data: [25, 15, 40, 20],
-        backgroundColor: ['#34D399', '#60A5FA', '#F472B6', '#FBBF24']
-      }]
-    }
-  });
-
-
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: ['Designers', 'Managers', 'Developers', 'HR'],
+        datasets: [{
+          data: [25, 15, 40, 20],
+          backgroundColor: ['#34D399', '#60A5FA', '#F472B6', '#FBBF24']
+        }]
+      }
+    });
+  }
 </script>
+
 </body>
 </html>

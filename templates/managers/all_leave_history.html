@@ -72,7 +72,6 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Role</th>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Subject</th>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Dates</th>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -85,15 +84,19 @@
                                 data-status="{{ leave.status }}" 
                                 data-role="{{ leave.requester_role }}"
                                 data-date="{{ leave.created_date|date:'Y-m-d' }}">
-                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
-                                    <div class="font-medium text-gray-900">{{ leave.requester_name }}</div>
-                                </td>
-                                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                                        {% if leave.requester_role == 'manager' %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
-                                        {{ leave.requester_role|title }}
-                                    </span>
-                                </td>
+                            <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                <div class="font-medium text-gray-900">
+                                    {% if leave.employee %}
+                                        {{ leave.employee.user.first_name }} {{ leave.employee.user.last_name }}
+                                    {% elif leave.manager %}
+                                        {{ leave.manager.user.first_name }} {{ leave.manager.user.last_name }}
+                                    {% else %}
+                                        Unknown
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                              
                                 <td class="px-4 sm:px-6 py-4">
                                     <div class="text-gray-900">{{ leave.subject }}</div>
                                 </td>

@@ -52,7 +52,6 @@
       <table id="leaveTable" class="min-w-full bg-white border rounded-lg shadow">
         <thead class="bg-gray-100 text-gray-600 text-sm uppercase">
           <tr>
-            <th class="py-3 px-4 text-left">Employee Name</th>
             <th class="py-3 px-4 text-left">Subject</th>
             <th class="py-3 px-4 text-left">From</th>
             <th class="py-3 px-4 text-left">To</th>
@@ -65,14 +64,7 @@
         <tbody>
           {% for instance in instances %}
           <tr class="border-t hover:bg-gray-50">
-            <td class="py-3 px-4 text-gray-800 font-medium flex items-center gap-2">
-              {% if instance.employe.image %}
-                <img src="{{ instance.employe.image.url }}" alt="" class="w-8 h-8 rounded-full object-cover">
-              {% else %}
-                <img src="{% static 'images/default-avatar.png' %}" alt="" class="w-8 h-8 rounded-full object-cover">
-              {% endif %}
-              {{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}
-            </td>
+        
             <td class="py-3 px-4">{{ instance.subject }}</td>
             <td class="py-3 px-4">{{ instance.start_date }}</td>
             <td class="py-3 px-4">{{ instance.end_date }}</td>

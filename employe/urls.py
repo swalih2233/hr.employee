@@ -5,9 +5,9 @@ from employe import views
 app_name ="employe"
 
 urlpatterns=[
-    path("",views.details, name="details"),
+    path("",views.login, name="login"),
     path("dashboard/", views.employee_dashboard, name="employee_dashboard"),
-    path("login/",views.login, name="login"),
+    path("details/",views.details, name="details"),
     path("leaveform/",views.leaveform, name="leaveform"),
     path("apply-leave/", views.apply_leave, name="apply_leave"),  # Fixed: Added required URL pattern
 

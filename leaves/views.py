@@ -45,17 +45,9 @@ def apply_leave(request):
 
             # 4. Send email notification
             try:
-                founders = Founder.objects.all()
-                founder_emails = [founder.user.email for founder in founders]
-                
-                email = EmailMessage(
-                    'New Leave Request',
-                    f'A new leave request has been submitted by {leave.employee}.',
-                    'from@example.com',
-                    [leave.employee.manager.user.email],
-                    cc=founder_emails
-                )
-                email.send()
+                from managers.views import send_leave_notification
+                send_leave_notification(request, leave, 'new_request', leave.employee.manager.user.email, manager_name=leave.employee.manager.user.get_full_name(), cc_founder=True)
+                send_leave_notification(request, leave, 'submission_confirmation', leave.employee.user.email)
             except Exception as e:
                 messages.error(request, f"Leave saved, but failed to send email: {e}")
             else:
@@ -80,19 +72,10 @@ def update_leave_status(request, pk, status):
         leave.status = status
         leave.save()
 
-        # 3. Email employee with CC to founders
+        # 3. Email employee
         try:
-            founders = Founder.objects.all()
-            founder_emails = [founder.user.email for founder in founders]
-            
-            email = EmailMessage(
-                f'Leave Request {status.capitalize()}',
-                f'Your leave request for {leave.total_days} days has been {status}.',
-                'from@example.com',
-                [leave.employee.user.email],
-                cc=founder_emails
-            )
-            email.send()
+            from managers.views import send_leave_notification
+            send_leave_notification(request, leave, status, leave.employee.user.email)
         except Exception as e:
             return JsonResponse({'error': f'Status updated, but email failed: {e}'})
 

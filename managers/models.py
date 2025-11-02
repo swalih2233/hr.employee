@@ -22,7 +22,7 @@ ID_CHOICES = (
 
 
 class Manager(CommonModel):
-    user = models.ForeignKey(User ,on_delete=models.CASCADE)
+    user = models.ForeignKey(User ,on_delete=models.CASCADE, related_name='manager_profile')
     manager_id = models.CharField(max_length=20, unique=True, null=True, blank=True)  # New manager ID field
     department = models.CharField(max_length=100 , null=True, blank=True)
     designation = models.CharField(max_length=100 , null=True, blank=True)

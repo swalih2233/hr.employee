@@ -33,7 +33,7 @@ LEAVE_CHOICES = (
 )
 
 class Employe(CommonModel):
-    user = models.ForeignKey(User ,on_delete=models.CASCADE)
+    user = models.ForeignKey(User ,on_delete=models.CASCADE, related_name='employee_profile')
     employe_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     manager =models.ForeignKey(Manager, on_delete=models.CASCADE, null=True, blank=True)
     department = models.CharField(max_length=100, null=True, blank=True)
@@ -60,6 +60,18 @@ class Employe(CommonModel):
 
     def __str__(self):
         return self.user.email
+
+    def recalculate_leave_counts(self):
+        """Recalculate leave counts based on approved leave requests."""
+        approved_leaves = LeaveRequest.objects.filter(employee=self, status='Approved')
+
+        self.leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'AL')
+        self.medical_leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
+
+        self.available_leaves = 18 - self.leaves_taken
+        self.available_medical_leaves = 14 - self.medical_leaves_taken
+
+        self.save()
      
 class EmergencyContact(CommonModel):
     employe = models.ForeignKey(Employe ,on_delete=models.CASCADE )
@@ -202,7 +214,7 @@ class LeaveRequest(CommonModel):
     leave_type = models.CharField(max_length=100, choices=LEAVE_CHOICES, null=True, blank=True)
     description = models.CharField(max_length=200, null=True, blank=True)
     file = models.FileField(null=True, blank=True, upload_to='file')
-    employee = models.ForeignKey(User, on_delete=models.CASCADE)  # Fixed: Changed to User model and renamed field
+    employee = models.ForeignKey(Employe, on_delete=models.CASCADE)
     status = models.CharField(max_length=20, default='Pending', choices=[
         ('Pending', 'Pending'),
         ('Approved', 'Approved'),
@@ -257,7 +269,7 @@ class LeaveRequest(CommonModel):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.employee.email} - {self.subject}"  # Fixed: Updated to use employee field
+        return f"{self.employee.user.email} - {self.subject}"
 
 
 class Leave(models.Model):
