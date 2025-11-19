@@ -5,23 +5,28 @@
 <div class="bg-gray-50 min-h-screen">
 
   <!-- Header -->
-  <header class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center">
-      <input type="text" placeholder="Search anything..." class="w-64 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
-      <span class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">F</span>
+  <header class="bg-white shadow-sm px-4 md:px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <!-- Logo -->
+   <a href="{% url 'employe:details' %}" class="flex items-center">
+        <img src="/static/images/Black Transparent Mavendeor .png"
+             alt="Logo"
+             class="h-11 md:h-[70px] w-auto object-contain">
+    </a>
+  
     </div>
-    <div class="flex items-center space-x-6">
-      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
+    <div class="flex items-center space-x-3 md:space-x-6">
+      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
       <!-- Fixed: Added notification count badge -->
       <div class="relative">
-        <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
+        <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
         {% if pending_leave_count > 0 %}
           <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ pending_leave_count }}</span>
         {% endif %}
       </div>
       <!-- Fixed: Added profile dropdown functionality -->
       <div class="relative">
-        <img src="{{ employe.image.url }}" class="w-8 h-8 rounded-full object-cover cursor-pointer" id="profile-dropdown-btn">
+        <img src="{{ employe.image.url }}" class="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover cursor-pointer" id="profile-dropdown-btn">
         <!-- Dropdown menu -->
         <div id="profile-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden">
           {% if user_role == 'manager' %}
@@ -44,19 +49,18 @@
     </div>
   </header>
 
-  <div class="px-4 lg:px-12 py-10 flex gap-6">
+  <div class="px-4 lg:px-12 py-6 lg:py-10 flex flex-col lg:flex-row gap-6">
 
     <!-- Profile Sidebar -->
-    <div class="w-1/4 bg-white rounded-xl shadow p-6 text-center">
-      <img src="{{ employe.image.url }}" alt="Profile" class="w-28 h-28 mx-auto rounded-full object-cover mb-4">
+    <div class="w-full lg:w-1/4 bg-white rounded-xl shadow p-6 text-center">
+      <img src="{{ employe.image.url }}" alt="Profile" class="w-24 h-24 md:w-28 md:h-28 mx-auto rounded-full object-cover mb-4">
       <h2 class="text-lg font-semibold">{{ user.first_name }} {{ user.last_name }}</h2>
       <p class="text-sm text-gray-500">{{ employe.designation }}</p>
       <span class="inline-block mt-2 px-3 py-1 text-xs bg-green-100 text-green-600 rounded-full">ACTIVE</span>
 
       <div class="mt-6 text-sm text-left space-y-2 text-gray-600">
-        <p><i class="fas fa-envelope"></i> {{ user.email }}</p>
-        <p><i class="fas fa-phone"></i> {{ user.phone_number }}</p>
-        <!-- <p><i class="fas fa-clock"></i> GMT +05:30</p> -->
+        <p class="break-all"><i class="fas fa-envelope mr-2"></i>{{ user.email }}</p>
+        <p><i class="fas fa-phone mr-2"></i>{{ user.phone_number }}</p>
         <hr class="my-3">
         <p><strong>Department:</strong> {{ employe.department }}</p>
         <p><strong>Office:</strong> {{ employe.work_location }}</p>
@@ -65,8 +69,8 @@
 
       <div class="mt-6 space-y-2">
         <!-- Apply Leave will trigger drawer -->
-        <a href="#" id="apply-leave-btn" class="w-full bg-[#111827] hover:bg-indigo-700 text-white px-4 py-2 block text-center">Apply for Leave</a>
-        <a href="{% url 'employe:leavelist' %}" class="w-full border border-[#000000] hover:bg-gray-100 px-4 py-2 block text-gray-700 text-center">Leave List</a>
+        <a href="#" id="apply-leave-btn" class="w-full bg-[#111827] hover:bg-indigo-700 text-white px-4 py-2 block text-center rounded-md">Apply for Leave</a>
+        <a href="{% url 'employe:leavelist' %}" class="w-full border border-[#000000] hover:bg-gray-100 px-4 py-2 block text-gray-700 text-center rounded-md">Leave List</a>
       </div>
     </div>
 
@@ -74,37 +78,36 @@
     <div class="flex-1">
       <!-- Tabs -->
       <div class="bg-white shadow rounded-xl mb-6">
-        <nav class="flex space-x-8 text-sm font-medium border-b border-gray-200 px-6">
-          <button class="tab-btn py-3 text-indigo-600 border-b-2 border-indigo-600" data-tab="general">General</button>
-          <button class="tab-btn py-3 hover:text-indigo-600" data-tab="schedule">Work Schedule</button>
-          <button class="tab-btn py-3 hover:text-indigo-600" data-tab="leave">Leave Details</button>
+        <nav class="flex space-x-4 md:space-x-8 text-xs md:text-sm font-medium border-b border-gray-200 px-4 md:px-6 overflow-x-auto">
+          <button class="tab-btn py-3 text-indigo-600 border-b-2 border-indigo-600 whitespace-nowrap" data-tab="general">General</button>
+          <button class="tab-btn py-3 hover:text-indigo-600 whitespace-nowrap" data-tab="schedule">Work Schedule</button>
+          <button class="tab-btn py-3 hover:text-indigo-600 whitespace-nowrap" data-tab="leave">Leave Details</button>
         </nav>
       
       <!-- General Tab -->
-      <div id="general" class="tab-content space-y-6">
+      <div id="general" class="tab-content space-y-6 p-4 md:p-6">
         <!-- Personal Info -->
-        <div class="bg-white shadow rounded-xl p-6 relative">
+        <div class="bg-white shadow rounded-xl p-4 md:p-6 relative">
           <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
-          <h3 class="font-semibold text-lg mb-4">Personal Info</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <h3 class="font-semibold text-base md:text-lg mb-4">Personal Info</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
             <p><strong>Full Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
             <p><strong>Gender:</strong> {{ user.gender }}</p>
             <p><strong>Date of Birth:</strong> {{ user.date_of_birth }}</p>
-            <p><strong>Marital Status:</strong> {{ user.maritul_status }}</p>
-            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p class="break-all"><strong>Email:</strong> {{ user.email }}</p>
             <p><strong>Phone Number:</strong> {{ user.phone_number }}</p>
           </div>
         </div>
 
         <!-- Address -->
-        <div class="bg-white shadow rounded-xl p-6 relative">
+        <div class="bg-white shadow rounded-xl p-4 md:p-6 relative">
           <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
-          <h3 class="font-semibold text-lg mb-4">Address</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <h3 class="font-semibold text-base md:text-lg mb-4">Address</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
             <p><strong>Primary Address:</strong> {{ address.permanent_address }}</p>
             <p><strong>City:</strong> {{ address.city }}</p>
             <p><strong>State:</strong> {{ address.state }}</p>
@@ -114,12 +117,12 @@
         </div>
 
         <!-- Emergency Contact -->
-        <div class="bg-white shadow rounded-xl p-6 relative">
+        <div class="bg-white shadow rounded-xl p-4 md:p-6 relative">
           <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
-          <h3 class="font-semibold text-lg mb-4">Emergency Contact</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <h3 class="font-semibold text-base md:text-lg mb-4">Emergency Contact</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
             <p><strong>Contact Name:</strong> {{ contact.contact_name }}</p>
             <p><strong>Relationship:</strong> {{ contact.relationship }}</p>
             <p><strong>Contact Number:</strong> {{ contact.contact_number }}</p>
@@ -127,12 +130,12 @@
         </div>
 
         <!-- Bank & Benefits -->
-        <div class="bg-white shadow rounded-xl p-6 relative">
+        <div class="bg-white shadow rounded-xl p-4 md:p-6 relative">
           <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
-          <h3 class="font-semibold text-lg mb-4">Bank & Benefits</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <h3 class="font-semibold text-base md:text-lg mb-4">Bank & Benefits</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
             <p><strong>Bank Name:</strong> {{ benefits.bank_name }}</p>
             <p><strong>Account Number:</strong> {{ benefits.account_number }}</p>
             <p><strong>Branch:</strong> {{ benefits.branch_name }}</p>
@@ -142,59 +145,25 @@
       </div>
 
       <!-- Work Schedule -->
-      <div id="schedule" class="tab-content hidden">
-        <div class="bg-white shadow rounded-xl p-6 relative">
+      <div id="schedule" class="tab-content hidden space-y-6 p-4 md:p-6">
+        <div class="bg-white shadow rounded-xl p-4 md:p-6 relative">
           <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
-          <h3 class="font-semibold text-lg mb-4">Work Schedule</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <h3 class="font-semibold text-base md:text-lg mb-4">Work Schedule</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
             <p><strong>Start Time:</strong> {{ workschedule.start_time }}</p>
             <p><strong>End Time:</strong> {{ workschedule.end_time }}</p>
             <p><strong>Work Type:</strong> {{ workschedule.work_type }}</p>
           </div>
         </div>
-      </div>
-
-      <!-- Leave Details -->
-      <div id="leave" class="tab-content hidden space-y-6">
-
-        <!-- Leave Summary -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="bg-indigo-50 text-indigo-700 p-6 rounded-xl shadow text-center">
-            <p class="text-2xl font-bold">{{ employe.available_leaves|add:employe.leaves_taken }}</p>
-            <p class="text-sm font-medium">Total Leaves</p>
-          </div>
-          <div class="bg-green-50 text-green-700 p-6 rounded-xl shadow text-center">
-            <p class="text-2xl font-bold">{{ employe.available_leaves }}</p>
-            <p class="text-sm font-medium">Available Leaves</p>
-          </div>
-          <div class="bg-red-50 text-red-700 p-6 rounded-xl shadow text-center">
-            <p class="text-2xl font-bold">{{ employe.leaves_taken }}</p>
-            <p class="text-sm font-medium">Leaves Taken</p>
-          </div>
-          <div class="bg-yellow-50 text-yellow-700 p-6 rounded-xl shadow text-center">
-            <p class="text-2xl font-bold">{{ employe.available_medical_leaves }}</p>
-            <p class="text-sm font-medium">Medical Available</p>
-          </div>
-          <div class="bg-yellow-100 text-yellow-800 p-6 rounded-xl shadow text-center">
-            <p class="text-2xl font-bold">{{ employe.medical_leaves_taken }}</p>
-            <p class="text-sm font-medium">Medical Taken</p>
-          </div>
-          <div class="bg-purple-50 text-purple-700 p-6 rounded-xl shadow text-center">
-            <p class="text-2xl font-bold">{{ employe.carryforward_available_leaves }}</p>
-            <p class="text-sm font-medium">Carry Forward Available</p>
-          </div>
-          <div class="bg-purple-100 text-purple-800 p-6 rounded-xl shadow text-center">
-            <p class="text-2xl font-bold">{{ employe.carryforward_taken_leaves }}</p>
-            <p class="text-sm font-medium">Carry Forward Taken</p>
-          </div>
-        </div>
 
         <!-- Holiday Leave List -->
-        <div class="bg-white shadow rounded-xl p-6">
-          <h3 class="font-semibold text-lg mb-4">Holiday List</h3>
-          <div class="overflow-x-auto">
+        <div class="bg-white shadow rounded-xl p-4 md:p-6">
+          <h3 class="font-semibold text-base md:text-lg mb-4">Holiday List</h3>
+          
+          <!-- Desktop Table -->
+          <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full text-sm border-collapse">
               <thead class="bg-gray-100 text-gray-600">
                 <tr>
@@ -216,8 +185,146 @@
               </tbody>
             </table>
           </div>
+
+          <!-- Mobile Cards -->
+          <div class="md:hidden space-y-3">
+            {% for holiday in holidays %}
+            <div class="border rounded-lg p-3 bg-gray-50 flex justify-between items-center">
+              <span class="font-medium text-gray-900 text-sm">{{ holiday.title }}</span>
+              <span class="text-sm text-gray-600">{{ holiday.date|date:"d M Y" }}</span>
+            </div>
+            {% empty %}
+            <p class="text-center py-4 text-gray-500 text-sm">No holiday records found.</p>
+            {% endfor %}
+          </div>
         </div>
       </div>
+
+      <!-- Leave Details -->
+      <div id="leave" class="tab-content hidden space-y-6 p-4 md:p-6">
+
+      <!-- Top Section: Total Leaves -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <!-- Annual Leave Total -->
+      <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium opacity-90 mb-1">Annual Leave</p>
+            <p class="text-5xl font-bold {% if employe.available_leaves|add:employe.leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_leaves|add:employe.leaves_taken }}</p>
+            <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
+          </div>
+          <div class="bg-white bg-opacity-20 p-4 rounded-full">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Medical Leave Total -->
+      <div class="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium opacity-90 mb-1">Medical Leave</p>
+            <p class="text-5xl font-bold {% if employe.available_medical_leaves|add:employe.medical_leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_medical_leaves|add:employe.medical_leaves_taken }}</p>
+            <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
+          </div>
+          <div class="bg-white bg-opacity-20 p-4 rounded-full">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Section: Detailed Breakdown -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Annual Leave Available -->
+      <div class="bg-white border-l-4 border-green-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-2">
+          <div class="bg-green-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">Available</span>
+        </div>
+        <p class="text-3xl font-bold {% if employe.available_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.available_leaves }}</p>
+        <p class="text-sm text-gray-600 mt-1">Annual Leave Available</p>
+      </div>
+
+      <!-- Annual Leave Taken -->
+      <div class="bg-white border-l-4 border-red-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-2">
+          <div class="bg-red-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-red-600 bg-red-100 px-3 py-1 rounded-full">Taken</span>
+        </div>
+        <p class="text-3xl font-bold {% if employe.leaves_taken < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.leaves_taken }}</p>
+        <p class="text-sm text-gray-600 mt-1">Annual Leave Taken</p>
+      </div>
+
+      <!-- Carry Forward Available -->
+      <div class="bg-white border-l-4 border-purple-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-2">
+          <div class="bg-purple-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-purple-600 bg-purple-100 px-3 py-1 rounded-full">Available</span>
+        </div>
+        <p class="text-3xl font-bold {% if employe.carryforward_available_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.carryforward_available_leaves }}</p>
+        <p class="text-sm text-gray-600 mt-1">Carry Forward Available</p>
+      </div>
+
+      <!-- Medical Leave Available -->
+      <div class="bg-white border-l-4 border-teal-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-2">
+          <div class="bg-teal-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-teal-600 bg-teal-100 px-3 py-1 rounded-full">Available</span>
+        </div>
+        <p class="text-3xl font-bold {% if employe.available_medical_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.available_medical_leaves }}</p>
+        <p class="text-sm text-gray-600 mt-1">Medical Leave Available</p>
+      </div>
+
+      <!-- Medical Leave Taken -->
+      <div class="bg-white border-l-4 border-orange-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-2">
+          <div class="bg-orange-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full">Taken</span>
+        </div>
+        <p class="text-3xl font-bold {% if employe.medical_leaves_taken < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.medical_leaves_taken }}</p>
+        <p class="text-sm text-gray-600 mt-1">Medical Leave Taken</p>
+      </div>
+
+      <!-- Carry Forward Taken -->
+      <div class="bg-white border-l-4 border-indigo-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-2">
+          <div class="bg-indigo-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">Taken</span>
+        </div>
+        <p class="text-3xl font-bold {% if employe.carryforward_taken_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.carryforward_taken_leaves }}</p>
+        <p class="text-sm text-gray-600 mt-1">Carry Forward Taken</p>
+      </div>
+    </div>
+    </div>
 
     </div>
   </div>
@@ -229,8 +336,8 @@
 <div id="leave-drawer" class="fixed top-0 right-0 w-full sm:w-[400px] h-full bg-white shadow-lg transform translate-x-full transition-transform duration-300 ease-in-out z-50 overflow-y-auto">
   <div class="p-6">
     <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-semibold">Leave Application Form</h2>
-      <button id="close-drawer" class="text-gray-500 hover:text-red-600 text-xl">&times;</button>
+      <h2 class="text-xl md:text-2xl font-semibold">Leave Application Form</h2>
+      <button id="close-drawer" class="text-gray-500 hover:text-red-600 text-2xl">&times;</button>
     </div>
 
     <form method="post" enctype="multipart/form-data" action="{% url 'employe:apply_leave' %}">

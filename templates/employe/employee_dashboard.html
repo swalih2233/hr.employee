@@ -39,7 +39,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">Available Leaves</p>
-                    <p class="text-2xl font-semibold text-gray-900">{{ employee.available_leaves }}</p>
+                    <p class="text-2xl font-semibold {% if leave_balance_info.annual_remaining < 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ leave_balance_info.annual_remaining }}</p>
                 </div>
             </div>
         </div>
@@ -53,7 +53,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">Leaves Taken</p>
-                    <p class="text-2xl font-semibold text-gray-900">{{ employee.leaves_taken }}</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ leave_balance_info.total_annual_taken }}</p>
                 </div>
             </div>
         </div>
@@ -67,7 +67,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">Medical Leaves</p>
-                    <p class="text-2xl font-semibold text-gray-900">{{ employee.available_medical_leaves }}</p>
+                    <p class="text-2xl font-semibold {% if leave_balance_info.medical_remaining < 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ leave_balance_info.medical_remaining }}</p>
                 </div>
             </div>
         </div>
@@ -200,16 +200,14 @@
                 <h4 class="font-medium text-gray-700 mb-2">Annual Leave</h4>
                 <div class="space-y-2">
                     <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">Available:</span>
-                        <span class="text-sm font-medium text-green-600">{{ employee.available_leaves }}</span>
+                        <span class="text-sm text-gray-600">Remaining:</span>
+                        <span class="text-sm font-medium {% if leave_balance_info.annual_remaining < 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                            {{ leave_balance_info.annual_remaining }}
+                        </span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-sm text-gray-600">Taken:</span>
-                        <span class="text-sm font-medium text-red-600">{{ employee.leaves_taken }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">Carryforward Available:</span>
-                        <span class="text-sm font-medium text-blue-600">{{ employee.carryforward_available_leaves }}</span>
+                        <span class="text-sm font-medium text-red-600">{{ leave_balance_info.total_annual_taken }}</span>
                     </div>
                 </div>
             </div>
@@ -217,12 +215,14 @@
                 <h4 class="font-medium text-gray-700 mb-2">Medical Leave</h4>
                 <div class="space-y-2">
                     <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">Available:</span>
-                        <span class="text-sm font-medium text-green-600">{{ employee.available_medical_leaves }}</span>
+                        <span class="text-sm text-gray-600">Remaining:</span>
+                        <span class="text-sm font-medium {% if leave_balance_info.medical_remaining < 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                            {{ leave_balance_info.medical_remaining }}
+                        </span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-sm text-gray-600">Taken:</span>
-                        <span class="text-sm font-medium text-red-600">{{ employee.medical_leaves_taken }}</span>
+                        <span class="text-sm font-medium text-red-600">{{ leave_balance_info.total_medical_taken }}</span>
                     </div>
                 </div>
             </div>

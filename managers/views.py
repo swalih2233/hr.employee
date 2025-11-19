@@ -37,7 +37,7 @@ from django.core.validators import validate_email
 import secrets
 import logging
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +228,39 @@ def manager_dashboard(request):
     from common.utils import get_employees_under_manager
     employees = get_employees_under_manager(manager)
 
+    employees_with_status = []
+    today = timezone.now().date()
+    for emp in employees:
+        is_on_leave = LeaveRequest.objects.filter(
+            employee=emp,
+            status='Approved',
+            start_date__lte=today,
+            end_date__gte=today
+        ).exists()
+
+        status_text = ''
+        status_class = ''
+
+        if is_on_leave:
+            status_text = 'On Leave'
+            status_class = 'bg-yellow-100 text-yellow-800'
+        else:
+            status_text = emp.get_employe_status_display() or 'Active'
+            if status_text == 'ACTIVE':
+                status_class = 'bg-green-100 text-green-800'
+            elif status_text == 'PROBATION':
+                status_class = 'bg-blue-100 text-blue-800'
+            elif status_text == 'LEAVE':
+                status_class = 'bg-red-100 text-red-800'
+            else: # Default for 'Active'
+                status_class = 'bg-green-100 text-green-800'
+
+        employees_with_status.append({
+            'employee': emp,
+            'status': status_text,
+            'status_class': status_class,
+        })
+
     pending_employee_requests = LeaveRequest.objects.filter(
         employee__in=employees,
         status='Pending'
@@ -247,9 +280,25 @@ def manager_dashboard(request):
     
     holidays = Holiday.objects.all().order_by('date')
 
+    # Calculate remaining leaves for the manager
+    total_annual_taken = UnifiedLeaveRequest.objects.filter(
+        manager=manager,
+        leave_type='AL',
+        is_approved=True
+    ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+    total_medical_taken = UnifiedLeaveRequest.objects.filter(
+        manager=manager,
+        leave_type='ML',
+        is_approved=True
+    ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+    annual_remaining = 18 - total_annual_taken
+    medical_remaining = 14 - total_medical_taken
+
     context = {
         'manager': manager,
-        'employees': employees,
+        'employees': employees_with_status,
         'holidays': holidays,
         'employee_count': employees.count(),
         'pending_employee_requests': pending_employee_requests,
@@ -262,6 +311,8 @@ def manager_dashboard(request):
         'notification_count': pending_employee_requests.count(),
         'user_form': user_form,
         'employe_form': employe_form,
+        'annual_remaining': annual_remaining,
+        'medical_remaining': medical_remaining,
     }
 
     return render(request, 'managers/manager_dashboard.html', context)
@@ -281,19 +332,11 @@ def approve_employee_leave(request, leave_id):
         leave_days = calculate_leave_days(leave_request.start_date, leave_request.end_date)
 
         if leave_request.leave_type == 'ML':
-            if employee_profile.available_medical_leaves >= leave_days:
-                employee_profile.medical_leaves_taken += leave_days
-                employee_profile.available_medical_leaves -= leave_days
-            else:
-                messages.error(request, "Not enough medical leave balance.")
-                return redirect('managers:leavelist')
+            employee_profile.medical_leaves_taken += leave_days
+            employee_profile.available_medical_leaves -= leave_days
         elif leave_request.leave_type == 'AL':
-            if employee_profile.available_leaves >= leave_days:
-                employee_profile.leaves_taken += leave_days
-                employee_profile.available_leaves -= leave_days
-            else:
-                messages.error(request, "Not enough annual leave balance.")
-                return redirect('managers:leavelist')
+            employee_profile.leaves_taken += leave_days
+            employee_profile.available_leaves -= leave_days
 
         employee_profile.save()
 
@@ -305,7 +348,7 @@ def approve_employee_leave(request, leave_id):
 
         employee_profile.recalculate_leave_counts()
 
-        send_leave_notification(request, leave_request, 'approved', leave_request.employee.user.email)
+        send_leave_notification(request, leave_request, 'approved', leave_request.employee.user.email, cc_founder=True)
 
         messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} approved.")
         return redirect('managers:leavelist')
@@ -329,7 +372,7 @@ def reject_employee_leave(request, leave_id):
         leave_request.rejection_date = timezone.now()
         leave_request.save()
 
-        send_leave_notification(request, leave_request, 'rejected', leave_request.employee.user.email)
+        send_leave_notification(request, leave_request, 'rejected', leave_request.employee.user.email, cc_founder=True)
 
         messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} rejected.")
         return redirect('managers:leavelist')
@@ -426,12 +469,36 @@ def manager_leave_history(request):
             requested_by_role='manager'
         ).order_by('-created_date')
 
+        # Calculate remaining leaves for the manager
+        total_annual_taken = UnifiedLeaveRequest.objects.filter(
+            manager=manager,
+            leave_type='AL',
+            is_approved=True
+        ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+        total_medical_taken = UnifiedLeaveRequest.objects.filter(
+            manager=manager,
+            leave_type='ML',
+            is_approved=True
+        ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+        annual_remaining = 18 - total_annual_taken
+        medical_remaining = 14 - total_medical_taken
+        total_taken = total_annual_taken + total_medical_taken
+
         for leave_request in unified_requests:
-            leave_request.calculated_duration = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+            if leave_request.is_approved:
+                leave_request.calculated_duration = leave_request.leave_duration
+            else:
+                leave_request.calculated_duration = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+
 
         context = {
             'unified_requests': unified_requests,
-            'manager': manager
+            'manager': manager,
+            'annual_remaining': annual_remaining,
+            'medical_remaining': medical_remaining,
+            'total_taken': total_taken,
         }
         return render(request, 'managers/leave_history.html', context)
 

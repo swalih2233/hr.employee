@@ -191,6 +191,10 @@ class UnifiedLeaveRequest(CommonModel):
             return requester.user.email
         return "Unknown"
 
+    @property
+    def approved_manager(self):
+        return self.approved_by.manager_profile.first()
+
 
 # Keep the old ManagerLeaveRequest for backward compatibility (will be deprecated)
 class ManagerLeaveRequest(CommonModel):

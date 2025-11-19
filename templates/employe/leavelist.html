@@ -2,95 +2,114 @@
 {% block container %}
 {% load static %}
 
-
   <!-- Header -->
-  <header class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center">
-      <input type="text" placeholder="Search anything..." class="w-64 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
-      <span class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">F</span>
+  <header class="bg-white shadow-sm px-4 md:px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <!-- Logo -->
+         <!-- Logo -->
+   <a href="{% url 'employe:details' %}" class="flex items-center">
+        <img src="/static/images/Black Transparent Mavendeor .png"
+             alt="Logo"
+             class="h-11 md:h-[70px] w-auto object-contain">
+    </a>
+      <!-- Search (hidden on mobile) -->
+      
     </div>
-    <div class="flex items-center space-x-6">
-      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
-      <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer"></i>
-      <img src="{{ employe.image.url }}" class="w-8 h-8 rounded-full object-cover cursor-pointer">
+    <div class="flex items-center space-x-3 md:space-x-6">
+      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
+      <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
+      <img src="{{ employe.image.url }}" class="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover cursor-pointer">
     </div>
   </header>
 
-<section class="pt-[10vh]">
-  <div class="container mx-auto p-4">
+<section class="pt-6 md:pt-[10vh] pb-6">
+  <div class="container mx-auto px-4">
 
     <!-- Django Messages Framework -->
     {% if messages %}
     <div class="mb-4">
         {% for message in messages %}
         <div class="p-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}" role="alert">
-            <p>{{ message }}</p>
+            <p class="text-sm">{{ message }}</p>
         </div>
         {% endfor %}
     </div>
     {% endif %}
 
-    <!-- FILTERS -->
-    <div class="flex flex-wrap gap-4 mb-6">
-      <input type="text" placeholder="01 Jan 2023 – 10 May 2023" 
-             class="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto">
-      <select id="typeFilter" class="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto">
-        <option value="">All Type</option>
-        <option value="Annual Leave">Annual Leave</option>
-        <option value="Medical Leave">Medical Leave</option>
-      </select>
-      <select id="statusFilter" class="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto">
-        <option value="">All Status</option>
-        <option value="APPROVED">Approved</option>
-        <option value="PENDING">Pending</option>
-        <option value="REJECTED">Rejected</option>
-      </select>
+    <!-- Page Title -->
+    <div class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-900">My Leave Requests</h1>
+      <p class="text-sm text-gray-500 mt-1">View and track all your leave applications</p>
     </div>
 
-    <!-- TABLE -->
-    <div class="overflow-x-auto hidden sm:block">
-      <table id="leaveTable" class="min-w-full bg-white border rounded-lg shadow">
-        <thead class="bg-gray-100 text-gray-600 text-sm uppercase">
+    <!-- FILTERS -->
+    <div class="bg-white rounded-lg shadow p-4 mb-6">
+      <div class="flex flex-wrap gap-3">
+        <input type="text" 
+               id="searchInput"
+               placeholder="Search..." 
+               class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-auto sm:flex-1 focus:ring-2 focus:ring-indigo-500">
+        <select id="typeFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-auto focus:ring-2 focus:ring-indigo-500">
+          <option value="">All Type</option>
+          <option value="Annual Leave">Annual Leave</option>
+          <option value="Medical Leave">Medical Leave</option>
+        </select>
+        <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-auto focus:ring-2 focus:ring-indigo-500">
+          <option value="">All Status</option>
+          <option value="APPROVED">Approved</option>
+          <option value="PENDING">Pending</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- DESKTOP TABLE -->
+    <div class="overflow-x-auto hidden md:block bg-white rounded-lg shadow">
+      <table id="leaveTable" class="min-w-full">
+        <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
           <tr>
-            <th class="py-3 px-4 text-left">Subject</th>
-            <th class="py-3 px-4 text-left">From</th>
-            <th class="py-3 px-4 text-left">To</th>
-            <th class="py-3 px-4 text-left">Total</th>
-            <th class="py-3 px-4 text-left">Type</th>
-            <th class="py-3 px-4 text-left">Attachment</th>
-            <th class="py-3 px-4 text-left">Status</th>
+            <th class="py-3 px-4 text-left font-medium">Subject</th>
+            <th class="py-3 px-4 text-left font-medium">From</th>
+            <th class="py-3 px-4 text-left font-medium">To</th>
+            <th class="py-3 px-4 text-left font-medium">Total</th>
+            <th class="py-3 px-4 text-left font-medium">Type</th>
+            <th class="py-3 px-4 text-left font-medium">Attachment</th>
+            <th class="py-3 px-4 text-left font-medium">Status</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="divide-y divide-gray-200">
           {% for instance in instances %}
-          <tr class="border-t hover:bg-gray-50">
-        
-            <td class="py-3 px-4">{{ instance.subject }}</td>
-            <td class="py-3 px-4">{{ instance.start_date }}</td>
-            <td class="py-3 px-4">{{ instance.end_date }}</td>
-            <td class="py-3 px-4">{{ instance.leave_duration }} Days</td>
-            <td class="py-3 px-4 type-col">{{ instance.get_leave_type_display }}</td>
-            <td class="py-3 px-4">
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-3 px-4 text-sm">{{ instance.subject }}</td>
+            <td class="py-3 px-4 text-sm">{{ instance.start_date|date:"d M Y" }}</td>
+            <td class="py-3 px-4 text-sm">{{ instance.end_date|date:"d M Y" }}</td>
+            <td class="py-3 px-4 text-sm">{{ instance.leave_duration }} Days</td>
+            <td class="py-3 px-4 text-sm type-col">{{ instance.get_leave_type_display }}</td>
+            <td class="py-3 px-4 text-sm">
               {% if instance.attachment %}
-                <a href="{{ instance.attachment.url }}" class="text-blue-500 underline">File</a>
+                <a href="{{ instance.attachment.url }}" class="text-blue-600 hover:text-blue-800 underline">
+                  <i class="fas fa-file-download mr-1"></i>Download
+                </a>
               {% else %}
-                –
+                <span class="text-gray-400">–</span>
               {% endif %}
             </td>
             <td class="py-3 px-4 status-col">
-              <!-- FIX: Use the correct model fields for status -->
               {% if instance.is_approved %}
-                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">APPROVED</span>
+                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">APPROVED</span>
               {% elif instance.is_rejected %}
-                <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded">REJECTED</span>
+                <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">REJECTED</span>
               {% else %}
-                <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded">PENDING</span>
+                <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded-full">PENDING</span>
               {% endif %}
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="8" class="py-4 text-center text-gray-600">No leave requests found.</td>
+            <td colspan="7" class="py-8 text-center text-gray-500">
+              <i class="fas fa-inbox text-4xl mb-2 text-gray-300"></i>
+              <p>No leave requests found.</p>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -98,43 +117,65 @@
     </div>
 
     <!-- MOBILE CARDS -->
-    <div class="block sm:hidden">
+    <div class="block md:hidden space-y-4" id="mobileLeaveCards">
       {% for instance in instances %}
-      <div class="bg-white border rounded-lg shadow p-4 mb-4">
-        <div class="flex items-center gap-3 mb-2">
-          {% if instance.employe.image %}
-            <img src="{{ instance.employe.image.url }}" alt="" class="w-10 h-10 rounded-full object-cover">
-          {% else %}
-            <img src="{% static 'images/default-avatar.png' %}" alt="" class="w-10 h-10 rounded-full object-cover">
-          {% endif %}
-          <div>
-            <p class="font-semibold">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</p>
-            <p class="text-xs text-gray-500">{{ instance.get_leave_type_display }}</p>
+      <div class="bg-white border rounded-lg shadow p-4 mobile-card">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-3">
+            {% if instance.employe.image %}
+              <img src="{{ instance.employe.image.url }}" alt="" class="w-12 h-12 rounded-full object-cover">
+            {% else %}
+              <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                <i class="fas fa-user text-gray-400"></i>
+              </div>
+            {% endif %}
+            <div>
+              <p class="font-semibold text-gray-900">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</p>
+              <p class="text-xs text-gray-500 type-col">{{ instance.get_leave_type_display }}</p>
+            </div>
+          </div>
+          <div class="status-col">
+            {% if instance.is_approved %}
+              <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">APPROVED</span>
+            {% elif instance.is_rejected %}
+              <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">REJECTED</span>
+            {% else %}
+              <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded-full">PENDING</span>
+            {% endif %}
           </div>
         </div>
-        <p><strong>Subject:</strong> {{ instance.subject }}</p>
-        <p><strong>From:</strong> {{ instance.start_date }}</p>
-        <p><strong>To:</strong> {{ instance.end_date }}</p>
-        <p><strong>Total:</strong> {{ instance.leave_duration }} Days</p>
-        <p><strong>Attachment:</strong> 
+        
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-600 font-medium">Subject:</span>
+            <span class="text-gray-900 text-right">{{ instance.subject }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 font-medium">From:</span>
+            <span class="text-gray-900">{{ instance.start_date|date:"d M Y" }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 font-medium">To:</span>
+            <span class="text-gray-900">{{ instance.end_date|date:"d M Y" }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 font-medium">Duration:</span>
+            <span class="text-gray-900 font-semibold">{{ instance.leave_duration }} Days</span>
+          </div>
           {% if instance.attachment %}
-            <a href="{{ instance.attachment.url }}" class="text-blue-500 underline">File</a>
-          {% else %}
-            –
-          {% endif %}
-        </p>
-        <div class="mt-2">
-          {% if instance.is_approved %}
-            <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">APPROVED</span>
-          {% elif instance.is_rejected %}
-            <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded">REJECTED</span>
-          {% else %}
-            <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded">PENDING</span>
+          <div class="pt-2 border-t">
+            <a href="{{ instance.attachment.url }}" class="text-blue-600 hover:text-blue-800 underline text-sm flex items-center">
+              <i class="fas fa-file-download mr-2"></i>Download Attachment
+            </a>
+          </div>
           {% endif %}
         </div>
       </div>
       {% empty %}
-      <p class="text-center text-gray-600 mt-4">No leave requests found.</p>
+      <div class="text-center py-12 text-gray-500 bg-white rounded-lg shadow">
+        <i class="fas fa-inbox text-5xl mb-3 text-gray-300"></i>
+        <p class="text-lg">No leave requests found.</p>
+      </div>
       {% endfor %}
     </div>
 
@@ -143,26 +184,52 @@
 
 <!-- JS FILTERS -->
 <script>
+// Search filter
 document.getElementById("searchInput").addEventListener("keyup", function() {
   let filter = this.value.toLowerCase();
+  
+  // Filter desktop table
   document.querySelectorAll("#leaveTable tbody tr").forEach(row => {
     row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
   });
+  
+  // Filter mobile cards
+  document.querySelectorAll(".mobile-card").forEach(card => {
+    card.style.display = card.innerText.toLowerCase().includes(filter) ? "" : "none";
+  });
 });
 
+// Type filter
 document.getElementById("typeFilter").addEventListener("change", function() {
   let filter = this.value;
+  
+  // Filter desktop table
   document.querySelectorAll("#leaveTable tbody tr").forEach(row => {
     let type = row.querySelector(".type-col")?.innerText.trim();
     row.style.display = filter === "" || type === filter ? "" : "none";
   });
+  
+  // Filter mobile cards
+  document.querySelectorAll(".mobile-card").forEach(card => {
+    let type = card.querySelector(".type-col")?.innerText.trim();
+    card.style.display = filter === "" || type === filter ? "" : "none";
+  });
 });
 
+// Status filter
 document.getElementById("statusFilter").addEventListener("change", function() {
   let filter = this.value;
+  
+  // Filter desktop table
   document.querySelectorAll("#leaveTable tbody tr").forEach(row => {
     let status = row.querySelector(".status-col span")?.innerText.trim();
     row.style.display = filter === "" || status === filter ? "" : "none";
+  });
+  
+  // Filter mobile cards
+  document.querySelectorAll(".mobile-card").forEach(card => {
+    let status = card.querySelector(".status-col span")?.innerText.trim();
+    card.style.display = filter === "" || status === filter ? "" : "none";
   });
 });
 </script>

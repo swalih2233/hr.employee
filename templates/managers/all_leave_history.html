@@ -9,20 +9,67 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans">
 
-<!-- Header -->
-<nav class="bg-[#1F2937] text-white px-6 py-4 shadow">
-  <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-    <h1 class="text-lg sm:text-xl font-semibold">Founder Dashboard</h1>
-    <div class="flex flex-wrap items-center gap-4 text-sm">
-      <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
-      <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
-      <a href="{% url 'managers:employees_list' %}" class="hover:underline font-bold">Employees</a>
-      <a href="{% url 'managers:logout' %}" class="hover:underline">Sign Out</a>
+<body class="bg-gray-100 text-gray-800 font-sans" x-data="pageData()" x-cloak>
+
+<!-- ===================== NAVBAR ===================== -->
+<nav class="bg-[#1F2937] text-white px-4 py-3 shadow relative">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+
+        <!-- LOGO -->
+        <a href="{% url 'managers:founder_dashboard' %}" class="flex items-center">
+            <img src="/static/images/White Transparent Mavendoer.png" 
+                 alt="Logo" 
+                 class="h-[30px] w-auto object-contain sm:h-[40px]">
+        </a>
+
+        <!-- DESKTOP MENU -->
+        <div class="hidden md:flex items-center space-x-6 text-sm">
+            <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
+            <a href="{% url 'managers:holidays_list' %}" class="hover:underline font-bold">Holidays</a>
+            <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
+            <a href="{% url 'managers:logout' %}" class="hover:underline">Sign Out</a>
+        </div>
+
+        <!-- MOBILE HAMBURGER -->
+        <button class="block md:hidden" @click="sidebarOpen=true">
+            <i class="fa fa-bars text-xl"></i>
+        </button>
     </div>
-  </div>
 </nav>
+
+<!-- ========== MOBILE SLIDE-IN NAV DRAWER ========== -->
+<div 
+    x-show="sidebarOpen"
+    @click="sidebarOpen=false"
+    class="fixed inset-0 bg-black bg-opacity-50 md:hidden z-40">
+</div>
+
+<aside 
+    x-show="sidebarOpen"
+    class="fixed top-0 right-0 h-full w-64 bg-[#1F2937] text-white z-50 p-6 md:hidden transform transition-all"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="translate-x-full"
+    x-transition:enter-end="translate-x-0"
+    x-transition:leave="transition ease-in duration-300"
+    x-transition:leave-start="translate-x-0"
+    x-transition:leave-end="translate-x-full">
+
+    <!-- Close button -->
+    <button class="absolute top-4 right-4" @click="sidebarOpen=false">
+        <i class="fa fa-times text-2xl"></i>
+    </button>
+
+    <h3 class="text-xl font-semibold mt-8 mb-6">Menu</h3>
+
+    <nav class="flex flex-col space-y-4 text-base">
+        <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
+        <a href="{% url 'managers:holidays_list' %}" class="hover:underline font-bold">Holidays</a>
+        <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
+        <a href="{% url 'managers:logout' %}" class="hover:underline text-red-300">Sign Out</a>
+    </nav>
+</aside>
+
 
 <div class="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <!-- Page Header -->
@@ -242,6 +289,19 @@ function clearFilters() {
     const event = new Event('change');
     document.getElementById('statusFilter').dispatchEvent(event);
 }
+
+
+function pageData() {
+    return {
+        activeSidebar: null,
+        sidebarOpen: false,
+
+        openSidebar(name){ this.activeSidebar = name },
+        closeSidebar(){ this.activeSidebar = null },
+        isSidebarOpen(name){ return this.activeSidebar === name }
+    }
+}
+
 </script>
 
 </body>

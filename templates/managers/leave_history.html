@@ -12,39 +12,40 @@
 </head>
 <body class="bg-gray-50">
 <div class="flex h-screen">
- 
-
   <!-- Add Alpine.js for dropdown functionality -->
   <script src="https://unpkg.com/alpinejs" defer></script>
 
   <!-- Main Content -->
   <div class="flex-1 flex flex-col overflow-y-auto">
     <!-- Header -->
-    
-    <!-- Header -->
-    <header class="flex items-center justify-between px-8 py-5 border-b bg-white shadow-sm">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Hi, {{ manager.user.first_name }}</h1>
-        <p class="text-sm text-gray-500">Here’s your HR report so far</p>
-      </div>
-      <div class="flex items-center space-x-5">
+    <header class="flex items-center justify-between px-4 md:px-8 py-5 border-b bg-white shadow-sm">
+      <!-- Logo and Greeting -->
+     <div class="flex items-center space-x-4">
+    <a href="{% url 'managers:manager_dashboard' %}" class="flex items-center">
+        <img src="/static/images/Black Transparent Mavendeor .png"
+             alt="Logo"
+             class="h-10 md:h-[70px] w-auto object-contain">
+    </a>
+   
+    </div>
+      
+      <div class="flex items-center space-x-2 md:space-x-5">
         <!-- Search -->
         <input type="text" placeholder="Search…" 
-               class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+               class="hidden md:block px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
 
         <!-- Notification -->
-         <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+        <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+          <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
           {% if notification_count > 0 %}
-          <span class="absolute top-0 right-0 block h-5 w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
+          <span class="absolute top-0 right-0 block h-4 w-4 md:h-5 md:w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
           {% endif %}
         </a>
-        
 
         <!-- Profile Image — shows only logged-in user's image -->
-   <div x-data="{ open: false }" class="relative">
+        <div x-data="{ open: false }" class="relative">
           <button @click="open = !open" class="flex items-center focus:outline-none">
-            <img src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-8 h-8 rounded-full" alt="Profile">
+            <img src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full" alt="Profile">
           </button>
           <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
             <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
@@ -53,45 +54,88 @@
       </div>
     </header>
 
+  
+
     <!-- Back Link (Below Header) -->
-    <div class="px-8 py-4">
-      <a href="{% url 'managers:manager_dashboard' %}" class="text-blue-600 hover:underline text-sm font-medium">
-        ← Back to Dashboard
+    <div class="px-4 md:px-8 py-4">
+      <a href="{% url 'managers:manager_dashboard' %}" class="text-blue-600 hover:underline text-sm font-medium inline-flex items-center">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Back to Dashboard
       </a>
     </div>
 
     <!-- Section -->
-    <section class="p-6">
+    <section class="p-4 md:p-6">
 
-
-      <!-- Leave Balance Summary -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white p-4 rounded-lg shadow border">
-          <h3 class="text-sm font-medium text-gray-500">Available Annual Leaves</h3>
-          <p class="text-2xl font-bold text-green-600">{{ manager.available_leaves }}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow border">
-          <h3 class="text-sm font-medium text-gray-500">Annual Leaves Taken</h3>
-          <p class="text-2xl font-bold text-red-600">{{ manager.leaves_taken }}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow border">
-          <h3 class="text-sm font-medium text-gray-500">Available Medical Leaves</h3>
-          <p class="text-2xl font-bold text-green-600">{{ manager.available_medical_leaves }}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow border">
-          <h3 class="text-sm font-medium text-gray-500">Medical Leaves Taken</h3>
-          <p class="text-2xl font-bold text-red-600">{{ manager.medical_leaves_taken }}</p>
-        </div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+  <!-- Available Annual Leaves -->
+  <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-green-500">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-green-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
       </div>
+      <span class="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">Available</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Available Annual Leaves</h3>
+    <p class="text-2xl md:text-3xl font-bold {% if manager.available_leaves < 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ manager.available_leaves }}</p>
+  </div>
+
+  <!-- Annual Leaves Taken -->
+  <div class="bg-gradient-to-br from-red-50 to-rose-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-red-500">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-red-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded-full">Taken</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Annual Leaves Taken</h3>
+    <p class="text-2xl md:text-3xl font-bold {% if manager.leaves_taken < 0 %}text-red-600{% else %}text-red-600{% endif %}">{{ manager.leaves_taken }}</p>
+  </div>
+
+  <!-- Available Medical Leaves -->
+  <div class="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-blue-500">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-blue-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded-full">Available</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Available Medical Leaves</h3>
+    <p class="text-2xl md:text-3xl font-bold {% if manager.available_medical_leaves < 0 %}text-red-600{% else %}text-blue-600{% endif %}">{{ manager.available_medical_leaves }}</p>
+  </div>
+
+  <!-- Medical Leaves Taken -->
+  <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-orange-500">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-orange-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-1 rounded-full">Taken</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Medical Leaves Taken</h3>
+    <p class="text-2xl md:text-3xl font-bold {% if manager.medical_leaves_taken < 0 %}text-red-600{% else %}text-orange-600{% endif %}">{{ manager.medical_leaves_taken }}</p>
+  </div>
+</div>
 
       <!-- Leave Requests Table -->
       <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h2 class="text-xl font-semibold text-gray-800">Leave Requests</h2>
+        <div class="px-4 md:px-6 py-4 border-b border-gray-200">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-800">Leave Requests</h2>
         </div>
 
         {% if unified_requests or old_requests %}
-        <div class="overflow-x-auto">
+        <!-- Desktop Table -->
+        <div class="hidden md:block overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
@@ -175,6 +219,95 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Mobile Cards -->
+        <div class="md:hidden p-4 space-y-4">
+          <!-- Unified Requests -->
+          {% for request in unified_requests %}
+          <div class="border rounded-lg p-4 bg-gray-50">
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex-1">
+                <h4 class="font-semibold text-gray-900 text-sm">{{ request.subject }}</h4>
+                {% if request.description %}
+                <p class="text-xs text-gray-500 mt-1">{{ request.description|truncatechars:50 }}</p>
+                {% endif %}
+              </div>
+              {% if request.is_approved %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Approved</span>
+              {% elif request.is_rejected %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 ml-2">Rejected</span>
+              {% else %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 ml-2">Pending</span>
+              {% endif %}
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Type:</span>
+                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                      {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                  {{ request.get_leave_type_display }}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Dates:</span>
+                <span class="text-gray-900 text-xs">{{ request.start_date }} to {{ request.end_date }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Duration:</span>
+                <span class="text-gray-900">{{ request.calculated_duration }} day{{ request.calculated_duration|pluralize }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Applied On:</span>
+                <span class="text-gray-900 text-xs">{{ request.created_date }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- Old Requests -->
+          {% for request in old_requests %}
+          <div class="border rounded-lg p-4 bg-gray-100">
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex-1">
+                <h4 class="font-semibold text-gray-900 text-sm">{{ request.subject }}</h4>
+                {% if request.description %}
+                <p class="text-xs text-gray-500 mt-1">{{ request.description|truncatechars:50 }}</p>
+                {% endif %}
+                <span class="text-xs text-gray-400">(Legacy)</span>
+              </div>
+              {% if request.is_approved %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Approved</span>
+              {% elif request.is_rejected %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 ml-2">Rejected</span>
+              {% else %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 ml-2">Pending</span>
+              {% endif %}
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Type:</span>
+                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                      {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                  {{ request.get_leave_type_display }}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Dates:</span>
+                <span class="text-gray-900 text-xs">{{ request.start_date }} to {{ request.end_date }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Duration:</span>
+                <span class="text-gray-900">{{ request.calculated_duration }} day{{ request.calculated_duration|pluralize }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Applied On:</span>
+                <span class="text-gray-900 text-xs">{{ request.created_date }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
         {% else %}
         <div class="px-6 py-8 text-center">
           <div class="text-gray-500 mb-4">
@@ -185,7 +318,6 @@
           </div>
           <h3 class="text-lg font-medium text-gray-900 mb-2">No leave requests found</h3>
           <p class="text-gray-500 mb-4">You haven't applied for any leaves yet.</p>
-     
         </div>
         {% endif %}
       </div>

@@ -5,31 +5,120 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Employees</title>
+
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- AlpineJS -->
     <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans">
 
-<!-- Header -->
-<nav class="bg-[#1F2937] text-white px-6 py-4 shadow">
-  <div class="container mx-auto flex items-center justify-between">
-    <h1 class="text-xl font-semibold">Founder Dashboard</h1>
-    <div class="flex items-center space-x-6 text-sm">
-      <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
-      <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
-      <a href="{% url 'managers:employees_list' %}" class="hover:underline font-bold">Employees</a>
-      <a href="{% url 'managers:logout' %}" class="hover:underline">Sign Out</a>
+<body class="bg-gray-100 text-gray-800 font-sans" x-data="pageData()" x-cloak>
+
+<!-- ===================== NAVBAR ===================== -->
+<nav class="bg-[#1F2937] text-white px-4 py-3 shadow relative">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+
+        <!-- LOGO -->
+        <a href="{% url 'managers:founder_dashboard' %}" class="flex items-center">
+            <img src="/static/images/White Transparent Mavendoer.png" 
+                 alt="Logo" 
+                 class="h-[30px] w-auto object-contain sm:h-[40px]">
+        </a>
+
+        <!-- DESKTOP MENU -->
+        <div class="hidden md:flex items-center space-x-6 text-sm">
+            <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
+            <a href="{% url 'managers:holidays_list' %}" class="hover:underline font-bold">Holidays</a>
+            <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
+            <a href="{% url 'managers:logout' %}" class="hover:underline">Sign Out</a>
+        </div>
+
+        <!-- MOBILE HAMBURGER -->
+        <button class="block md:hidden" @click="sidebarOpen=true">
+            <i class="fa fa-bars text-xl"></i>
+        </button>
     </div>
-  </div>
 </nav>
 
-<!-- Main Content -->
+<!-- ========== MOBILE SLIDE-IN NAV DRAWER ========== -->
+<div 
+    x-show="sidebarOpen"
+    @click="sidebarOpen=false"
+    class="fixed inset-0 bg-black bg-opacity-50 md:hidden z-40">
+</div>
+
+<aside 
+    x-show="sidebarOpen"
+    class="fixed top-0 right-0 h-full w-64 bg-[#1F2937] text-white z-50 p-6 md:hidden transform transition-all"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="translate-x-full"
+    x-transition:enter-end="translate-x-0"
+    x-transition:leave="transition ease-in duration-300"
+    x-transition:leave-start="translate-x-0"
+    x-transition:leave-end="translate-x-full">
+
+    <!-- Close button -->
+    <button class="absolute top-4 right-4" @click="sidebarOpen=false">
+        <i class="fa fa-times text-2xl"></i>
+    </button>
+
+    <h3 class="text-xl font-semibold mt-8 mb-6">Menu</h3>
+
+    <nav class="flex flex-col space-y-4 text-base">
+        <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
+        <a href="{% url 'managers:holidays_list' %}" class="hover:underline font-bold">Holidays</a>
+        <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
+        <a href="{% url 'managers:logout' %}" class="hover:underline text-red-300">Sign Out</a>
+    </nav>
+</aside>
+
+
+<!-- =================== MOBILE SIDEBAR (Slide-in) =================== -->
+<div 
+    x-show="sidebarOpen" 
+    x-transition.opacity 
+    @click="sidebarOpen=false"
+    class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden">
+</div>
+
+<aside 
+    x-show="sidebarOpen"
+    x-transition:enter="transition transform duration-300" 
+    x-transition:enter-start="translate-x-full" 
+    x-transition:enter-end="translate-x-0" 
+    x-transition:leave="transition transform duration-300" 
+    x-transition:leave-start="translate-x-0" 
+    x-transition:leave-end="translate-x-full"
+    class="fixed top-0 right-0 w-64 h-full bg-[#1F2937] text-white p-5 z-50 md:hidden">
+
+    <!-- Close Button -->
+    <button class="absolute top-4 right-4" @click="sidebarOpen=false">
+        <i class="fa fa-times text-2xl"></i>
+    </button>
+
+    <h3 class="text-lg font-semibold mt-8 mb-6">Menu</h3>
+
+    <nav class="flex flex-col space-y-4 text-base">
+        <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
+        <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
+        <a href="{% url 'managers:employees_list' %}" class="hover:underline font-bold">Employees</a>
+        <a href="{% url 'managers:logout' %}" class="hover:underline text-red-300">Sign Out</a>
+    </nav>
+</aside>
+
+<!-- =================== Main Content =================== -->
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
     <section class="bg-white rounded-lg shadow">
         <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
             <h2 class="text-base font-semibold">Employees List</h2>
         </div>
+
+        <p class="md:hidden text-xs text-gray-500 px-4 pb-2">Swipe → to see full table</p>
+
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm text-left text-gray-700">
                 <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
@@ -40,26 +129,29 @@
                         <th class="px-6 py-3">Actions</th>
                     </tr>
                 </thead>
+
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for employee in employees %}
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap flex items-center">
-                          <img 
-                            src="{% if employee.image %}{{ employee.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
-                            alt="{{ employee.user.get_full_name }}" 
-                            class="h-8 w-8 rounded-full object-cover mr-3"
-                          >
-                          <span class="text-gray-800 font-medium">{{ employee.user.get_full_name }}</span>
+                            <img src="{% if employee.image %}{{ employee.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}"
+                                 alt="{{ employee.user.get_full_name }}"
+                                 class="h-8 w-8 rounded-full object-cover mr-3">
+                            <span class="text-gray-800 font-medium">{{ employee.user.get_full_name }}</span>
                         </td>
                         <td class="px-6 py-4">{{ employee.user.email }}</td>
                         <td class="px-6 py-4">{{ employee.department }}</td>
                         <td class="px-6 py-4">
-                            <form action="{% url 'managers:delete_employee' employee.id %}" method="POST" onsubmit="return confirm('Are you sure you want to delete this employee?');" style="display:inline;">
+                            <form action="{% url 'managers:delete_employee' employee.id %}"
+                                  method="POST"
+                                  onsubmit="return confirm('Are you sure you want to delete this employee?');"
+                                  style="display:inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
                             </form>
                         </td>
                     </tr>
+
                     {% empty %}
                     <tr>
                         <td colspan="4" class="text-center py-6 text-gray-500">No employees found.</td>
@@ -71,5 +163,18 @@
     </section>
 </div>
 
+
+<script>
+function pageData() {
+    return {
+        activeSidebar: null,
+        sidebarOpen: false,
+
+        openSidebar(name){ this.activeSidebar = name },
+        closeSidebar(){ this.activeSidebar = null },
+        isSidebarOpen(name){ return this.activeSidebar === name }
+    }
+}
+</script>
 </body>
 </html>

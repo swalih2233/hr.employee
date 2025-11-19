@@ -207,6 +207,17 @@
   });
 
 
+function pageData() {
+    return {
+        activeSidebar: null,
+        sidebarOpen: false,
+
+        openSidebar(name){ this.activeSidebar = name },
+        closeSidebar(){ this.activeSidebar = null },
+        isSidebarOpen(name){ return this.activeSidebar === name }
+    }
+}
+
 </script>
 </body>
 </html>

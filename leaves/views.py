@@ -16,43 +16,45 @@ def apply_leave(request):
         if form.is_valid():
             leave = form.save(commit=False)
             
-            # 1. Assign employee
-            try:
-                leave.employee = Employe.objects.get(user=request.user)
-            except Employe.DoesNotExist:
-                messages.error(request, "User is not an employee.")
-                return redirect('some_error_page')  # Or handle appropriately
+            # Check if the user is a manager or an employee
+            is_manager = hasattr(request.user, 'manager_profile')
+            is_employee = hasattr(request.user, 'user_employee')
 
-            # 2. Validate start_date <= end_date
+            if is_manager:
+                leave.manager = request.user.manager_profile
+                leave.requested_by_role = 'manager'
+            elif is_employee:
+                leave.employee = request.user.user_employee
+                leave.requested_by_role = 'employee'
+            else:
+                messages.error(request, "Invalid user type.")
+                return redirect('some_error_page')
+
             if leave.start_date > leave.end_date:
                 messages.error(request, "Start date cannot be after end date.")
                 return render(request, 'leaves/apply_leave.html', {'form': form})
 
-            # Check for overlapping leave requests
-            overlapping_leaves = LeaveRequest.objects.filter(
-                employee=leave.employee,
-                start_date__lte=leave.end_date,
-                end_date__gte=leave.start_date,
-                status='pending'
-            )
-            if overlapping_leaves.exists():
-                messages.error(request, "You already have a pending leave request that overlaps with these dates.")
-                return render(request, 'leaves/apply_leave.html', {'form': form})
-
-            # 3. Calculate total_days
             leave.total_days = (leave.end_date - leave.start_date).days + 1
             leave.save()
 
-            # 4. Send email notification
-            try:
-                from managers.views import send_leave_notification
-                send_leave_notification(request, leave, 'new_request', leave.employee.manager.user.email, manager_name=leave.employee.manager.user.get_full_name(), cc_founder=True)
-                send_leave_notification(request, leave, 'submission_confirmation', leave.employee.user.email)
-            except Exception as e:
-                messages.error(request, f"Leave saved, but failed to send email: {e}")
-            else:
-                messages.success(request, "Leave request submitted successfully.")
-                
+            # Send email notification based on the user's role
+            from managers.views import send_leave_notification
+            if is_manager:
+                # A manager is applying for leave, notify only the founders
+                founders = Founder.objects.all()
+                founder_emails = [founder.user.email for founder in founders]
+                if founder_emails:
+                    send_leave_notification(request, leave, 'new_manager_request', founder_emails)
+            elif is_employee:
+                # An employee is applying for leave, notify the manager and CC founders
+                manager_email = leave.employee.manager.user.email
+                manager_name = leave.employee.manager.user.get_full_name()
+                send_leave_notification(request, leave, 'new_request', manager_email, manager_name=manager_name, cc_founder=True)
+            
+            # Send submission confirmation to the user who applied
+            send_leave_notification(request, leave, 'submission_confirmation', request.user.email)
+            
+            messages.success(request, "Leave request submitted successfully.")
             return redirect('leaves:leave_history')
     else:
         form = LeaveRequestForm()

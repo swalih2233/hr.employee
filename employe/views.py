@@ -93,11 +93,14 @@ def employee_dashboard(request):
         else:
             leave_request.calculated_duration = 0
 
+    leave_balance_info = get_leave_balance_info(request.user)
+
     context = {
         'employee': employee,
         'leave_requests': leave_requests,
         'pending_requests': pending_requests,
         'manager': employee.manager,
+        'leave_balance_info': leave_balance_info,
     }
 
     return render(request, 'employe/employee_dashboard.html', context)
@@ -146,7 +149,7 @@ def apply_leave(request):
 
             try:
                 if employe.manager and employe.manager.user.email:
-                    send_leave_notification(request, leave_request, 'new_request', employe.manager.user.email, manager_name=employe.manager.user.get_full_name())
+                    send_leave_notification(request, leave_request, 'new_request', employe.manager.user.email, manager_name=employe.manager.user.get_full_name(), cc_founder=True)
                 
                 send_leave_notification(request, leave_request, 'submission_confirmation', user.email)
                 
@@ -218,7 +221,11 @@ def leavelist(request):
         else:
             instance.leave_duration = 0
 
-    return render(request, "employe/leavelist.html", {'instances': instances})
+    # Add employe to context
+    return render(request, "employe/leavelist.html", {
+        'instances': instances,
+        'employe': employee  # Added this line
+    })
 
 
 @login_required(login_url='/login')

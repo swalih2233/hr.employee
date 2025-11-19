@@ -184,7 +184,22 @@ def get_leave_balance_info(user):
     profile = get_user_profile(user)
     if not profile:
         return None
-    
+
+    # Get approved leave requests
+    approved_leaves = profile.leaverequest_set.filter(status='Approved')
+
+    # Calculate total taken for each leave type
+    total_annual_taken = sum(calculate_leave_days(leave.start_date, leave.end_date) for leave in approved_leaves if leave.leave_type == 'Annual Leave')
+    total_medical_taken = sum(calculate_leave_days(leave.start_date, leave.end_date) for leave in approved_leaves if leave.leave_type == 'Medical Leave')
+
+    # Leave entitlements
+    annual_entitlement = 18
+    medical_entitlement = 14
+
+    # Calculate remaining leaves
+    annual_remaining = annual_entitlement - total_annual_taken
+    medical_remaining = medical_entitlement - total_medical_taken
+
     return {
         'available_leaves': getattr(profile, 'available_leaves', 0),
         'leaves_taken': getattr(profile, 'leaves_taken', 0),
@@ -192,6 +207,10 @@ def get_leave_balance_info(user):
         'medical_leaves_taken': getattr(profile, 'medical_leaves_taken', 0),
         'carryforward_available_leaves': getattr(profile, 'carryforward_available_leaves', 0),
         'carryforward_leaves_taken': getattr(profile, 'carryforward_leaves_taken', 0),
+        'total_annual_taken': total_annual_taken,
+        'total_medical_taken': total_medical_taken,
+        'annual_remaining': annual_remaining,
+        'medical_remaining': medical_remaining,
     }
 
 from datetime import timedelta
