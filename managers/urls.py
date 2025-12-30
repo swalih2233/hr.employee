@@ -66,4 +66,8 @@ urlpatterns=[
     # New URLs
     path("employee-leave-history/", views.employee_leave_history, name="employee_leave_history"),
     path("employee_detail/<int:id>/", views.employee_detail, name="employee_detail"),
+
+    path('employee/<int:employee_id>/leave-details/', views.manager_employee_leave_detail, name='manager_employee_leave_detail'),
+
+    path('founder/employee/<int:employee_id>/leave-details/', views.founder_employee_leave_detail, name='founder_employee_leave_detail'),
 ]

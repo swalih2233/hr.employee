@@ -1224,3 +1224,31 @@ def edit_profile(request):
         'form': form,
     }
     return render(request, 'managers/view_profile.html', context)
+
+@login_required
+def manager_employee_leave_detail(request, employee_id):
+    employe = get_object_or_404(Employe, id=employee_id)
+    
+    context = {
+        'employe': employe,
+    }
+    
+    return render(request, 'managers/employee_leave_detail.html', context)
+
+@login_required
+def founder_employee_leave_detail(request, employee_id):
+    employe = get_object_or_404(Employe, id=employee_id)
+    
+    # Get founder/manager info for header
+    try:
+        manager = request.user.manager
+    except:
+        manager = None
+    
+    context = {
+        'employe': employe,
+        'manager': manager,
+        'notification_count': 0,  # Add your notification logic here
+    }
+    
+    return render(request, 'managers/founder_employee_leave_detail.html', context)

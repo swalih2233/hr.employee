@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Leave Details - Manager Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Alpine.js for dropdown functionality -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+<body class="bg-gray-50" x-data="{ openApplyLeave: false, openAddEmployee: false }">
+<div class="flex h-screen relative">
+
+  <!-- Main Content -->
+  <div class="flex-1 overflow-y-auto">
+    
+    <!-- Header -->
+    <header class="flex items-center justify-between px-4 md:px-8 py-5 border-b bg-white shadow-sm">
+      <!-- Logo and Greeting -->
+      <div class="flex items-center space-x-4">
+        <a href="{% url 'managers:manager_dashboard' %}" class="flex items-center">
+          <img src="/static/images/Black Transparent Mavendeor .png"
+               alt="Logo"
+               class="h-10 md:h-[70px] w-auto object-contain">
+        </a>
+      </div>
+      
+      <div class="flex items-center space-x-2 md:space-x-5">
+        <!-- Search -->
+        <input type="text" placeholder="Search…" 
+               class="hidden md:block px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+
+        <!-- Notification -->
+        <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+          <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+          </svg>
+          {% if notification_count > 0 %}
+          <span class="absolute top-0 right-0 block h-4 w-4 md:h-5 md:w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
+          {% endif %}
+        </a>
+
+        <!-- Profile Image — shows only logged-in user's image -->
+        <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open" class="flex items-center focus:outline-none">
+            <img src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover" alt="Profile">
+          </button>
+          <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
+            <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="px-4 md:px-8 py-6">
+      
+      <!-- Back Link -->
+      <div class="mb-6">
+        <a href="{% url 'managers:manager_dashboard' %}" class="text-blue-600 hover:underline text-sm font-medium inline-flex items-center">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          Back to Dashboard
+        </a>
+      </div>
+
+      <!-- Employee Header Section -->
+      <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-8">
+        <div class="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
+          <!-- Employee Image -->
+          <div class="flex-shrink-0">
+            {% if employe.image %}
+              <img src="{{ employe.image.url }}" alt="{{ employe.user.first_name }}" class="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 border-blue-500 shadow-lg">
+            {% else %}
+              <div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center border-4 border-blue-500 shadow-lg">
+                <span class="text-2xl md:text-3xl font-bold text-white">{{ employe.user.first_name.0 }}{{ employe.user.last_name.0 }}</span>
+              </div>
+            {% endif %}
+          </div>
+          
+          <!-- Employee Info -->
+          <div class="flex-1 text-center md:text-left">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{{ employe.user.first_name }} {{ employe.user.last_name }}</h1>
+            <p class="text-base md:text-lg text-gray-600 mb-1">{{ employe.designation }}</p>
+            <p class="text-sm text-gray-500">{{ employe.department }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leave Statistics Section -->
+      <div class="space-y-6">
+        
+        <!-- Top Section: Total Leaves -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+          <!-- Annual Leave Total -->
+          <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 md:p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium opacity-90 mb-1">Annual Leave</p>
+                <p class="text-4xl md:text-5xl font-bold {% if employe.available_leaves|add:employe.leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_leaves|add:employe.leaves_taken }}</p>
+                <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
+              </div>
+              <div class="bg-white bg-opacity-20 p-3 md:p-4 rounded-full">
+                <svg class="w-10 h-10 md:w-12 md:h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Medical Leave Total -->
+          <div class="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-6 md:p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium opacity-90 mb-1">Medical Leave</p>
+                <p class="text-4xl md:text-5xl font-bold {% if employe.available_medical_leaves|add:employe.medical_leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_medical_leaves|add:employe.medical_leaves_taken }}</p>
+                <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
+              </div>
+              <div class="bg-white bg-opacity-20 p-3 md:p-4 rounded-full">
+                <svg class="w-10 h-10 md:w-12 md:h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Section: Detailed Breakdown -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Annual Leave Available -->
+          <div class="bg-white border-l-4 border-green-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-2">
+              <div class="bg-green-100 p-2 rounded-lg">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <span class="text-xs font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">Available</span>
+            </div>
+            <p class="text-3xl font-bold {% if employe.available_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.available_leaves }}</p>
+            <p class="text-sm text-gray-600 mt-1">Annual Leave Available</p>
+          </div>
+
+          <!-- Annual Leave Taken -->
+          <div class="bg-white border-l-4 border-red-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-2">
+              <div class="bg-red-100 p-2 rounded-lg">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </div>
+              <span class="text-xs font-semibold text-red-600 bg-red-100 px-3 py-1 rounded-full">Taken</span>
+            </div>
+            <p class="text-3xl font-bold {% if employe.leaves_taken < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.leaves_taken }}</p>
+            <p class="text-sm text-gray-600 mt-1">Annual Leave Taken</p>
+          </div>
+
+          <!-- Carry Forward Available -->
+          <div class="bg-white border-l-4 border-purple-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-2">
+              <div class="bg-purple-100 p-2 rounded-lg">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+              </div>
+              <span class="text-xs font-semibold text-purple-600 bg-purple-100 px-3 py-1 rounded-full">Available</span>
+            </div>
+            <p class="text-3xl font-bold {% if employe.carryforward_available_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.carryforward_available_leaves }}</p>
+            <p class="text-sm text-gray-600 mt-1">Carry Forward Available</p>
+          </div>
+
+          <!-- Medical Leave Available -->
+          <div class="bg-white border-l-4 border-teal-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-2">
+              <div class="bg-teal-100 p-2 rounded-lg">
+                <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <span class="text-xs font-semibold text-teal-600 bg-teal-100 px-3 py-1 rounded-full">Available</span>
+            </div>
+            <p class="text-3xl font-bold {% if employe.available_medical_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.available_medical_leaves }}</p>
+            <p class="text-sm text-gray-600 mt-1">Medical Leave Available</p>
+          </div>
+
+          <!-- Medical Leave Taken -->
+          <div class="bg-white border-l-4 border-orange-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-2">
+              <div class="bg-orange-100 p-2 rounded-lg">
+                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </div>
+              <span class="text-xs font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full">Taken</span>
+            </div>
+            <p class="text-3xl font-bold {% if employe.medical_leaves_taken < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.medical_leaves_taken }}</p>
+            <p class="text-sm text-gray-600 mt-1">Medical Leave Taken</p>
+          </div>
+
+          <!-- Carry Forward Taken -->
+          <div class="bg-white border-l-4 border-indigo-500 p-6 rounded-xl shadow hover:shadow-md transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-2">
+              <div class="bg-indigo-100 p-2 rounded-lg">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <span class="text-xs font-semibold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">Taken</span>
+            </div>
+            <p class="text-3xl font-bold {% if employe.carryforward_taken_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.carryforward_taken_leaves }}</p>
+            <p class="text-sm text-gray-600 mt-1">Carry Forward Taken</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

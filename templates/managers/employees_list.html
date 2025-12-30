@@ -129,35 +129,38 @@
                         <th class="px-6 py-3">Actions</th>
                     </tr>
                 </thead>
+                
+<tbody class="bg-white divide-y divide-gray-200">
+    {% for employee in employees %}
+    <tr>
+        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+            <img src="{% if employee.image %}{{ employee.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}"
+                 alt="{{ employee.user.get_full_name }}"
+                 class="h-8 w-8 rounded-full object-cover mr-3">
+            <a href="{% url 'managers:founder_employee_leave_detail' employee.id %}" 
+               class="text-blue-600 hover:text-blue-800 hover:underline font-medium">
+                {{ employee.user.get_full_name }}
+            </a>
+        </td>
+        <td class="px-6 py-4">{{ employee.user.email }}</td>
+        <td class="px-6 py-4">{{ employee.department }}</td>
+        <td class="px-6 py-4">
+            <form action="{% url 'managers:delete_employee' employee.id %}"
+                  method="POST"
+                  onsubmit="return confirm('Are you sure you want to delete this employee?');"
+                  style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+            </form>
+        </td>
+    </tr>
 
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for employee in employees %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
-                            <img src="{% if employee.image %}{{ employee.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}"
-                                 alt="{{ employee.user.get_full_name }}"
-                                 class="h-8 w-8 rounded-full object-cover mr-3">
-                            <span class="text-gray-800 font-medium">{{ employee.user.get_full_name }}</span>
-                        </td>
-                        <td class="px-6 py-4">{{ employee.user.email }}</td>
-                        <td class="px-6 py-4">{{ employee.department }}</td>
-                        <td class="px-6 py-4">
-                            <form action="{% url 'managers:delete_employee' employee.id %}"
-                                  method="POST"
-                                  onsubmit="return confirm('Are you sure you want to delete this employee?');"
-                                  style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center py-6 text-gray-500">No employees found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
+    {% empty %}
+    <tr>
+        <td colspan="4" class="text-center py-6 text-gray-500">No employees found.</td>
+    </tr>
+    {% endfor %}
+</tbody>
             </table>
         </div>
     </section>
