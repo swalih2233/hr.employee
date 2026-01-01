@@ -52,6 +52,8 @@ def details(request):
     identification, _ = Identification.objects.get_or_create(employe=employe)
     schedule, _ = WorkSchedule.objects.get_or_create(employe=employe)
     holidays = Holiday.objects.all()
+    leave_history = LeaveRequest.objects.filter(employee=employe).order_by('-created_date')
+    leave_balance_info = get_leave_balance_info(request.user)
 
     context ={
         'employe': employe,
@@ -62,7 +64,9 @@ def details(request):
         'benefits': benefits,
         'identification': identification,
         'schedule': schedule,
-        'holidays':holidays
+        'holidays':holidays,
+        'leave_history': leave_history,
+        'leave_balance_info': leave_balance_info
     }
 
     return render(request, "employe/details.html", context=context)

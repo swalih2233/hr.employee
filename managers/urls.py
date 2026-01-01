@@ -70,4 +70,5 @@ urlpatterns=[
     path('employee/<int:employee_id>/leave-details/', views.manager_employee_leave_detail, name='manager_employee_leave_detail'),
 
     path('founder/employee/<int:employee_id>/leave-details/', views.founder_employee_leave_detail, name='founder_employee_leave_detail'),
+    path('founder-manager-leave-detail/<int:manager_id>/', views.founder_manager_leave_detail, name='founder_manager_leave_detail'),
 ]

@@ -1,7 +1,70 @@
-{% extends "base/base.html" %} {% block container %} {% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manager Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50">
+<div class="flex h-screen">
+  <!-- Add Alpine.js for dropdown functionality -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
 
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-y-auto">
+    <!-- Header -->
+    <header class="flex items-center justify-between px-4 md:px-8 py-5 border-b bg-white shadow-sm">
+      <!-- Logo and Greeting -->
+     <div class="flex items-center space-x-4">
+    <a href="{% url 'managers:manager_dashboard' %}" class="flex items-center">
+        <img src="/static/images/Black Transparent Mavendeor .png"
+             alt="Logo"
+             class="h-10 md:h-[70px] w-auto object-contain">
+    </a>
+   
+    </div>
+      
+      <div class="flex items-center space-x-2 md:space-x-5">
+        <!-- Search -->
+        <input type="text" placeholder="Search…" 
+               class="hidden md:block px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
 
-{% include 'includes/manager-nav.html' %}
+        <!-- Notification -->
+        <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+          <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+          {% if notification_count > 0 %}
+          <span class="absolute top-0 right-0 block h-4 w-4 md:h-5 md:w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
+          {% endif %}
+        </a>
+
+        <!-- Profile Image — shows only logged-in user's image -->
+        <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open" class="flex items-center focus:outline-none">
+            <img src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full" alt="Profile">
+          </button>
+          <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
+            <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+  
+
+    <!-- Back Link (Below Header) -->
+    <div class="px-4 md:px-8 py-4">
+      <a href="{% url 'managers:manager_dashboard' %}" class="text-blue-600 hover:underline text-sm font-medium inline-flex items-center">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Back to Dashboard
+      </a>
+    </div>
 
     <section class="mb-[70px] mt-[50px]">
         <section class="wrapper">
@@ -274,6 +337,6 @@
         </section>
     </section>
 
-    
-	{% endblock %}
+</body>
+</html>
 

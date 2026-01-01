@@ -679,6 +679,39 @@ def add_employe(request):
             from common.utils import get_employees_under_manager
             employees = get_employees_under_manager(manager)
 
+            employees_with_status = []
+            today = timezone.now().date()
+            for emp in employees:
+                is_on_leave = LeaveRequest.objects.filter(
+                    employee=emp,
+                    status='Approved',
+                    start_date__lte=today,
+                    end_date__gte=today
+                ).exists()
+
+                status_text = ''
+                status_class = ''
+
+                if is_on_leave:
+                    status_text = 'On Leave'
+                    status_class = 'bg-yellow-100 text-yellow-800'
+                else:
+                    status_text = emp.get_employe_status_display() or 'Active'
+                    if status_text == 'ACTIVE':
+                        status_class = 'bg-green-100 text-green-800'
+                    elif status_text == 'PROBATION':
+                        status_class = 'bg-blue-100 text-blue-800'
+                    elif status_text == 'LEAVE':
+                        status_class = 'bg-red-100 text-red-800'
+                    else: # Default for 'Active'
+                        status_class = 'bg-green-100 text-green-800'
+
+                employees_with_status.append({
+                    'employee': emp,
+                    'status': status_text,
+                    'status_class': status_class,
+                })
+
             pending_employee_requests = LeaveRequest.objects.filter(
                 employee__in=employees,
                 status='Pending'
@@ -696,9 +729,28 @@ def add_employe(request):
             
             leave_history = LeaveRequest.objects.filter(employee__in=employees).order_by('-created_date')
 
+            holidays = Holiday.objects.all().order_by('date')
+
+            # Calculate remaining leaves for the manager
+            total_annual_taken = UnifiedLeaveRequest.objects.filter(
+                manager=manager,
+                leave_type='AL',
+                is_approved=True
+            ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+            total_medical_taken = UnifiedLeaveRequest.objects.filter(
+                manager=manager,
+                leave_type='ML',
+                is_approved=True
+            ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+            annual_remaining = 18 - total_annual_taken
+            medical_remaining = 14 - total_medical_taken
+
             context = {
                 'manager': manager,
-                'employees': employees,
+                'employees': employees_with_status,
+                'holidays': holidays,
                 'employee_count': employees.count(),
                 'pending_employee_requests': pending_employee_requests,
                 'pending_count': pending_employee_requests.count(),
@@ -710,6 +762,8 @@ def add_employe(request):
                 'notification_count': pending_employee_requests.count(),
                 'user_form': user_form,
                 'employe_form': employe_form,
+                'annual_remaining': annual_remaining,
+                'medical_remaining': medical_remaining,
                 'show_add_employee_sidebar': True,  # Flag to keep sidebar open
             }
             return render(request, 'managers/manager_dashboard.html', context)
@@ -1229,8 +1283,20 @@ def edit_profile(request):
 def manager_employee_leave_detail(request, employee_id):
     employe = get_object_or_404(Employe, id=employee_id)
     
+    # Fetch leave history for this employee
+    leave_history = LeaveRequest.objects.filter(employee=employe).order_by('-created_date')
+    
+    # Get manager info for header
+    try:
+        manager = request.user.manager
+    except:
+        manager = None
+        
     context = {
         'employe': employe,
+        'manager': manager,
+        'leave_history': leave_history,
+        'notification_count': 0,
     }
     
     return render(request, 'managers/employee_leave_detail.html', context)
@@ -1245,10 +1311,42 @@ def founder_employee_leave_detail(request, employee_id):
     except:
         manager = None
     
+    # Fetch leave history for this employee
+    leave_history = LeaveRequest.objects.filter(employee=employe).order_by('-created_date')
+    
     context = {
         'employe': employe,
         'manager': manager,
+        'leave_history': leave_history,
         'notification_count': 0,  # Add your notification logic here
     }
     
     return render(request, 'managers/founder_employee_leave_detail.html', context)
+
+
+@login_required
+@allow_founder
+def founder_manager_leave_detail(request, manager_id):
+    manager_obj = get_object_or_404(Manager, id=manager_id)
+    
+    # Fetch leave history using UnifiedLeaveRequest
+    manager_leave_requests = UnifiedLeaveRequest.objects.filter(
+        manager=manager_obj,
+        requested_by_role='manager'
+    ).order_by('-created_date')
+    
+    # Get founder info for header if needed
+    try:
+        founder = request.user.founder
+    except:
+        founder = None
+    
+    context = {
+        'manager_obj': manager_obj,
+        'founder': founder,
+        'manager_leave_requests': manager_leave_requests,
+        'notification_count': 0,
+        'is_manager_view': True,
+    }
+    
+    return render(request, 'managers/founder_manager_leave_detail.html', context)

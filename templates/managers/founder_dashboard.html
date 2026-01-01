@@ -318,6 +318,103 @@
     </section>
     {% endif %}
 
+    <!-- Managers List -->
+    <section class="bg-white rounded-lg shadow">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Managers List</h2>
+        </div>
+        <div class="overflow-x-auto scrollbar-hide">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Manager Name</th>
+                        <th class="px-6 py-3">Email</th>
+                        <th class="px-6 py-3">Role</th>
+                        <th class="px-6 py-3">Status</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="managers-list-body" class="bg-white divide-y divide-gray-200">
+    {% for manager in managers %}
+    <tr data-id="{{ manager.id }}">
+        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+            <a href="{% url 'managers:founder_manager_leave_detail' manager.id %}" 
+               class="flex items-center text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium">
+                <img 
+                    src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
+                    alt="{{ manager.user.get_full_name }}" 
+                    class="h-8 w-8 rounded-full object-cover mr-3"
+                >
+                <span class="text-gray-800 font-medium hover:text-blue-800 ">{{ manager.user.get_full_name }}</span>
+            </a>
+        </td>
+        <td class="px-6 py-4">{{ manager.user.email }}</td>
+        <td class="px-6 py-4">{{ manager.job_role|default:"Manager" }}</td>
+        <td class="px-6 py-4">
+            <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
+        </td>
+        <td class="px-6 py-4">
+            <a href="javascript:void(0);" 
+               onclick="deleteItem(`{% url 'managers:delete_manager' manager.id %}`, '{{ manager.id }}', 'manager')" 
+               class="text-red-600 hover:text-red-900">Delete</a>
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="5" class="text-center py-6 text-gray-500">No managers found.</td>
+    </tr>
+    {% endfor %}
+</tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Employees List -->
+    <section class="bg-white rounded-lg shadow">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Employees List</h2>
+            <a href="{% url 'managers:employees_list' %}" class="text-[12px] text-white bg-[#111827] hover:bg-gray-900 px-6 py-2.5 rounded-[7px] whitespace-nowrap">View All Employees</a>
+        </div>
+        <div class="overflow-x-auto scrollbar-hide">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Employee Name</th>
+                        <th class="px-6 py-3">Email</th>
+                        <th class="px-6 py-3">Department</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for employee in employees %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                            <img src="{% if employee.image %}{{ employee.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}"
+                                 alt="{{ employee.user.get_full_name }}"
+                                 class="h-8 w-8 rounded-full object-cover mr-3">
+                            <a href="{% url 'managers:founder_employee_leave_detail' employee.id %}" 
+                               class="text-gray-800  hover:text-blue-800 hover:underline font-medium">
+                                {{ employee.user.get_full_name }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4">{{ employee.user.email }}</td>
+                        <td class="px-6 py-4">{{ employee.department }}</td>
+                        <td class="px-6 py-4">
+                            <a href="javascript:void(0);" 
+                               onclick="deleteItem(`{% url 'managers:delete_employee' employee.id %}`, '{{ employee.id }}', 'employee')" 
+                               class="text-red-600 hover:text-red-900">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-6 text-gray-500">No employees found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <!-- Founders List -->
     <section class="bg-white rounded-lg shadow">
         <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
@@ -352,48 +449,6 @@
                         </td>
                         <td class="px-6 py-4">
                             <a href="javascript:void(0);" onclick="deleteItem(`{% url 'managers:delete_founder' founder.id %}`, '{{ founder.id }}', 'founder')" class="text-red-600 hover:text-red-900">Delete</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- Managers List -->
-    <section class="bg-white rounded-lg shadow">
-        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-            <h2 class="text-base font-semibold">Managers List</h2>
-        </div>
-        <div class="overflow-x-auto scrollbar-hide">
-            <table class="min-w-full text-sm text-left text-gray-700">
-                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                        <th class="px-6 py-3">Manager Name</th>
-                        <th class="px-6 py-3">Email</th>
-                        <th class="px-6 py-3">Role</th>
-                        <th class="px-6 py-3">Status</th>
-                        <th class="px-6 py-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="managers-list-body" class="bg-white divide-y divide-gray-200">
-                    {% for manager in managers %}
-                    <tr data-id="{{ manager.id }}">
-                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
-                          <img 
-                            src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
-                            alt="{{ manager.user.get_full_name }}" 
-                            class="h-8 w-8 rounded-full object-cover mr-3"
-                          >
-                          <span class="text-gray-800 font-medium">{{ manager.user.get_full_name }}</span>
-                        </td>
-                        <td class="px-6 py-4">{{ manager.user.email }}</td>
-                        <td class="px-6 py-4">Manager</td>
-                        <td class="px-6 py-4">
-                            <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <a href="javascript:void(0);" onclick="deleteItem(`{% url 'managers:delete_manager' manager.id %}`, '{{ manager.id }}', 'manager')" class="text-red-600 hover:text-red-900">Delete</a>
                         </td>
                     </tr>
                     {% endfor %}

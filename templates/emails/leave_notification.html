@@ -38,7 +38,7 @@
                             {% if email_type == 'new_request' %}
                                 <p style="font-size: 16px; color: #374151;">Dear {{ manager_name }},</p>
                                 <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
-                                    This is to inform you that <strong>{{ employee.user.get_full_name }}</strong> ({{ employee.designation|default:'N/A' }}) has submitted a <strong>{{ leave.get_leave_type_display }}</strong> leave request.
+                                    This is to inform you that <strong>{{ employee.user.get_full_name }}</strong> ({{ employee.designation|default:'N/A' }}) has submitted a <strong>{{ leave.get_leave_type_display }}</strong> request.
                                 </p>
                             {% elif email_type == 'submission_confirmation' %}
                                 <p style="font-size: 16px; color: #374151;">Dear {{ employee.user.get_full_name }},</p>
