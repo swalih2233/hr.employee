@@ -39,10 +39,27 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">Available Leaves</p>
-                    <p class="text-2xl font-semibold {% if leave_balance_info.annual_remaining < 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ leave_balance_info.annual_remaining }}</p>
+                    <p class="text-2xl font-semibold {% if leave_balance_info.annual_remaining < 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ leave_balance_info.total_available }}</p>
                 </div>
             </div>
         </div>
+
+        {% if leave_balance_info.is_cf_period and leave_balance_info.carryforward_available_leaves > 0 %}
+        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-400">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Carry-Forward Balance</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ leave_balance_info.carryforward_available_leaves }}</p>
+                    <p class="text-xs text-yellow-600 font-medium mt-1">Expires on March 31st</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center">
@@ -200,13 +217,20 @@
                 <h4 class="font-medium text-gray-700 mb-2">Annual Leave</h4>
                 <div class="space-y-2">
                     <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">Remaining:</span>
+                        <span class="text-sm text-gray-600">Regular Remaining:</span>
                         <span class="text-sm font-medium {% if leave_balance_info.annual_remaining < 0 %}text-red-600{% else %}text-green-600{% endif %}">
                             {{ leave_balance_info.annual_remaining }}
                         </span>
                     </div>
+                    {% if leave_balance_info.is_cf_period and leave_balance_info.carryforward_available_leaves > 0 %}
                     <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">Taken:</span>
+                        <span class="text-sm text-gray-600">Carry-Forward:</span>
+                        <span class="text-sm font-medium text-yellow-600">{{ leave_balance_info.carryforward_available_leaves }}</span>
+                    </div>
+                    <p class="text-[10px] text-gray-400 italic mt-1">* Carry-forward leaves will be used first</p>
+                    {% endif %}
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-600">Annual Taken:</span>
                         <span class="text-sm font-medium text-red-600">{{ leave_balance_info.total_annual_taken }}</span>
                     </div>
                 </div>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Manager Profile</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <!-- Alpine.js -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+<body class="bg-gray-50">
+
+<div class="flex h-screen">
+  <!-- Main Content -->
+  <div class="flex-1 overflow-y-auto">
+    
+    <!-- Header -->
+    <header class="flex items-center justify-between px-4 md:px-8 py-5 border-b bg-white shadow-sm">
+      <div class="flex items-center space-x-4">
+        <a href="{% url 'managers:manager_dashboard' %}" class="flex items-center">
+            <img src="/static/images/Black Transparent Mavendeor .png"
+                 alt="Logo"
+                 class="h-10 md:h-[70px] w-auto object-contain">
+        </a>
+      </div>
+      
+      <div class="flex items-center space-x-2 md:space-x-5">
+        <input type="text" placeholder="Search…" 
+               class="hidden md:block px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+
+        <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+            <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            {% if notification_count > 0 %}
+            <span class="absolute top-0 right-0 block h-4 w-4 md:h-5 md:w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
+            {% endif %}
+        </a>
+
+        <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open" class="flex items-center focus:outline-none">
+            <img src="{% if profile.image %}{{ profile.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full" alt="Profile">
+          </button>
+          <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
+            <a href="{% url 'managers:view_profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My Profile</a>
+            <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="bg-gray-50 min-h-screen">
+      <div class="px-4 lg:px-12 py-10">
+        <div class="mb-6 flex justify-between items-center">
+            <a href="{% url 'managers:view_profile' %}" class="text-indigo-600 hover:text-indigo-800">
+                &larr; Back to Profile
+            </a>
+            <h2 class="text-2xl font-bold text-gray-900">Edit My Profile</h2>
+            <div class="w-20"></div> <!-- Spacer -->
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-8 max-w-5xl mx-auto">
+          {% csrf_token %}
+          
+          <!-- Personal Info Section -->
+          <div class="bg-white shadow rounded-xl p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-6 border-b pb-4">Personal Information</h3>
+            
+            <div class="flex items-center space-x-6 mb-8">
+              <div class="shrink-0">
+                <img class="h-20 w-20 object-cover rounded-full" 
+                     src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" 
+                     alt="Profile photo">
+              </div>
+              <label class="block">
+                <span class="text-sm font-medium text-gray-700">Profile Photo</span>
+                <input type="file" name="image" class="mt-1 block w-full text-sm text-slate-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-indigo-50 file:text-indigo-700
+                  hover:file:bg-indigo-100
+                "/>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Employee ID</label>
+                <input type="text" name="manager_id" value="{{ form.manager_id.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">First Name</label>
+                <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Last Name</label>
+                <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Designation</label>
+                <input type="text" name="designation" value="{{ form.designation.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Phone Number</label>
+                <input type="text" name="phone_number" value="{{ form.phone_number.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Gender</label>
+                <select name="gender" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+                  {% for val, label in form.fields.gender.choices %}
+                    <option value="{{ val }}" {% if form.gender.value == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Date of Birth</label>
+                <input type="date" name="date_of_birth" value="{{ form.date_of_birth.value|date:'Y-m-d' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Join Date</label>
+                <input type="date" name="date_of_joining" value="{{ form.date_of_joining.value|date:'Y-m-d' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+            </div>
+          </div>
+
+          <!-- Address Section -->
+          <div class="bg-white shadow rounded-xl p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-6 border-b pb-4">Address Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700">Permanent Address</label>
+                <input type="text" name="address_permanent_address" value="{{ form.address_permanent_address.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">City</label>
+                <input type="text" name="address_city" value="{{ form.address_city.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Country</label>
+                <input type="text" name="address_country" value="{{ form.address_country.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Pincode</label>
+                <input type="text" name="address_pincode" value="{{ form.address_pincode.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+            </div>
+          </div>
+
+          <!-- Emergency Contact Section -->
+          <div class="bg-white shadow rounded-xl p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-6 border-b pb-4">Emergency Contact Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700">Emergency Contact Address</label>
+                <input type="text" name="contact_permanent_address" value="{{ form.contact_permanent_address.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">City</label>
+                <input type="text" name="contact_city" value="{{ form.contact_city.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Country</label>
+                <input type="text" name="contact_country" value="{{ form.contact_country.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Pincode</label>
+                <input type="text" name="contact_pincode" value="{{ form.contact_pincode.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+            </div>
+          </div>
+
+          <!-- Work Schedule Section -->
+          <div class="bg-white shadow rounded-xl p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-6 border-b pb-4">Work Schedule</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Start Time</label>
+                <input type="time" name="work_start_time" value="{{ form.work_start_time.value|time:'H:i' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">End Time</label>
+                <input type="time" name="work_end_time" value="{{ form.work_end_time.value|time:'H:i' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+            </div>
+          </div>
+
+          <!-- Bank & Benefits Section -->
+          <div class="bg-white shadow rounded-xl p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-6 border-b pb-4">Bank & Benefits</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Bank Name</label>
+                <input type="text" name="bank_name" value="{{ form.bank_name.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Account Number</label>
+                <input type="number" name="bank_account_number" value="{{ form.bank_account_number.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Branch Name</label>
+                <input type="text" name="bank_branch_name" value="{{ form.bank_branch_name.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">IFSC Code</label>
+                <input type="text" name="bank_ifsc_code" value="{{ form.bank_ifsc_code.value|default:'' }}" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex justify-end space-x-4 pt-4 pb-12">
+            <a href="{% url 'managers:view_profile' %}" 
+               class="px-6 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Cancel
+            </a>
+            <button type="submit" 
+                    class="px-8 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Save All Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -130,7 +130,10 @@ def apply_leave(request):
 
         if not all([subject, start_date_str, end_date_str, leave_type, description]):
             messages.error(request, "❌ All fields except file are required.")
-            return render(request, "employe/leaveform.html", {'employe': employe})
+            return render(request, "employe/leaveform.html", {
+                'employe': employe,
+                'leave_balance_info': get_leave_balance_info(request.user)
+            })
 
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -138,7 +141,10 @@ def apply_leave(request):
             
             if start_date > end_date:
                 messages.error(request, "❌ Start date cannot be after end date.")
-                return render(request, "employe/leaveform.html", {'employe': employe})
+                return render(request, "employe/leaveform.html", {
+                    'employe': employe,
+                    'leave_balance_info': get_leave_balance_info(request.user)
+                })
 
             leave_request = LeaveRequest.objects.create(
                 subject=subject,
@@ -168,9 +174,15 @@ def apply_leave(request):
             return render(request, "employe/leaveform.html", {'employe': employe})
         except Exception as e:
             messages.error(request, f"❌ Error creating leave request: {e}")
-            return render(request, "employe/leaveform.html", {'employe': employe})
+            return render(request, "employe/leaveform.html", {
+                'employe': employe,
+                'leave_balance_info': get_leave_balance_info(request.user)
+            })
 
-    return render(request, "employe/leaveform.html", {'employe': employe})
+    return render(request, "employe/leaveform.html", {
+        'employe': employe,
+        'leave_balance_info': get_leave_balance_info(request.user)
+    })
 
 @login_required(login_url='/login')
 @allow_employee
@@ -183,6 +195,9 @@ def logout(request):
     return HttpResponseRedirect(reverse("employe:login"))
 
 
+from common.utils import is_employee
+from .models import Employe
+
 def login(request):
     if request.method == "GET":
         # Clear any existing messages
@@ -190,19 +205,29 @@ def login(request):
         storage.used = True
 
     if request.method == 'POST':
+        employe_id = request.POST.get("employe_id")
         email = request.POST.get("email")
         password = request.POST.get("password")
 
-        if email and password:
+        if email and password and employe_id:
             user = authenticate(request, email=email, password=password)
             if user is not None:
-                auth_login(request, user)
-                return HttpResponseRedirect(reverse("employe:details"))
+                try:
+                    employee_profile = Employe.objects.get(user=user)
+                    if employee_profile.employe_id != employe_id:
+                        messages.error(request, "Invalid Employee ID for this account.")
+                        return render(request, "employe/login.html", {"title": "Login"})
+                    
+                    auth_login(request, user)
+                    return HttpResponseRedirect(reverse("employe:details"))
+                except Employe.DoesNotExist:
+                    messages.error(request, "Employee profile not found.")
+                    return render(request, "employe/login.html", {"title": "Login"})
             else:
                 messages.error(request, "Invalid credentials, please check your email and password.")
                 return render(request, "employe/login.html", {"title": "Login"})
         
-        messages.error(request, "Email and password are required.")
+        messages.error(request, "Employee ID, Email and password are required.")
         return render(request, "employe/login.html", {"title": "Login"})
     
     return render(request, "employe/login.html", {"title": "Login"})
@@ -260,6 +285,49 @@ def viewlist(request, id):
         'leave_request': leave_request,
     })
 
+
+@login_required(login_url='/login')
+@allow_employee
+def cancel_leave(request, id):
+    try:
+        current_employee = Employe.objects.get(user=request.user)
+    except Employe.DoesNotExist:
+        messages.error(request, "Employee profile not found.")
+        return redirect(reverse('employe:leavelist'))
+
+    try:
+        leave_request = LeaveRequest.objects.get(id=id, employee=current_employee)
+    except LeaveRequest.DoesNotExist:
+        messages.error(request, "Leave request not found or access denied.")
+        return redirect(reverse('employe:leavelist'))
+
+    if leave_request.status != 'Pending':
+        messages.error(request, f"Cannot cancel a leave request that is already {leave_request.status}.")
+        return redirect(reverse('employe:leavelist'))
+
+    leave_request.status = 'Cancelled'
+    leave_request.is_cancelled = True
+    leave_request.cancellation_date = timezone.now().date()
+    leave_request.save()
+
+    # Send notifications
+    try:
+        from managers.views import send_leave_notification
+        # Notify manager
+        if current_employee.manager:
+            manager_email = current_employee.manager.user.email
+            manager_name = current_employee.manager.user.get_full_name()
+            send_leave_notification(request, leave_request, 'cancelled', manager_email, manager_name=manager_name, cc_founder=True)
+        else:
+            # If no manager, notify founder directly
+            send_leave_notification(request, leave_request, 'cancelled', None, cc_founder=True)
+            
+        messages.success(request, "Leave request cancelled successfully!")
+    except Exception as e:
+        messages.warning(request, f"Leave cancelled, but failed to send notifications: {str(e)}")
+
+    return redirect(reverse('employe:leavelist'))
+
 def get_int_or_none(value):
     try:
         return int(value) if value.strip() else None
@@ -295,7 +363,14 @@ def edit_employe(request, id):
         user.first_name = request.POST.get('first_name')
         user.last_name = request.POST.get('last_name')
         user.phone_number = request.POST.get('phone_number')
-        user.date_of_birth = request.POST.get('date_of_birth')
+        date_of_birth = request.POST.get('date_of_birth', '').strip()
+        if date_of_birth:
+            try:
+                user.date_of_birth = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                pass
+        else:
+            user.date_of_birth = None
         user.gender = request.POST.get('gender')
         user.save()
 
@@ -311,7 +386,15 @@ def edit_employe(request, id):
         # Employee details
         employe.department = request.POST.get('department')
         employe.designation = request.POST.get('designation')
-        employe.date_of_joining = request.POST.get('date_of_joining')
+        # Don't allow employees to change their own ID
+        date_of_joining = request.POST.get('date_of_joining', '').strip()
+        if date_of_joining:
+            try:
+                employe.date_of_joining = datetime.strptime(date_of_joining, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                pass
+        else:
+            employe.date_of_joining = None
         employe.employment_Type = request.POST.get('employment_Type')
         employe.reporting_manager = request.POST.get('reporting_manager')
         employe.work_location = request.POST.get('work_location')

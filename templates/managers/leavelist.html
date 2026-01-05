@@ -127,10 +127,16 @@
                                 {% endif %}
                             </td>
                             <td class="py-3 px-4">
-                                <a href="{% url 'managers:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2 text-sm">View</a>
+                                <a href="{% url 'managers:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2 text-sm inline-block">View</a>
                                 {% if not instance.is_approved and not instance.is_rejected %}
-                                    <a href="{% url 'managers:approve_leave' instance.id %}" class="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded mr-2 text-sm">Approve</a>
-                                    <a href="{% url 'managers:reject_leave' instance.id %}" class="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded text-sm">Reject</a>
+                                    <form action="{% url 'managers:approve_leave' instance.id %}" method="post" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded mr-2 text-sm">Approve</button>
+                                    </form>
+                                    <form action="{% url 'managers:reject_leave' instance.id %}" method="post" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded text-sm">Reject</button>
+                                    </form>
                                 {% endif %}
                             </td>
                         </tr>
@@ -163,10 +169,16 @@
                         {% endif %}
                     </p>
                     <div class="mt-2">
-                        <a href="{% url 'managers:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2">View</a>
+                        <a href="{% url 'managers:viewlist' instance.id %}" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded mr-2 inline-block">View</a>
                         {% if not instance.is_approved and not instance.is_rejected %}
-                            <a href="{% url 'managers:approve_leave' instance.id %}" class="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded mr-2">Approve</a>
-                            <a href="{% url 'managers:reject_leave' instance.id %}" class="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded">Reject</a>
+                            <form action="{% url 'managers:approve_leave' instance.id %}" method="post" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded mr-2">Approve</button>
+                            </form>
+                            <form action="{% url 'managers:reject_leave' instance.id %}" method="post" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded">Reject</button>
+                            </form>
                         {% endif %}
                     </div>
                 </div>
@@ -219,5 +231,6 @@ function pageData() {
 }
 
 </script>
+{% include 'includes/form_loader.html' %}
 </body>
 </html>

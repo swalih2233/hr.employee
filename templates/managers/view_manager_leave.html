@@ -143,16 +143,22 @@
                 <!-- Action Buttons (only show if pending) -->
                 {% if not leave_request.is_approved and not leave_request.is_rejected %}
                     <div class="mt-8 flex flex-col sm:flex-row gap-4">
-                        <a href="{% url 'managers:approve_manager_leave' leave_request.id %}"
-                           class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition text-center flex-1"
-                           onclick="return confirm('Are you sure you want to approve this leave request?')">
-                            ✅ Approve Leave
-                        </a>
-                        <a href="{% url 'managers:reject_manager_leave' leave_request.id %}"
-                           class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition text-center flex-1"
-                           onclick="return confirm('Are you sure you want to reject this leave request?')">
-                            ❌ Reject Leave
-                        </a>
+                        <form action="{% url 'managers:approve_manager_leave' leave_request.id %}" method="post" class="flex-1">
+                            {% csrf_token %}
+                            <button type="submit" 
+                                    class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition text-center"
+                                    onclick="return confirm('Are you sure you want to approve this leave request?')">
+                                ✅ Approve Leave
+                            </button>
+                        </form>
+                        <form action="{% url 'managers:reject_manager_leave' leave_request.id %}" method="post" class="flex-1">
+                            {% csrf_token %}
+                            <button type="submit" 
+                                    class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition text-center"
+                                    onclick="return confirm('Are you sure you want to reject this leave request?')">
+                                ❌ Reject Leave
+                            </button>
+                        </form>
                     </div>
                 {% endif %}
             </div>

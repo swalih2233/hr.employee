@@ -4,74 +4,61 @@
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Founder Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
 </head>
 <body class="min-h-screen flex items-center justify-center bg-gray-100 pt-[50px] pb-[50px]">
 
-  <div class="flex bg-white rounded-lg shadow-lg w-full max-w-4xl overflow-hidden min-h-[600px]">
-    <!-- Left Side: Image + Blue Section -->
+  <div class="flex bg-white rounded-lg shadow-lg w-full max-w-4xl overflow-hidden min-h-[600px] ">
+    <!-- Left Side: Image on top, blue bottom with text -->
     <div class="hidden md:flex flex-col w-1/2 relative">
+      <!-- Top image fills the space above the blue bottom bar -->
       <div class="flex-1 relative">
         <img src="/media/images/Photo (3).png" alt="Team collaboration"
              class="object-cover w-full h-full absolute inset-0" style="min-height:210px;" />
+        <!-- Overlay only if needed for dimming -->
         <div class="absolute inset-0 bg-black opacity-30"></div>
       </div>
+      <!-- Bottom blue area with text -->
       <div class="bg-[#162032] p-8">
         <h2 class="text-3xl font-bold text-white mb-4">Welcome to Mavendoer Employee Website</h2>
         <p class="text-gray-200">Customized especially for the Mavendoer team</p>
       </div>
     </div>
 
-    <!-- Right Side: Login Form -->
+    <!-- Right Side: Login Form and arrow graphic -->
     <div class="flex flex-col justify-center w-full md:w-1/2 px-8 py-12 relative">
-      <h2 class="text-2xl font-semibold text-center text-gray-900 mb-6">Login to your account</h2>
-      
+      <!-- Arrow/curve graphic above form (SVG) -->
+      <div class="absolute -left-16 -top-8 hidden md:block">
+        <svg width="50" height="50" fill="none" viewBox="0 0 50 50">
+          <path d="M0,50 Q30,0 50,20" stroke="#d1d5db" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-semibold text-center text-gray-900 mb-6">Founder Login</h2>
       <form action="" method="post">
         {% csrf_token %}
-
-        <!-- Employee ID Field -->
-        <div class="mb-6">
-          <label for="employe_id" class="sr-only">Employee ID</label>
-          <input type="text" id="employe_id" placeholder="Employee ID" name="employe_id" required
-                 class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400">
-        </div>
-
-        <!-- Email Field -->
         <div class="mb-6">
           <label for="email" class="sr-only">Email</label>
-          <input type="email" id="email" placeholder="Email" name="email"
-                 class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" required>
+          <input type="email" id="email" placeholder="Email address" name="email" 
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" required>
         </div>
-
-        <!-- Password Field -->
         <div class="mb-6 relative">
           <label for="password" class="sr-only">Password</label>
           <input type="password" id="password" placeholder="Password" name="password"
-                 class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 pr-10" required>
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 pr-10" required>
         </div>
-
-        <!-- Show Password Checkbox -->
         <div class="mb-6 flex items-center justify-between">
           <label class="flex items-center text-sm text-gray-600">
             <input type="checkbox" id="show-password" class="mr-2">
-            Show Password
+            Remember Me
           </label>
-          <a href="{% url 'employe:forget_password' %}" class="text-sm text-gray-900 hover:underline">Forgot Password?</a>
+          <a href="{% url 'managers:forget_password' %}" class="text-sm text-gray-900 hover:underline">Forgot Password?</a>
         </div>
-
-        <!-- Submit Button -->
         <div class="mb-6">
-          <button type="submit"
-                  class="w-full p-3 text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400">
-            Sign In
-          </button>
+          <button type="submit" class="w-full p-3 text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400">Login</button>
         </div>
-
-        <!-- Error Messages -->
         {% if messages %}
         <div class="text-center text-red-600 mt-4">
           {% for message in messages %}
@@ -83,7 +70,7 @@
     </div>
   </div>
 
-  <!-- JS for Show Password -->
+  <!-- Show/Hide Password Script -->
   <script>
     document.getElementById('show-password').addEventListener('change', function() {
       var pw = document.getElementById('password');

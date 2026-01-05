@@ -1,13 +1,71 @@
-{% extends "base/dashboard_base.html" %}
-{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manager Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
 
-{% block content %}
+<div class="flex h-screen">
+  <!-- Add Alpine.js for dropdown functionality -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
+
+  <!-- Main Content -->
+  <div class="flex-1 overflow-y-auto">
+    
+    <!-- Header -->
+    <header class="flex items-center justify-between px-4 md:px-8 py-5 border-b bg-white shadow-sm">
+      <!-- Logo -->
+     <div class="flex items-center space-x-4">
+    <a href="{% url 'managers:manager_dashboard' %}" class="flex items-center">
+        <img src="/static/images/Black Transparent Mavendeor .png"
+             alt="Logo"
+             class="h-10 md:h-[70px] w-auto object-contain">
+    </a>
+   
+    </div>
+      
+      <div class="flex items-center space-x-2 md:space-x-5">
+        <!-- Search -->
+        <input type="text" placeholder="Search…" 
+               class="hidden md:block px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+
+        <!-- Notification -->
+        <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+            <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            {% if notification_count > 0 %}
+            <span class="absolute top-0 right-0 block h-4 w-4 md:h-5 md:w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
+            {% endif %}
+        </a>
+
+        <!-- Profile Image — shows only logged-in user's image -->
+        <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open" class="flex items-center focus:outline-none">
+            <img src="{% if profile.image %}{{ profile.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full" alt="Profile">
+          </button>
+          <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
+            <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
+          </div>
+        </div>
+      </div>
+    </header>
 <div class="bg-gray-50 min-h-screen">
 
   <div class="px-4 lg:px-12 py-10">
     <div class="mb-6">
-        <a href="{% url 'managers:manager_dashboard' %}" class="text-indigo-600 hover:text-indigo-800">
-            &larr; Back to Dashboard
+        <a href="{{ back_url|default:'/managers/manager-dashboard/' }}" class="text-indigo-600 hover:text-indigo-800 flex items-center">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Back
         </a>
     </div>
     <!-- Main Content -->
@@ -24,47 +82,85 @@
       <div id="general" class="tab-content p-6 space-y-6">
         <!-- Personal Info -->
         <div class="bg-white shadow rounded-xl p-6 relative">
-          <a href="{% url 'managers:edit_manager' manager.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+          {% if not is_employee_view and not is_manager_view_by_founder %}
+          <a href="{% url 'managers:edit_profile' %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
-          <h3 class="font-semibold text-lg mb-4">Personal Info</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <p><strong>First Name:</strong> {{ manager.user.first_name }}</p>
-            <p><strong>Last Name:</strong> {{ manager.user.last_name }}</p>
-            <p><strong>Gender:</strong> {{ manager.user.gender }}</p>
-            <p><strong>Date of Birth:</strong> {{ manager.user.date_of_birth }}</p>
-            <p><strong>Marital Status:</strong> {{ manager.user.maritul_status }}</p>
-            <p><strong>Email:</strong> {{ manager.user.email }}</p>
-            <p><strong>Phone Number:</strong> {{ manager.user.phone_number }}</p>
+          {% endif %}
+          
+          <div class="flex flex-col md:flex-row gap-8">
+            <!-- Left Side: Profile Image -->
+            <div class="w-full md:w-[300px] flex-shrink-0">
+              <img src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" 
+                   alt="Profile Image" 
+                   class="w-[300px] h-[400px] object-cover rounded-lg shadow-md mx-auto md:mx-0">
+            </div>
+
+            <!-- Right Side: Personal Details -->
+            <div class="flex-1">
+              <h3 class="font-semibold text-lg mb-4">Personal Info</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <p><strong>Employee ID:</strong> 
+                  {% if is_employee_view %}
+                    {{ manager.employe_id|default:'N/A' }}
+                  {% else %}
+                    {{ manager.manager_id|default:'N/A' }}
+                  {% endif %}
+                </p>
+                <p><strong>Join Date:</strong> {{ manager.date_of_joining|default:'N/A' }}</p>
+                <p><strong>First Name:</strong> {{ manager.user.first_name }}</p>
+                <p><strong>Last Name:</strong> {{ manager.user.last_name }}</p>
+                <p><strong>Gender:</strong> {{ manager.user.gender }}</p>
+                <p><strong>Date of Birth:</strong> {{ manager.user.date_of_birth }}</p>
+                <p><strong>Email:</strong> {{ manager.user.email }}</p>
+                <p><strong>Phone Number:</strong> {{ manager.user.phone_number }}</p>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Address -->
         <div class="bg-white shadow rounded-xl p-6 relative">
-          <a href="{% url 'managers:edit_manager' manager.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+          {% if not is_employee_view and not is_manager_view_by_founder %}
+          <a href="{% url 'managers:edit_profile' %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
+          {% endif %}
           <h3 class="font-semibold text-lg mb-4">Address</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <p><strong>Permanent Address:</strong> {{ manager.address.permanent_address }}</p>
-            <p><strong>City:</strong> {{ manager.address.city }}</p>
-            <p><strong>State:</strong> {{ manager.address.state }}</p>
-            <p><strong>Country:</strong> {{ manager.address.country }}</p>
-            <p><strong>Pincode:</strong> {{ manager.address.pincode }}</p>
+            <p><strong>Permanent Address:</strong> 
+              {% if is_employee_view %}
+                {{ address.permanent_address|default:'N/A' }}
+              {% else %}
+                {{ address.Permanent_address|default:'N/A' }}
+              {% endif %}
+            </p>
+            <p><strong>City:</strong> {{ address.city }}</p>
+            <p><strong>State:</strong> {{ address.state }}</p>
+            <p><strong>Country:</strong> {{ address.country }}</p>
+            <p><strong>Pincode:</strong> {{ address.pincode }}</p>
           </div>
         </div>
 
         <!-- Emergency Contact -->
         <div class="bg-white shadow rounded-xl p-6 relative">
-          <a href="{% url 'managers:edit_manager' manager.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+          {% if not is_employee_view and not is_manager_view_by_founder %}
+          <a href="{% url 'managers:edit_profile' %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
+          {% endif %}
           <h3 class="font-semibold text-lg mb-4">Emergency Contact</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <p><strong>Contact Name:</strong> {{ manager.emergencycontact.contact_name }}</p>
-            <p><strong>Relationship:</strong> {{ manager.emergencycontact.relationship }}</p>
-            <p><strong>Contact Number:</strong> {{ manager.emergencycontact.contact_number }}</p>
-            <p><strong>Contact Address:</strong> {{ manager.emergencycontact.contact_address }}</p>
+            <p><strong>Contact Name:</strong> {{ contact.contact_name }}</p>
+            <p><strong>Relationship:</strong> {{ contact.relationship }}</p>
+            <p><strong>Contact Number:</strong> {{ contact.contact_number }}</p>
+            <p><strong>Contact Address:</strong> 
+              {% if is_employee_view %}
+                {{ contact.permanent_address|default:'N/A' }}
+              {% else %}
+                {{ contact.Permanent_address|default:'N/A' }}
+              {% endif %}
+            </p>
           </div>
         </div>
       </div>
@@ -72,14 +168,16 @@
       <!-- Work Schedule -->
       <div id="schedule" class="tab-content hidden p-6">
         <div class="bg-white shadow rounded-xl p-6 relative">
-          <a href="{% url 'managers:edit_manager' manager.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+          {% if not is_employee_view and not is_manager_view_by_founder %}
+          <a href="{% url 'managers:edit_profile' %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
+          {% endif %}
           <h3 class="font-semibold text-lg mb-4">Work Schedule</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <p><strong>Start Time:</strong> {{ manager.workschedule.start_time }}</p>
-            <p><strong>End Time:</strong> {{ manager.workschedule.end_time }}</p>
-            <p><strong>Work Type:</strong> {{ manager.workschedule.work_type }}</p>
+            <p><strong>Start Time:</strong> {{ workschedule.start_time }}</p>
+            <p><strong>End Time:</strong> {{ workschedule.end_time }}</p>
+            <p><strong>Work Type:</strong> {{ manager.employment_Type|default:'N/A' }}</p>
           </div>
         </div>
       </div>
@@ -87,15 +185,17 @@
       <!-- Bank & Benefits -->
       <div id="bank" class="tab-content hidden p-6">
         <div class="bg-white shadow rounded-xl p-6 relative">
-          <a href="{% url 'managers:edit_manager' manager.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
+          {% if not is_employee_view and not is_manager_view_by_founder %}
+          <a href="{% url 'managers:edit_profile' %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
             <i class="fas fa-pencil-alt"></i>
           </a>
+          {% endif %}
           <h3 class="font-semibold text-lg mb-4">Bank & Benefits</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <p><strong>Bank Name:</strong> {{ manager.bank.bank_name }}</p>
-            <p><strong>Account Number:</strong> {{ manager.bank.account_number }}</p>
-            <p><strong>Branch Name:</strong> {{ manager.bank.branch_name }}</p>
-            <p><strong>IFSC Code:</strong> {{ manager.bank.ifsc_code }}</p>
+            <p><strong>Bank Name:</strong> {{ benefits.bank_name }}</p>
+            <p><strong>Account Number:</strong> {{ benefits.account_number }}</p>
+            <p><strong>Branch Name:</strong> {{ benefits.branch_name }}</p>
+            <p><strong>IFSC Code:</strong> {{ benefits.ifsc_code }}</p>
           </div>
         </div>
       </div>
@@ -105,9 +205,7 @@
 </div>
 </div>
 
-{% endblock %}
 
-{% block extra_js %}
 <script>
 // Tabs toggle
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -123,4 +221,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 </script>
-{% endblock %}
+
+</body>
+</html>

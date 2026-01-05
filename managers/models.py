@@ -23,6 +23,7 @@ ID_CHOICES = (
 
 class Manager(CommonModel):
     user = models.ForeignKey(User ,on_delete=models.CASCADE, related_name='manager_profile')
+    founder = models.ForeignKey('Founder', on_delete=models.CASCADE, null=True, blank=True, related_name='founder_managers')
     manager_id = models.CharField(max_length=20, unique=True, null=True, blank=True)  # New manager ID field
     department = models.CharField(max_length=100 , null=True, blank=True)
     designation = models.CharField(max_length=100 , null=True, blank=True)
@@ -39,6 +40,7 @@ class Manager(CommonModel):
     available_medical_leaves = models.IntegerField(default=14)
     carryforward_leaves_taken = models.IntegerField(default=0)
     carryforward_available_leaves = models.IntegerField(default=0)
+    carryforward_granted = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'manager_manager'
@@ -49,6 +51,28 @@ class Manager(CommonModel):
 
     def __str__(self):
         return self.user.email
+
+    def recalculate_leave_counts(self):
+        """Recalculate leave counts based on approved leave requests."""
+        approved_leaves = UnifiedLeaveRequest.objects.filter(manager=self, is_approved=True)
+
+        self.carryforward_leaves_taken = sum(getattr(leave, 'carryforward_used', 0) for leave in approved_leaves)
+        self.leaves_taken = sum(leave.leave_duration - getattr(leave, 'carryforward_used', 0) for leave in approved_leaves if leave.leave_type == 'AL')
+        self.medical_leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
+
+        self.available_leaves = 18 - self.leaves_taken
+        self.available_medical_leaves = 14 - self.medical_leaves_taken
+        
+        # update available carryforward based on granted and taken
+        # but only if we are still within the validity period (Jan 1 - March 31)
+        from django.utils import timezone
+        current_date = timezone.now().date()
+        if current_date.month <= 3:
+            self.carryforward_available_leaves = max(0, self.carryforward_granted - self.carryforward_leaves_taken)
+        else:
+            self.carryforward_available_leaves = 0
+
+        self.save()
 
 class Founder(CommonModel):
     user = models.ForeignKey(User ,on_delete=models.CASCADE)
@@ -100,13 +124,17 @@ class UnifiedLeaveRequest(CommonModel):
     # Approval fields
     is_approved = models.BooleanField(default=False)
     is_rejected = models.BooleanField(default=False)
+    is_cancelled = models.BooleanField(default=False)
     approval_date = models.DateTimeField(null=True, blank=True)
     rejection_date = models.DateTimeField(null=True, blank=True)
+    cancellation_date = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_unified_leaves')
     rejected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='rejected_unified_leaves')
+    cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cancelled_unified_leaves')
 
     # Leave calculation
     leave_duration = models.IntegerField(default=0)
+    carryforward_used = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'unified_leave_request'
@@ -163,6 +191,8 @@ class UnifiedLeaveRequest(CommonModel):
             return "Approved"
         elif self.is_rejected:
             return "Rejected"
+        elif self.is_cancelled:
+            return "Cancelled"
         else:
             return "Pending"
 
@@ -212,10 +242,13 @@ class ManagerLeaveRequest(CommonModel):
     # Approval fields
     is_approved = models.BooleanField(default=False)
     is_rejected = models.BooleanField(default=False)
+    is_cancelled = models.BooleanField(default=False)
     approval_date = models.DateTimeField(null=True, blank=True)
     rejection_date = models.DateTimeField(null=True, blank=True)
+    cancellation_date = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_old_manager_leaves')
     rejected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='rejected_old_manager_leaves')
+    cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cancelled_old_manager_leaves')
 
     # Leave calculation
     leave_duration = models.IntegerField(default=0)
@@ -231,6 +264,9 @@ class ManagerLeaveRequest(CommonModel):
 
 class EmergencyContactManager(CommonModel):
     manager = models.ForeignKey(Manager ,on_delete=models.CASCADE )
+    contact_name = models.CharField(max_length=255, null=True, blank=True)
+    contact_number = models.CharField(max_length=100, null=True, blank=True)
+    relationship = models.CharField(max_length=100, null=True, blank=True)
     Permanent_address = models.CharField(max_length=100, null=True, blank=True)
     country = models.CharField(max_length=100,  null=True, blank=True)
     city = models.CharField(max_length=100,  null=True, blank=True)

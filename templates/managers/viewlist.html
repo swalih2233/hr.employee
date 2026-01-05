@@ -77,12 +77,18 @@
                                     Rejected
                                 </a>
                             {% else %}
-                                <a href="{% url 'managers:approve_leave' id=leave_request.id %}" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded">
-                                    Approve Leave
-                                </a>
-                                <a href="{% url 'managers:reject_leave' id=leave_request.id %}" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded">
-                                    Reject Leave
-                                </a>
+                                <form action="{% url 'managers:approve_leave' id=leave_request.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded">
+                                        Approve Leave
+                                    </button>
+                                </form>
+                                <form action="{% url 'managers:reject_leave' id=leave_request.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded">
+                                        Reject Leave
+                                    </button>
+                                </form>
                             {% endif %}
                         </div>
                 </div>

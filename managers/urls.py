@@ -10,12 +10,14 @@ urlpatterns=[
     path("founder-dashboard/", views.founder_dashboard, name="founder_dashboard"),
     path("manager-dashboard/", views.manager_dashboard, name="manager_dashboard"),
     path("login/",views.login, name="login"),
+    path("founder/login/", views.founder_login, name="founder_login"),
     path("logout/",views.logout, name="logout"),
 
     path("profile/", views.view_profile, name="view_profile"),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
 
-    # path("manager/<int:id>/",views.manager_details, name="manager_details"),  # TODO: Create manager_details view function
+    path("manager/leave-details/<int:manager_id>/", views.founder_manager_leave_detail, name="founder_manager_leave_detail"),
+    path("manager/full-details/<int:id>/", views.manager_full_details, name="manager_full_details"),
     
 
     path("leavelist/",views.leave_requests, name="leavelist"),
@@ -53,6 +55,7 @@ urlpatterns=[
     # Manager Leave Management URLs
     path("leave/apply/", views.manager_apply_leave, name="manager_apply_leave"),
     path("leave/history/", views.manager_leave_history, name="manager_leave_history"),
+    path("leave/cancel/<int:id>/", views.manager_cancel_leave, name="manager_cancel_leave"),
     # Manager leave actions
     path("manager/leave/requests/", views.manager_leave_requests_list, name="manager_leave_requests_list"),
     path("manager/leave/view/<int:id>/", views.view_manager_leave_request, name="view_manager_leave_request"),

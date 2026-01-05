@@ -46,36 +46,70 @@ class Command(BaseCommand):
         """Grant carryforward leaves on December 31st"""
         self.stdout.write(self.style.SUCCESS('🎄 Processing December 31st carryforward leaves...'))
         
+        # Get configuration
+        config = getattr(settings, 'LEAVE_MANAGEMENT_CONFIG', {
+            'CARRYFORWARD_LIMIT': 6,
+            'CARRYFORWARD_ELIGIBILITY_THRESHOLD': 10
+        })
+        limit = config.get('CARRYFORWARD_LIMIT', 6)
+        threshold = config.get('CARRYFORWARD_ELIGIBILITY_THRESHOLD', 10)
+
+        # Process Employees
         employees = Employe.objects.all()
         eligible_employees = []
         
         for employee in employees:
-            if employee.leaves_taken >= 10:
+            if employee.available_leaves >= threshold:
                 eligible_employees.append(employee)
                 
                 if not dry_run:
-                    employee.carryforward_available_leaves = 6
+                    employee.carryforward_available_leaves = limit
+                    employee.carryforward_granted = limit
                     employee.carryforward_leaves_taken = 0
                     employee.save()
                 
                 self.stdout.write(
-                    f"✅ {employee.user.first_name} {employee.user.last_name} "
-                    f"(Taken: {employee.leaves_taken}) -> 6 carryforward leaves granted"
+                    f"✅ Employee: {employee.user.first_name} {employee.user.last_name} "
+                    f"(Unused: {employee.available_leaves}) -> {limit} carryforward leaves granted"
                 )
             else:
                 self.stdout.write(
-                    f"❌ {employee.user.first_name} {employee.user.last_name} "
-                    f"(Taken: {employee.leaves_taken}) -> Not eligible (needs 10+ leaves)"
+                    f"❌ Employee: {employee.user.first_name} {employee.user.last_name} "
+                    f"(Unused: {employee.available_leaves}) -> Not eligible (needs {threshold}+ unused leaves)"
+                )
+
+        # Process Managers
+        managers = Manager.objects.all()
+        eligible_managers = []
+        
+        for manager in managers:
+            if manager.available_leaves >= threshold:
+                eligible_managers.append(manager)
+                
+                if not dry_run:
+                    manager.carryforward_available_leaves = limit
+                    manager.carryforward_granted = limit
+                    manager.carryforward_leaves_taken = 0
+                    manager.save()
+                
+                self.stdout.write(
+                    f"✅ Manager: {manager.user.first_name} {manager.user.last_name} "
+                    f"(Unused: {manager.available_leaves}) -> {limit} carryforward leaves granted"
+                )
+            else:
+                self.stdout.write(
+                    f"❌ Manager: {manager.user.first_name} {manager.user.last_name} "
+                    f"(Unused: {manager.available_leaves}) -> Not eligible (needs {threshold}+ unused leaves)"
                 )
         
         # Send email notifications
-        if eligible_employees and not dry_run:
-            self.send_carryforward_notifications(eligible_employees)
+        if (eligible_employees or eligible_managers) and not dry_run:
+            self.send_carryforward_notifications(eligible_employees + eligible_managers)
         
         self.stdout.write(
             self.style.SUCCESS(
                 f'🎉 Carryforward process completed! '
-                f'{len(eligible_employees)} employees received carryforward leaves.'
+                f'{len(eligible_employees) + len(eligible_managers)} persons received carryforward leaves.'
             )
         )
 
@@ -83,30 +117,30 @@ class Command(BaseCommand):
         """Cleanup carryforward leaves on March 31st"""
         self.stdout.write(self.style.WARNING('🧹 Processing March 31st carryforward cleanup...'))
         
-        employees = Employe.objects.filter(carryforward_available_leaves__gt=0)
+        employees = Employe.objects.all()
+        managers = Manager.objects.all()
         cleanup_count = 0
         
         for employee in employees:
-            unused_leaves = employee.carryforward_available_leaves
-            
             if not dry_run:
-                employee.carryforward_available_leaves = 0
-                employee.carryforward_leaves_taken = 0
-                employee.save()
-            
+                employee.recalculate_leave_counts()
             cleanup_count += 1
-            self.stdout.write(
-                f"🗑️  {employee.user.first_name} {employee.user.last_name} "
-                f"-> {unused_leaves} unused carryforward leaves removed"
-            )
+            self.stdout.write(f"🧹 Employee: {employee.user.first_name} {employee.user.last_name} -> Processed")
+
+        for manager in managers:
+            if not dry_run:
+                manager.recalculate_leave_counts()
+            cleanup_count += 1
+            self.stdout.write(f"🧹 Manager: {manager.user.first_name} {manager.user.last_name} -> Processed")
         
         # Send cleanup notifications
         if cleanup_count > 0 and not dry_run:
-            self.send_cleanup_notifications(employees)
+            all_affected = list(employees) + list(managers)
+            self.send_cleanup_notifications(all_affected)
         
         self.stdout.write(
             self.style.SUCCESS(
-                f'🧹 Cleanup completed! {cleanup_count} employees had carryforward leaves reset.'
+                f'🧹 Cleanup completed! {cleanup_count} persons had carryforward leaves reset.'
             )
         )
 
@@ -166,7 +200,7 @@ ELIGIBLE EMPLOYEES:
 
 IMPORTANT NOTES:
 - These carryforward leaves are valid only until March 31st
-- Employees must have taken at least 10 regular leaves to be eligible
+- Employees must have at least 10 unused regular leaves to be eligible
 - Unused carryforward leaves will be automatically removed on March 31st
 
 Please inform your team members about their carryforward leave allocation.

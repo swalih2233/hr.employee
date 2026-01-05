@@ -85,7 +85,7 @@
       <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
       </svg>
-      Back to Employees
+      Back to Dashboard
     </a>
   </div>
 
@@ -104,6 +104,8 @@
                         <th class="px-6 py-3">Employee Name</th>
                         <th class="px-6 py-3">Email</th>
                         <th class="px-6 py-3">Department</th>
+                        <th class="px-6 py-3">Employee ID</th>
+                        <th class="px-6 py-3">Join Date</th>
                         <th class="px-6 py-3">Actions</th>
                     </tr>
                 </thead>
@@ -122,6 +124,8 @@
                         </td>
                         <td class="px-6 py-4">{{ employee.user.email }}</td>
                         <td class="px-6 py-4">{{ employee.department }}</td>
+                        <td class="px-6 py-4">{{ employee.employe_id|default:"N/A" }}</td>
+                        <td class="px-6 py-4">{{ employee.date_of_joining|date:"d M Y"|default:"N/A" }}</td>
                         <td class="px-6 py-4">
                             <form action="{% url 'managers:delete_employee' employee.id %}"
                                   method="POST"
@@ -135,7 +139,7 @@
 
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="text-center py-6 text-gray-500">No employees found.</td>
+                        <td colspan="6" class="text-center py-6 text-gray-500">No employees found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -1,5 +1,6 @@
 from django.db import models
 from datetime import datetime, timedelta
+from django.utils import timezone
 
 from common.models import CommonModel
 
@@ -36,6 +37,7 @@ class Employe(CommonModel):
     user = models.ForeignKey(User ,on_delete=models.CASCADE, related_name='employee_profile')
     employe_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     manager =models.ForeignKey(Manager, on_delete=models.CASCADE, null=True, blank=True)
+    founder = models.ForeignKey('managers.Founder', on_delete=models.CASCADE, null=True, blank=True, related_name='founder_employees')
     department = models.CharField(max_length=100, null=True, blank=True)
     designation = models.CharField(max_length=100, null=True, blank=True)
     date_of_joining = models.DateField(null=True, blank=True)
@@ -50,6 +52,7 @@ class Employe(CommonModel):
     available_medical_leaves = models.IntegerField(default=14)
     carryforward_leaves_taken = models.IntegerField(default=0)
     carryforward_available_leaves = models.IntegerField(default=0)
+    carryforward_granted = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'employe_employe'
@@ -65,11 +68,20 @@ class Employe(CommonModel):
         """Recalculate leave counts based on approved leave requests."""
         approved_leaves = LeaveRequest.objects.filter(employee=self, status='Approved')
 
-        self.leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'AL')
+        self.carryforward_leaves_taken = sum(leave.carryforward_used for leave in approved_leaves)
+        self.leaves_taken = sum(leave.leave_duration - leave.carryforward_used for leave in approved_leaves if leave.leave_type == 'AL')
         self.medical_leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
 
         self.available_leaves = 18 - self.leaves_taken
         self.available_medical_leaves = 14 - self.medical_leaves_taken
+        
+        # update available carryforward based on granted and taken
+        # but only if we are still within the validity period (Jan 1 - March 31)
+        current_date = timezone.now().date()
+        if current_date.month <= 3:
+            self.carryforward_available_leaves = max(0, self.carryforward_granted - self.carryforward_leaves_taken)
+        else:
+            self.carryforward_available_leaves = 0
 
         self.save()
      
@@ -218,13 +230,17 @@ class LeaveRequest(CommonModel):
     status = models.CharField(max_length=20, default='Pending', choices=[
         ('Pending', 'Pending'),
         ('Approved', 'Approved'),
-        ('Rejected', 'Rejected')
+        ('Rejected', 'Rejected'),
+        ('Cancelled', 'Cancelled')
     ])  # Fixed: Added status field as required
     is_approved = models.BooleanField(default=False)
     approval_date = models.DateField(null=True, blank=True)
     is_rejected = models.BooleanField(default=False)
     rejection_date = models.DateField(null=True, blank=True)
+    is_cancelled = models.BooleanField(default=False)
+    cancellation_date = models.DateField(null=True, blank=True)
     leave_duration = models.IntegerField(default=0)
+    carryforward_used = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'employe_leave_request'  # Fixed: Corrected table name

@@ -63,10 +63,12 @@ def yearly_leave_reset(self):
                 # Check carryforward eligibility
                 if employee.available_leaves >= eligibility_threshold:
                     employee.carryforward_available_leaves = carryforward_limit
+                    employee.carryforward_granted = carryforward_limit
                     stats['employees_with_carryforward'] += 1
                     stats['total_carryforward_leaves'] += carryforward_limit
                 else:
                     employee.carryforward_available_leaves = 0
+                    employee.carryforward_granted = 0
                 
                 # Reset yearly allocations
                 employee.available_leaves = annual_allocation
@@ -84,10 +86,12 @@ def yearly_leave_reset(self):
                 # Check carryforward eligibility
                 if manager.available_leaves >= eligibility_threshold:
                     manager.carryforward_available_leaves = carryforward_limit
+                    manager.carryforward_granted = carryforward_limit
                     stats['managers_with_carryforward'] += 1
                     stats['total_carryforward_leaves'] += carryforward_limit
                 else:
                     manager.carryforward_available_leaves = 0
+                    manager.carryforward_granted = 0
                 
                 # Reset yearly allocations
                 manager.available_leaves = annual_allocation
@@ -150,15 +154,9 @@ def carryforward_cleanup(self):
                     stats['total_leaves_forfeited'] += employee.carryforward_available_leaves
                     stats['employees_cleaned'] += 1
                 
-                # Cleanup carryforward
-                employee.carryforward_available_leaves = 0
-                employee.carryforward_leaves_taken = 0
-                
-                # Reset if over allocation
-                if employee.available_leaves > annual_allocation:
-                    employee.available_leaves = annual_allocation
-                
-                employee.save()
+                # Cleanup carryforward using recalculate_leave_counts
+                # This will set carryforward_available_leaves to 0 because current date is March 31st
+                employee.recalculate_leave_counts()
             
             # Process managers
             for manager in managers:
@@ -169,15 +167,8 @@ def carryforward_cleanup(self):
                     stats['total_leaves_forfeited'] += manager.carryforward_available_leaves
                     stats['managers_cleaned'] += 1
                 
-                # Cleanup carryforward
-                manager.carryforward_available_leaves = 0
-                manager.carryforward_leaves_taken = 0
-                
-                # Reset if over allocation
-                if manager.available_leaves > annual_allocation:
-                    manager.available_leaves = annual_allocation
-                
-                manager.save()
+                # Cleanup carryforward using recalculate_leave_counts
+                manager.recalculate_leave_counts()
             
             # Send notification emails
             send_carryforward_cleanup_notification.delay(stats)

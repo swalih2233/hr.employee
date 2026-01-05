@@ -16,14 +16,25 @@
       
     </div>
     <div class="flex items-center space-x-3 md:space-x-6">
-      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
-      <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
-      <img src="{{ employe.image.url }}" class="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover cursor-pointer">
+      
+      <img src="{% if profile.image %}{{ profile.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover cursor-pointer">
     </div>
   </header>
 
 <section class="pt-6 md:pt-[10vh] pb-6">
+
+
+
   <div class="container mx-auto px-4">
+        <!-- Back Link -->
+  <div class="mb-6">
+    <a href="{% url 'employe:details' %}" class="text-blue-600 hover:underline text-sm font-medium inline-flex items-center">
+      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+      </svg>
+      Home
+    </a>
+  </div>
 
     <!-- Django Messages Framework -->
     {% if messages %}
@@ -59,6 +70,7 @@
           <option value="APPROVED">Approved</option>
           <option value="PENDING">Pending</option>
           <option value="REJECTED">Rejected</option>
+          <option value="CANCELLED">Cancelled</option>
         </select>
       </div>
     </div>
@@ -75,6 +87,7 @@
             <th class="py-3 px-4 text-left font-medium">Type</th>
             <th class="py-3 px-4 text-left font-medium">Attachment</th>
             <th class="py-3 px-4 text-left font-medium">Status</th>
+            <th class="py-3 px-4 text-left font-medium">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
@@ -99,14 +112,27 @@
                 <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">APPROVED</span>
               {% elif instance.is_rejected %}
                 <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">REJECTED</span>
+              {% elif instance.is_cancelled %}
+                <span class="bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded-full">CANCELLED</span>
               {% else %}
                 <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded-full">PENDING</span>
+              {% endif %}
+            </td>
+            <td class="py-3 px-4 text-sm">
+              {% if not instance.is_approved and not instance.is_rejected and not instance.is_cancelled %}
+                <a href="{% url 'employe:cancel_leave' instance.id %}" 
+                   class="text-red-600 hover:text-red-800 font-medium flex items-center"
+                   onclick="return confirm('Are you sure you want to cancel this leave request?')">
+                  <i class="fas fa-times-circle mr-1"></i> Cancel
+                </a>
+              {% else %}
+                <span class="text-gray-400">No Actions</span>
               {% endif %}
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="7" class="py-8 text-center text-gray-500">
+            <td colspan="8" class="py-8 text-center text-gray-500">
               <i class="fas fa-inbox text-4xl mb-2 text-gray-300"></i>
               <p>No leave requests found.</p>
             </td>
@@ -139,6 +165,8 @@
               <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">APPROVED</span>
             {% elif instance.is_rejected %}
               <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">REJECTED</span>
+            {% elif instance.is_cancelled %}
+              <span class="bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded-full">CANCELLED</span>
             {% else %}
               <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded-full">PENDING</span>
             {% endif %}
@@ -166,6 +194,16 @@
           <div class="pt-2 border-t">
             <a href="{{ instance.attachment.url }}" class="text-blue-600 hover:text-blue-800 underline text-sm flex items-center">
               <i class="fas fa-file-download mr-2"></i>Download Attachment
+            </a>
+          </div>
+          {% endif %}
+          
+          {% if not instance.is_approved and not instance.is_rejected and not instance.is_cancelled %}
+          <div class="pt-2 border-t mt-2">
+            <a href="{% url 'employe:cancel_leave' instance.id %}" 
+               class="text-red-600 hover:text-red-800 font-medium flex items-center justify-center w-full py-2 bg-red-50 rounded-lg"
+               onclick="return confirm('Are you sure you want to cancel this leave request?')">
+              <i class="fas fa-times-circle mr-2"></i> Cancel Leave
             </a>
           </div>
           {% endif %}

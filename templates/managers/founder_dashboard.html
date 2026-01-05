@@ -21,6 +21,27 @@
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .btn-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.7;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans" x-data="founderDashboard()">
@@ -63,8 +84,15 @@
     <div class="hidden md:flex items-center space-x-6 ml-6">
 
       <!-- Notification -->
-      <a href="#">
+      <a href="{% url 'managers:all_leave_history' %}" class="relative">
         <img src="/media/images/Vector (2).png" class="w-5 h-5">
+        {% with total_pending=pending_manager_leaves|add:pending_employee_leaves %}
+          {% if total_pending > 0 %}
+            <span class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+              {{ total_pending }}
+            </span>
+          {% endif %}
+        {% endwith %}
       </a>
 
       <!-- PROFILE DROPDOWN -->
@@ -72,8 +100,8 @@
 
         <button @click="open = !open" class="flex items-center space-x-2">
 
-          {% if founder.image %}
-          <img src="{{ founder.image.url }}" class="w-8 h-8 rounded-full object-cover">
+          {% if profile.image %}
+          <img src="{{ profile.image.url }}" class="w-8 h-8 rounded-full object-cover">
           {% else %}
           <img src="{% static 'images/default-avatar.png' %}" class="w-8 h-8 rounded-full object-cover">
           {% endif %}
@@ -105,7 +133,16 @@
     <div class="flex items-center space-x-6 text-sm">
       <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
       <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
-      <a href="{% url 'managers:all_leave_history' %}" class="hover:underline">Leave Management</a>
+      <a href="{% url 'managers:all_leave_history' %}" class="hover:underline flex items-center">
+        Leave Management
+        {% with total_pending=pending_manager_leaves|add:pending_employee_leaves %}
+          {% if total_pending > 0 %}
+            <span class="ml-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+              {{ total_pending }}
+            </span>
+          {% endif %}
+        {% endwith %}
+      </a>
 
       <a href="#" @click.prevent="toggleSidebar('addFounder')" class="hover:underline">
         Add Founder
@@ -113,6 +150,10 @@
 
       <a href="#" @click.prevent="toggleSidebar('addManager')" class="hover:underline">
         Add Manager
+      </a>
+
+      <a href="#" @click.prevent="toggleSidebar('addEmployee')" class="hover:underline">
+        Add Employee
       </a>
     </div>
 
@@ -149,7 +190,16 @@
         <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
         <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
         <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
-        <a href="{% url 'managers:all_leave_history' %}" class="hover:underline">Leave Management</a>
+        <a href="{% url 'managers:all_leave_history' %}" class="hover:underline flex items-center justify-between">
+            Leave Management
+            {% with total_pending=pending_manager_leaves|add:pending_employee_leaves %}
+              {% if total_pending > 0 %}
+                <span class="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                  {{ total_pending }}
+                </span>
+              {% endif %}
+            {% endwith %}
+        </a>
         <a href="#" @click.prevent="toggleSidebar('addFounder'); sidebarOpen=false" class="hover:underline">Add Founder</a>
         <a href="#" @click.prevent="toggleSidebar('addManager'); sidebarOpen=false" class="hover:underline">Add Manager</a>
         
@@ -221,8 +271,14 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             {% if request.status|lower == 'pending' %}
-                                <a href="{% url 'managers:approve_manager_leave' request.id %}" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md">Approve</a>
-                                <a href="{% url 'managers:reject_manager_leave' request.id %}" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md ml-2">Reject</a>
+                                <form action="{% url 'managers:approve_manager_leave' request.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md">Approve</button>
+                                </form>
+                                <form action="{% url 'managers:reject_manager_leave' request.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md ml-2">Reject</button>
+                                </form>
                             {% elif request.status|lower == 'approved' %}
                                 <span class="bg-green-100 text-green-700 px-3 py-1 rounded-md">Approved</span>
                             {% elif request.status|lower == 'rejected' %}
@@ -233,6 +289,79 @@
                     {% empty %}
                     <tr>
                         <td colspan="7" class="text-center py-6 text-gray-500">No pending manager leave requests.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Employee Leave Requests -->
+    <section class="bg-white rounded-lg shadow">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold">Employee Leave Requests</h2>
+        </div>
+        <div class="overflow-x-auto scrollbar-hide">
+            <table class="min-w-full text-sm text-left text-gray-700">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-6 py-3">Employee Name</th>
+                        <th class="px-6 py-3">Subject</th>
+                        <th class="px-6 py-3">From</th>
+                        <th class="px-6 py-3">To</th>
+                        <th class="px-6 py-3">Applied On</th>
+                        <th class="px-6 py-3">Status</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for request in employee_leave_requests %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+                            {% if request.employee.image %}
+                                <img src="{{ request.employee.image.url }}" class="w-10 h-10 rounded-full object-cover mr-3" />
+                            {% else %}
+                                <img src="{% static 'images/default-avatar.png' %}" class="w-10 h-10 rounded-full object-cover mr-3" />
+                            {% endif %}
+                            <div>
+                                <div class="font-medium text-gray-900">{{ request.employee.user.get_full_name }}</div>
+                                <div class="text-xs text-gray-500">{{ request.employee.user.email }}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">{{ request.subject }}</td>
+                        <td class="px-6 py-4">{{ request.start_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4">{{ request.end_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4">{{ request.created_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="
+                                {% if request.status|lower == 'pending' %}bg-blue-100 text-blue-800
+                                {% elif request.status|lower == 'approved' %}bg-green-100 text-green-800
+                                {% elif request.status|lower == 'rejected' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}
+                                text-xs font-medium px-3 py-1 rounded-full">
+                                {{ request.status|capfirst }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {% if request.status|lower == 'pending' %}
+                                <form action="{% url 'managers:approve_leave' request.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md">Approve</button>
+                                </form>
+                                <form action="{% url 'managers:reject_leave' request.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md ml-2">Reject</button>
+                                </form>
+                            {% elif request.status|lower == 'approved' %}
+                                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-md">Approved</span>
+                            {% elif request.status|lower == 'rejected' %}
+                                <span class="bg-red-100 text-red-700 px-3 py-1 rounded-md">Rejected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-6 text-gray-500">No pending employee leave requests.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -329,6 +458,7 @@
                     <tr>
                         <th class="px-6 py-3">Manager Name</th>
                         <th class="px-6 py-3">Email</th>
+                        <th class="px-6 py-3">Manager ID</th>
                         <th class="px-6 py-3">Role</th>
                         <th class="px-6 py-3">Status</th>
                         <th class="px-6 py-3">Actions</th>
@@ -349,11 +479,13 @@
             </a>
         </td>
         <td class="px-6 py-4">{{ manager.user.email }}</td>
+        <td class="px-6 py-4">{{ manager.manager_id|default:"N/A" }}</td>
         <td class="px-6 py-4">{{ manager.job_role|default:"Manager" }}</td>
         <td class="px-6 py-4">
             <span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">Active</span>
         </td>
         <td class="px-6 py-4">
+
             <a href="javascript:void(0);" 
                onclick="deleteItem(`{% url 'managers:delete_manager' manager.id %}`, '{{ manager.id }}', 'manager')" 
                class="text-red-600 hover:text-red-900">Delete</a>
@@ -361,7 +493,7 @@
     </tr>
     {% empty %}
     <tr>
-        <td colspan="5" class="text-center py-6 text-gray-500">No managers found.</td>
+        <td colspan="6" class="text-center py-6 text-gray-500">No managers found.</td>
     </tr>
     {% endfor %}
 </tbody>
@@ -370,50 +502,93 @@
     </section>
 
     <!-- Employees List -->
-    <section class="bg-white rounded-lg shadow">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-6 py-4 border-b border-gray-200">
-            <h2 class="text-base font-semibold">Employees List</h2>
-            <a href="{% url 'managers:employees_list' %}" class="text-[12px] text-white bg-[#111827] hover:bg-gray-900 px-6 py-2.5 rounded-[7px] whitespace-nowrap">View All Employees</a>
+<section class="bg-white rounded-lg shadow">
+    <div class="flex flex-col gap-3 px-4 sm:px-6 py-4 border-b border-gray-200">
+        <div class="flex justify-between items-center">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-800">Employees List</h2>
+            <a href="{% url 'managers:employees_list' %}" class="text-xs sm:text-sm text-white bg-[#111827] hover:bg-gray-900 px-3 sm:px-6 py-2 sm:py-2.5 rounded-md whitespace-nowrap transition-colors">View All</a>
         </div>
-        <div class="overflow-x-auto scrollbar-hide">
-            <table class="min-w-full text-sm text-left text-gray-700">
-                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                        <th class="px-6 py-3">Employee Name</th>
-                        <th class="px-6 py-3">Email</th>
-                        <th class="px-6 py-3">Department</th>
-                        <th class="px-6 py-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for employee in employees %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap flex items-center">
+    </div>
+    <div class="overflow-x-auto scrollbar-hide">
+        <table class="min-w-full text-sm text-left text-gray-700">
+            <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                <tr>
+                    <th class="px-4 sm:px-6 py-3">Employee Name</th>
+                    <th class="px-4 sm:px-6 py-3 hidden sm:table-cell">Email</th>
+                    <th class="px-4 sm:px-6 py-3 hidden md:table-cell">Employee ID</th>
+                    <th class="px-4 sm:px-6 py-3 hidden md:table-cell">Department</th>
+                    <th class="px-4 sm:px-6 py-3 hidden lg:table-cell">Manager</th>
+                    <th class="px-4 sm:px-6 py-3 hidden 2xl:table-cell">Manager Created By</th>
+                    <th class="px-4 sm:px-6 py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for employee in employees %}
+                <tr>
+                    <td class="px-4 sm:px-6 py-4">
+                        <div class="flex items-center">
                             <img src="{% if employee.image %}{{ employee.image.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}"
                                  alt="{{ employee.user.get_full_name }}"
-                                 class="h-8 w-8 rounded-full object-cover mr-3">
-                            <a href="{% url 'managers:founder_employee_leave_detail' employee.id %}" 
-                               class="text-gray-800  hover:text-blue-800 hover:underline font-medium">
-                                {{ employee.user.get_full_name }}
-                            </a>
-                        </td>
-                        <td class="px-6 py-4">{{ employee.user.email }}</td>
-                        <td class="px-6 py-4">{{ employee.department }}</td>
-                        <td class="px-6 py-4">
-                            <a href="javascript:void(0);" 
-                               onclick="deleteItem(`{% url 'managers:delete_employee' employee.id %}`, '{{ employee.id }}', 'employee')" 
-                               class="text-red-600 hover:text-red-900">Delete</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center py-6 text-gray-500">No employees found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </section>
+                                 class="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover mr-2 sm:mr-3 flex-shrink-0">
+                            <div class="min-w-0">
+                                <a href="{% url 'managers:founder_employee_leave_detail' employee.id %}" 
+                                   class="text-gray-800 hover:text-blue-600 font-medium text-sm block truncate">
+                                    {{ employee.user.get_full_name }}
+                                </a>
+                                <p class="text-xs text-gray-500 sm:hidden truncate">{{ employee.user.email }}</p>
+                                <p class="text-xs text-gray-500 md:hidden truncate">ID: {{ employee.employe_id|default:"N/A" }}</p>
+                                <p class="text-xs text-gray-500 hidden md:block lg:hidden truncate">{{ employee.department }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 sm:px-6 py-4 hidden sm:table-cell">
+                        <span class="text-sm text-gray-600">{{ employee.user.email }}</span>
+                    </td>
+                    <td class="px-4 sm:px-6 py-4 hidden md:table-cell">
+                        <span class="text-sm text-gray-600">{{ employee.employe_id|default:"N/A" }}</span>
+                    </td>
+                    <td class="px-4 sm:px-6 py-4 hidden md:table-cell">
+                        <span class="text-sm text-gray-600">{{ employee.department }}</span>
+                    </td>
+                    <td class="px-4 sm:px-6 py-4 hidden lg:table-cell">
+                        <span class="text-sm text-gray-600">
+                            {% if employee.manager %}
+                                {{ employee.manager.user.get_full_name }}
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </span>
+                    </td>
+            
+                    <td class="px-4 sm:px-6 py-4 hidden 2xl:table-cell">
+                        <span class="text-sm text-gray-600">
+                            {% if employee.manager and employee.manager.created_by %}
+                                {{ employee.manager.created_by.get_full_name }}
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td class="px-4 sm:px-6 py-4">
+                        <a href="javascript:void(0);" 
+                           onclick="deleteItem(`{% url 'managers:delete_employee' employee.id %}`, '{{ employee.id }}', 'employee')" 
+                           class="text-red-600 hover:text-red-800 text-sm font-medium transition-colors">Delete</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-8 text-gray-500">
+                        <svg class="mx-auto h-12 w-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        <p class="text-sm">No employees found.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 
     <!-- Founders List -->
     <section class="bg-white rounded-lg shadow">
@@ -485,6 +660,14 @@
   {% csrf_token %}
   
   <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <!-- Manager ID -->
+    <div class="md:col-span-2">
+      <label for="manager_id" class="block text-sm font-semibold text-gray-700 mb-1">Manager ID (Employee ID)</label>
+      <input type="text" name="manager_id" id="manager_id_manager"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+             required>
+    </div>
+
     <!-- First Name -->
     <div>
       <label for="first_name" class="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
@@ -547,12 +730,19 @@
              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
              required>
     </div>
+
+    <!-- Carry-forward Leaves -->
+    <div class="md:col-span-2">
+      <label for="carryforward_granted" class="block text-sm font-semibold text-gray-700 mb-1">Manual Carry-forward Grant</label>
+      <input type="number" name="carryforward_granted" id="carryforward_granted_manager" value="0" min="0" max="18"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+      <p class="mt-1 text-xs text-gray-500 italic">Initial carry-forward leaves to be granted to this manager. These will expire on March 31st.</p>
+    </div>
   </div>
 
   <div class="mt-8 flex justify-end">
-    <button type="submit"
-      class="bg-gray-800 hover:bg-gray-900 text-white font-semibold px-6 py-2.5 rounded-lg shadow-sm transition focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-      Add Manager
+    <button type="submit" class="submit-btn no-loader bg-gray-800 hover:bg-gray-900 text-white font-semibold px-6 py-2.5 rounded-lg shadow-sm transition focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      <span class="btn-text">Add Manager</span>
     </button>
   </div>
 </form>
@@ -625,8 +815,126 @@
                         <input type="text" id="job_role_founder" name="job_role" value="{{ job_role }}" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300">
                     </div>
                     <div class="mt-6 text-center">
-                        <button type="submit" class="w-full bg-gray-800 text-white py-2 rounded-lg hover:bg-gray-900 focus:outline-none focus:ring focus:ring-blue-300">
-                            Submit
+                        <button type="submit" class="submit-btn no-loader w-full bg-gray-800 text-white py-2 rounded-lg hover:bg-gray-900 focus:outline-none focus:ring focus:ring-blue-300">
+                            <span class="btn-text">Submit</span>
+                        </button>
+                    </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Add Employee Sidebar -->
+  <div x-show="isSidebarOpen('addEmployee')" @keydown.escape.window="closeSidebar()" x-cloak class="fixed inset-0 overflow-hidden z-50">
+    <div class="absolute inset-0 overflow-hidden">
+      <div x-show="isSidebarOpen('addEmployee')" x-transition:enter="ease-in-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in-out duration-500" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeSidebar()"></div>
+      <section class="absolute inset-y-0 right-0 pl-10 max-w-full flex">
+        <div x-show="isSidebarOpen('addEmployee')" x-transition:enter="transform transition ease-in-out duration-500 sm:duration-700" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transform transition ease-in-out duration-500 sm:duration-700" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" class="w-screen max-w-2xl">
+          <div class="h-full flex flex-col bg-white shadow-xl">
+            <div class="flex-1 h-0 overflow-y-auto">
+              <div class="py-6 px-4 bg-gray-800 sm:px-6">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-lg font-medium text-white">Add Employee</h2>
+                  <div class="ml-3 h-7 flex items-center">
+                    <button @click="closeSidebar()" class="bg-gray-800 rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-white">
+                      <span class="sr-only">Close panel</span>
+                      <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="relative flex-1 py-6 px-4 sm:px-6">
+                <form id="addEmployeeForm" method="POST" action="{% url 'managers:add_employe' %}" enctype="multipart/form-data" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    <!-- Personal Information -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase mb-4">Personal Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">First Name *</label>
+                                <input type="text" name="first_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Last Name *</label>
+                                <input type="text" name="last_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Email *</label>
+                                <input type="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Phone Number *</label>
+                                <input type="text" name="phone_number" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Gender *</label>
+                                <select name="gender" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                    <option value="O">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Password *</label>
+                                <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employment Details -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase mb-4">Employment Details</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Employee ID *</label>
+                                <input type="text" name="employe_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Department</label>
+                                <input type="text" name="department" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Designation</label>
+                                <input type="text" name="designation" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Date of Joining</label>
+                                <input type="date" name="date_of_joining" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Employment Type</label>
+                                <select name="employment_Type" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="Full-Time">Full-Time</option>
+                                    <option value="Part-Time">Part-Time</option>
+                                    <option value="Contract">Contract</option>
+                                    <option value="Internship">Internship</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Work Location</label>
+                                <input type="text" name="work_location" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Profile Image</label>
+                                <input type="file" name="image" accept="image/*" class="mt-1 block w-full text-sm border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Carry-forward Grant</label>
+                                <input type="number" name="carryforward_granted" value="0" min="0" max="18" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <button type="submit" class="submit-btn no-loader w-full bg-gray-800 text-white py-3 rounded-lg font-bold hover:bg-gray-900 transition-colors">
+                            <span class="btn-text">Add Employee</span>
                         </button>
                     </div>
                 </form>
@@ -663,10 +971,18 @@
         },
         submitAddFounderForm(event) {
           const form = event.target;
+          const submitBtn = form.querySelector('.submit-btn');
+          const btnText = submitBtn.querySelector('.btn-text');
+          const originalText = btnText.textContent;
           const formData = new FormData(form);
 
           // Clear previous errors
           form.querySelectorAll('.error-message').forEach(el => el.remove());
+
+          // Show loading state
+          submitBtn.disabled = true;
+          submitBtn.classList.add('btn-loading');
+          btnText.innerHTML = '<span class="spinner"></span>Processing...';
 
           fetch(form.action, {
             method: "POST",
@@ -710,6 +1026,10 @@
 
             } else if (data.status === 'error' && data.errors) {
               // Display validation errors
+              submitBtn.disabled = false;
+              submitBtn.classList.remove('btn-loading');
+              btnText.textContent = originalText;
+              
               for (const [field, message] of Object.entries(data.errors)) {
                 const input = form.querySelector(`[name=${field}]`);
                 if (input) {
@@ -721,11 +1041,17 @@
               }
             } else {
               alert(data.message || "An unknown error occurred.");
+              submitBtn.disabled = false;
+              submitBtn.classList.remove('btn-loading');
+              btnText.textContent = originalText;
             }
           })
           .catch(error => {
             console.error("Error:", error);
             alert("An error occurred while submitting the form.");
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-loading');
+            btnText.textContent = originalText;
           });
         }
       }
@@ -772,23 +1098,100 @@
 <script>
 document.querySelector('#addManagerForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const formData = new FormData(this);
+    const form = this;
+    const submitBtn = form.querySelector('.submit-btn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const originalText = btnText.textContent;
+    const formData = new FormData(form);
 
-    const response = await fetch("{% url 'managers:add_manager' %}", {
-        method: "POST",
-        body: formData,
-        headers: { "X-CSRFToken": "{{ csrf_token }}" }
-    });
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.classList.add('btn-loading');
+    btnText.innerHTML = '<span class="spinner"></span>Processing...';
 
-    const data = await response.json();
-    if (data.status === "success") {
-        alert("Manager added successfully!");
-        this.reset();
-        location.reload(); // refresh dashboard list
-    } else {
-        alert(data.message);
+    try {
+        const response = await fetch("{% url 'managers:add_manager' %}", {
+            method: "POST",
+            body: formData,
+            headers: { 
+                "X-CSRFToken": "{{ csrf_token }}",
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+
+        const data = await response.json();
+        if (data.status === "success") {
+            alert(data.message || "Manager added successfully!");
+            form.reset();
+            // Close sidebar and reload
+            const alpineComponent = document.querySelector('[x-data="founderDashboard()"]');
+            if (alpineComponent && alpineComponent.__x) {
+                alpineComponent.__x.$data.closeSidebar();
+            }
+            setTimeout(() => location.reload(), 500);
+        } else {
+            alert(data.message);
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-loading');
+            btnText.textContent = originalText;
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("An error occurred while submitting the form.");
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('btn-loading');
+        btnText.textContent = originalText;
+    }
+});
+
+document.querySelector('#addEmployeeForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form = this;
+    const submitBtn = form.querySelector('.submit-btn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const originalText = btnText.textContent;
+    const formData = new FormData(form);
+
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.classList.add('btn-loading');
+    btnText.innerHTML = '<span class="spinner"></span>Processing...';
+
+    try {
+        const response = await fetch("{% url 'managers:add_employe' %}", {
+            method: "POST",
+            body: formData,
+            headers: { 
+                "X-CSRFToken": "{{ csrf_token }}",
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+
+        const data = await response.json();
+        if (data.status === "success") {
+            alert(data.message || "Employee added successfully!");
+            form.reset();
+            // Close sidebar and reload
+            const alpineComponent = document.querySelector('[x-data="founderDashboard()"]');
+            if (alpineComponent && alpineComponent.__x) {
+                alpineComponent.__x.$data.closeSidebar();
+            }
+            setTimeout(() => location.reload(), 500);
+        } else {
+            alert(data.message);
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-loading');
+            btnText.textContent = originalText;
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("An error occurred while submitting the form.");
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('btn-loading');
+        btnText.textContent = originalText;
     }
 });
 </script>
+{% include 'includes/form_loader.html' %}
 </body>
 </html>

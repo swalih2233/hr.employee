@@ -24,8 +24,8 @@
       </div>
       <!-- Bottom blue area with text -->
       <div class="bg-[#162032] p-8">
-        <h2 class="text-3xl font-bold text-white mb-4">Let’s empower your employees today.</h2>
-        <p class="text-gray-200">We help to complete all your conveyancing needs easily</p>
+        <h2 class="text-3xl font-bold text-white mb-4">Welcome to Mavendoer Employee Website</h2>
+        <p class="text-gray-200">Customized especially for the Mavendoer team</p>
       </div>
     </div>
 
@@ -37,9 +37,14 @@
           <path d="M0,50 Q30,0 50,20" stroke="#d1d5db" stroke-width="2" fill="none"/>
         </svg>
       </div>
-      <h2 class="text-2xl font-semibold text-center text-gray-900 mb-6">Login first to your account</h2>
+      <h2 class="text-2xl font-semibold text-center text-gray-900 mb-6">Manager Login</h2>
       <form action="" method="post">
         {% csrf_token %}
+        <div class="mb-6">
+          <label for="manager_id" class="sr-only">Manager ID</label>
+          <input type="text" id="manager_id" placeholder="Manager ID" name="manager_id" 
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" required>
+        </div>
         <div class="mb-6">
           <label for="email" class="sr-only">Email</label>
           <input type="email" id="email" placeholder="Email address" name="email" 

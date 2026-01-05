@@ -16,17 +16,17 @@
   
     </div>
     <div class="flex items-center space-x-3 md:space-x-6">
-      <i class="fas fa-envelope text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
+      
       <!-- Fixed: Added notification count badge -->
-      <div class="relative">
+      <!-- <div class="relative">
         <i class="fas fa-bell text-gray-500 hover:text-indigo-600 cursor-pointer text-lg md:text-base"></i>
         {% if pending_leave_count > 0 %}
           <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ pending_leave_count }}</span>
         {% endif %}
-      </div>
+      </div> -->
       <!-- Fixed: Added profile dropdown functionality -->
       <div class="relative">
-        <img src="{{ employe.image.url }}" class="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover cursor-pointer" id="profile-dropdown-btn">
+        <img src="{% if profile.image %}{{ profile.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover cursor-pointer" id="profile-dropdown-btn">
         <!-- Dropdown menu -->
         <div id="profile-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden">
           {% if user_role == 'manager' %}
@@ -70,7 +70,7 @@
 
       <div class="mt-6 space-y-2">
         <!-- Apply Leave will trigger drawer -->
-        <a href="#" id="apply-leave-btn" class="w-full bg-[#111827] hover:bg-indigo-700 text-white px-4 py-2 block text-center rounded-md">Apply for Leave</a>
+        <a href="#" id="apply-leave-btn" class="w-full bg-[#1E184D] hover:bg-[#17123a] text-white px-4 py-2 block text-center rounded-md">Apply for Leave</a>
         <a href="{% url 'employe:leavelist' %}" class="w-full border border-[#000000] hover:bg-gray-100 px-4 py-2 block text-gray-700 text-center rounded-md">Leave List</a>
       </div>
     </div>
@@ -322,7 +322,7 @@
           </div>
           <span class="text-xs font-semibold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">Taken</span>
         </div>
-        <p class="text-3xl font-bold {% if employe.carryforward_taken_leaves < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.carryforward_taken_leaves }}</p>
+        <p class="text-3xl font-bold {% if employe.carryforward_leaves_taken < 0 %}text-red-600{% else %}text-gray-800{% endif %}">{{ employe.carryforward_leaves_taken }}</p>
         <p class="text-sm text-gray-600 mt-1">Carry Forward Taken</p>
       </div>
     </div>
@@ -454,7 +454,7 @@
       </div>
 
       <div class="text-center">
-        <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded hover:bg-indigo-700 focus:outline-none">
+        <button type="submit" class="w-full bg-[#1E184D] text-white font-bold py-2 px-4 rounded hover:bg-[#100d29] focus:outline-none">
           Submit
         </button>
       </div>

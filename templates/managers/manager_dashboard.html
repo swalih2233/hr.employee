@@ -11,6 +11,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Alpine.js -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    /* Add any custom dashboard styles here if needed */
+  </style>
 </head>
 <body class="bg-gray-50" x-data="{
   openApplyLeave: false,
@@ -151,9 +154,10 @@
         </a>
         <div x-data="{ open: false }" class="relative">
           <button @click="open = !open" class="flex items-center focus:outline-none">
-            <img src="{% if manager.image %}{{ manager.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full" alt="Profile">
+            <img src="{% if profile.image %}{{ profile.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full" alt="Profile">
           </button>
           <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
+            <a href="{% url 'managers:view_profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My Profile</a>
             <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
           </div>
         </div>
@@ -298,6 +302,7 @@
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job Title</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Join Date</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
@@ -313,6 +318,7 @@
             <td class="px-6 py-4 text-sm text-gray-900">{{ emp.employee.user.email }}</td>
             <td class="px-6 py-4 text-sm text-gray-900">{{ emp.employee.designation }}</td>
             <td class="px-6 py-4 text-sm text-gray-900">{{ emp.employee.department }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ emp.employee.date_of_joining|date:"d M Y"|default:"N/A" }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ emp.status_class }}">
                 {{ emp.status }}
@@ -328,6 +334,7 @@
                 <div x-show="open" @click.away="open = false" 
                      class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-30 border"
                      style="display: none;">
+
                   <a href="{% url 'managers:edit_employe' emp.employee.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit</a>
                   <a href="javascript:void(0);" 
                      onclick="if(confirm('Are you sure you want to delete this employee?')) { deleteItem(`{% url 'managers:delete_employee' emp.employee.id %}`, '{{ emp.employee.id }}') }"
@@ -355,6 +362,7 @@
             <div x-show="open" @click.away="open = false" 
                  class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-30 border"
                  style="display: none;">
+              <a href="{% url 'managers:manager_employee_leave_detail' emp.employee.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View</a>
               <a href="{% url 'managers:edit_employe' emp.employee.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit</a>
               <a href="javascript:void(0);" 
                  onclick="if(confirm('Are you sure you want to delete this employee?')) { deleteItem(`{% url 'managers:delete_employee' emp.employee.id %}`, '{{ emp.employee.id }}') }"
@@ -372,6 +380,8 @@
             <p class="text-gray-600"><span class="font-medium">Email:</span> {{ emp.employee.user.email }}</p>
             <p class="text-gray-600"><span class="font-medium">Job:</span> {{ emp.employee.designation }}</p>
             <p class="text-gray-600"><span class="font-medium">Dept:</span> {{ emp.employee.department }}</p>
+            <p class="text-gray-600"><span class="font-medium">Joined:</span> {{ emp.employee.date_of_joining|date:"d M Y"|default:"N/A" }}</p>
+            <p class="text-gray-600"><span class="font-medium">Employee ID:</span> {{ emp.employee.employe_id|default:"N/A" }}</p>
           </div>
         </div>
         {% endfor %}
@@ -684,12 +694,21 @@
                     </div>
                 </div>
 
+                <!-- Carry-forward Leave Section -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Carry-forward Leaves</h3>
+                    <div>
+                        <label for="carryforward_granted" class="block text-sm font-semibold text-gray-700 mb-2">Manual Carry-forward Grant</label>
+                        <input type="number" id="carryforward_granted" name="carryforward_granted" value="0" min="0" max="18" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+                        <p class="mt-2 text-xs text-gray-500">Initial carry-forward leaves to be granted to this employee. These will expire on March 31st.</p>
+                    </div>
+                </div>
+
                 <!-- Action Buttons -->
                 <div class="flex justify-end space-x-4 pt-6">
                     <button type="button" @click="openAddEmployee = false" class="px-6 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-all">Cancel</button>
-                    <button type="submit" id="submitBtn" class="px-6 py-3 bg-[#1E184D] text-white rounded-lg font-medium hover:from-indigo-700 hover:to-indigo-800 shadow-md hover:shadow-lg transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none">
-                        <span id="submitBtnText">Create Employee</span>
-                        <span id="submitBtnLoader" class="hidden">Creating...</span>
+                    <button type="submit" class="px-6 py-3 bg-[#1E184D] text-white rounded-lg font-medium hover:from-indigo-700 hover:to-indigo-800 shadow-md hover:shadow-lg transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center">
+                        Create Employee
                     </button>
                 </div>
             </form>
@@ -725,5 +744,10 @@
             alert('An error occurred');
         });
     }
+
+    // Global form submission loader
+    // This script is now handled by include
 </script>
+
+{% include 'includes/form_loader.html' %}
 </html>

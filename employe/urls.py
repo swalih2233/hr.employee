@@ -14,6 +14,7 @@ urlpatterns=[
     path("logout/",views.logout, name="logout"),
 
     path("leavelist/",views.leavelist, name="leavelist"),
+    path("leavelist/cancel/<int:id>/", views.cancel_leave, name="cancel_leave"),
     path("leave/<int:id>/",views.viewlist, name="viewlist"),
 
     path("employe/edit/<int:id>/", views.edit_employe, name="edit_employe"),

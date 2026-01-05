@@ -19,11 +19,16 @@
                             {% elif email_type == 'submission_confirmation' %}
                                 <h1 style="margin: 0; font-size: 24px;">Leave Request Submitted</h1>
                                 <p style="margin: 5px 0 0; font-size: 14px;">Your request is now pending approval.</p>
+                            {% elif email_type == 'cancelled' %}
+                                <h1 style="margin: 0; font-size: 24px;">Leave Request Cancelled</h1>
+                                <p style="margin: 5px 0 0; font-size: 14px;">The leave request has been cancelled by the requester.</p>
                             {% else %}
                                 <h1 style="margin: 0; font-size: 24px;">Leave Request Update</h1>
                                 <p style="margin: 5px 0 0; font-size: 14px;">Status: 
                                     {% if status == 'Approved' %}
                                         <strong style="color: #34d399;">Approved</strong>
+                                    {% elif status == 'Cancelled' %}
+                                        <strong style="color: #6b7280;">Cancelled</strong>
                                     {% else %}
                                         <strong style="color: #f87171;">Rejected</strong>
                                     {% endif %}
@@ -38,12 +43,17 @@
                             {% if email_type == 'new_request' %}
                                 <p style="font-size: 16px; color: #374151;">Dear {{ manager_name }},</p>
                                 <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
-                                    This is to inform you that <strong>{{ employee.user.get_full_name }}</strong> ({{ employee.designation|default:'N/A' }}) has submitted a <strong>{{ leave.get_leave_type_display }}</strong> request.
+                                    This is to inform you that <strong>{{ employee.user.get_full_name }}</strong> ({{ employee.designation|default:'N/A' }}) has submitted <strong>{{ leave.get_leave_type_display }}</strong> request.
                                 </p>
                             {% elif email_type == 'submission_confirmation' %}
                                 <p style="font-size: 16px; color: #374151;">Dear {{ employee.user.get_full_name }},</p>
                                 <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
                                     Your leave request has been successfully submitted and is now pending approval from your manager. You will be notified once a decision is made.
+                                </p>
+                            {% elif email_type == 'cancelled' %}
+                                <p style="font-size: 16px; color: #374151;">Notification of Cancellation,</p>
+                                <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                                    The leave request for <strong>{{ employee.user.get_full_name }}</strong> has been <strong>Cancelled</strong> by the requester.
                                 </p>
                             {% else %}
                                 <p style="font-size: 16px; color: #374151;">Dear {{ employee.user.get_full_name }},</p>
@@ -51,6 +61,8 @@
                                     This is an update on your recent leave request. It has been 
                                     {% if status == 'Approved' %}
                                         <strong style="color: #34d399;">Approved</strong>.
+                                    {% elif status == 'Cancelled' %}
+                                        <strong style="color: #6b7280;">Cancelled</strong>.
                                     {% else %}
                                         <strong style="color: #f87171;">Rejected</strong>.
                                     {% endif %}

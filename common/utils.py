@@ -1,6 +1,7 @@
 """
 Utility functions for role management and access control
 """
+from django.utils import timezone
 
 def get_user_role(user):
     """
@@ -185,32 +186,25 @@ def get_leave_balance_info(user):
     if not profile:
         return None
 
-    # Get approved leave requests
-    approved_leaves = profile.leaverequest_set.filter(status='Approved')
+    # Ensure counts are up to date
+    profile.recalculate_leave_counts()
 
-    # Calculate total taken for each leave type
-    total_annual_taken = sum(calculate_leave_days(leave.start_date, leave.end_date) for leave in approved_leaves if leave.leave_type == 'Annual Leave')
-    total_medical_taken = sum(calculate_leave_days(leave.start_date, leave.end_date) for leave in approved_leaves if leave.leave_type == 'Medical Leave')
-
-    # Leave entitlements
-    annual_entitlement = 18
-    medical_entitlement = 14
-
-    # Calculate remaining leaves
-    annual_remaining = annual_entitlement - total_annual_taken
-    medical_remaining = medical_entitlement - total_medical_taken
+    current_date = timezone.now().date()
+    is_cf_period = current_date.month <= 3
 
     return {
-        'available_leaves': getattr(profile, 'available_leaves', 0),
-        'leaves_taken': getattr(profile, 'leaves_taken', 0),
-        'available_medical_leaves': getattr(profile, 'available_medical_leaves', 0),
-        'medical_leaves_taken': getattr(profile, 'medical_leaves_taken', 0),
-        'carryforward_available_leaves': getattr(profile, 'carryforward_available_leaves', 0),
-        'carryforward_leaves_taken': getattr(profile, 'carryforward_leaves_taken', 0),
-        'total_annual_taken': total_annual_taken,
-        'total_medical_taken': total_medical_taken,
-        'annual_remaining': annual_remaining,
-        'medical_remaining': medical_remaining,
+        'available_leaves': profile.available_leaves,
+        'leaves_taken': profile.leaves_taken,
+        'available_medical_leaves': profile.available_medical_leaves,
+        'medical_leaves_taken': profile.medical_leaves_taken,
+        'carryforward_available_leaves': profile.carryforward_available_leaves,
+        'carryforward_leaves_taken': profile.carryforward_leaves_taken,
+        'annual_remaining': profile.available_leaves,
+        'medical_remaining': profile.available_medical_leaves,
+        'total_annual_taken': profile.leaves_taken,
+        'total_medical_taken': profile.medical_leaves_taken,
+        'is_cf_period': is_cf_period,
+        'total_available': profile.available_leaves + profile.carryforward_available_leaves if is_cf_period else profile.available_leaves
     }
 
 from datetime import timedelta

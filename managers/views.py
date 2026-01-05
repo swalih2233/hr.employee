@@ -1,7 +1,6 @@
-from django.shortcuts import render, reverse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import render, reverse, get_object_or_404, redirect
+from django.urls import reverse
 from django.contrib import messages 
-from django.shortcuts import redirect
 from django.http.response import HttpResponseRedirect
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
@@ -11,27 +10,21 @@ import re
 
 from common.decorators import allow_manager
 from employe.models import *
-from users.models import User
+from users.models import User, OTP
 from managers.models import *
 
 from django.utils import timezone
-from datetime import timedelta
 import smtplib
 import ssl
 
-from django.shortcuts import render, redirect
-from django.contrib import messages
 from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail, EmailMessage
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.http import JsonResponse
 from django.contrib.auth.password_validation import validate_password
-from users.models import User
-from users.models import OTP 
 import random
 from django.contrib.auth import get_user_model
-from django.contrib.auth.password_validation import validate_password
 from django.conf import settings
 from django.core.validators import validate_email
 import secrets
@@ -79,6 +72,8 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
         subject = "Your Leave Request has been Approved"
     elif email_type == 'rejected':
         subject = "Your Leave Request has been Rejected"
+    elif email_type == 'cancelled':
+        subject = f"Leave Request Cancelled by {requester_name}"
     elif email_type == 'submission_confirmation':
         subject = "Leave Request Submitted Successfully"
     else:
@@ -106,15 +101,52 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
     try:
         cc_list = []
         if cc_founder:
-            founders = Founder.objects.all()
-            for founder in founders:
-                cc_list.append(founder.user.email)
+            # If the employee has a specific founder, only CC that founder
+            employee_founder = None
+            if isinstance(leave, LeaveRequest):
+                employee_founder = leave.employee.founder
+            elif isinstance(leave, UnifiedLeaveRequest) and leave.employee:
+                employee_founder = leave.employee.founder
+            
+            if employee_founder:
+                cc_list.append(employee_founder.user.email)
+            else:
+                # Fallback: CC all founders if no specific founder is assigned
+                founders = Founder.objects.all()
+                for founder in founders:
+                    cc_list.append(founder.user.email)
+
+        # If it's a new request or a cancellation and the employee has a founder, 
+        # the founder should be the primary recipient if they are the one to notify/approve
+        actual_recipient = recipient_email
+        if email_type in ['new_request', 'cancelled']:
+            employee_founder = None
+            if isinstance(leave, LeaveRequest):
+                employee_founder = leave.employee.founder
+            elif isinstance(leave, UnifiedLeaveRequest) and leave.employee:
+                employee_founder = leave.employee.founder
+            
+            if employee_founder:
+                # If we don't have a recipient email (like manager email), or if it's already set to founder
+                if not actual_recipient or actual_recipient == employee_founder.user.email:
+                    actual_recipient = employee_founder.user.email
+                    # If founder is the recipient, we don't need to CC them
+                    if actual_recipient in cc_list:
+                        cc_list.remove(actual_recipient)
+
+        # Final check: if we still don't have a recipient but have CCs, use first CC as recipient
+        if not actual_recipient and cc_list:
+            actual_recipient = cc_list.pop(0)
+
+        if not actual_recipient:
+            logger.warning(f"No recipient found for leave notification '{email_type}'")
+            return
 
         email = EmailMessage(
             subject,
             body=html_content,
             from_email=settings.EMAIL_HOST_USER,
-            to=[recipient_email],
+            to=[actual_recipient],
             cc=cc_list
         )
         email.content_subtype = 'html'
@@ -136,28 +168,34 @@ def index(request):
         return redirect(reverse('managers:login'))
 
 
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def founder_dashboard(request):
+    from django.db.models import Q
     logged_in_founder = get_object_or_404(Founder, user=request.user)
-    founders = Founder.objects.filter(user__is_superuser=True)
-    managers = Manager.objects.filter(user__is_manager=True, user__is_superuser=False)
-    employes = Employe.objects.all()
+    founders = Founder.objects.all()
+    managers = Manager.objects.filter(founder=logged_in_founder)
+    employes = Employe.objects.filter(Q(founder=logged_in_founder) | Q(manager__founder=logged_in_founder)).select_related('user', 'manager', 'manager__user')
     holidays = Holiday.objects.all()
 
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(
         requested_by_role='manager',
+        manager__founder=logged_in_founder,
         is_approved=False,
-        is_rejected=False
+        is_rejected=False,
+        is_cancelled=False
     ).select_related('manager__user').order_by('-created_date')[:5]
 
     employee_leave_requests = LeaveRequest.objects.filter(
-        status='Pending'
+        employee__founder=logged_in_founder,
+        status='Pending',
+        is_cancelled=False
     ).select_related('employee').order_by('-created_date')[:5]
 
     recent_approved_leaves = []
     recent_manager_leaves = UnifiedLeaveRequest.objects.filter(
         requested_by_role='manager',
+        manager__founder=logged_in_founder,
         is_approved=True
     ).select_related('manager__user', 'approved_by').order_by('-id')[:5]
 
@@ -174,6 +212,7 @@ def founder_dashboard(request):
         })
 
     recent_employee_leaves = LeaveRequest.objects.filter(
+        employee__founder=logged_in_founder,
         status='Approved'
     ).select_related('employee__user').order_by('-id')[:5]
 
@@ -191,6 +230,10 @@ def founder_dashboard(request):
 
     recent_approved_leaves = recent_approved_leaves[:5]
 
+    # Forms for adding new users
+    user_form = AddUserForm()
+    employe_form = AddEmployeModelForm()
+
     context = {
         'founder': logged_in_founder,
         'founders': founders,
@@ -206,6 +249,8 @@ def founder_dashboard(request):
         'recent_approved_leaves': recent_approved_leaves,
         'pending_manager_leaves': manager_leave_requests.count(),
         'pending_employee_leaves': employee_leave_requests.count(),
+        'user_form': user_form,
+        'employe_form': employe_form,
     }
 
     return render(request, 'managers/founder_dashboard.html', context)
@@ -263,12 +308,14 @@ def manager_dashboard(request):
 
     pending_employee_requests = LeaveRequest.objects.filter(
         employee__in=employees,
-        status='Pending'
+        status='Pending',
+        is_cancelled=False
     ).order_by('-created_date')
 
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(
         manager=manager,
-        requested_by_role='manager'
+        requested_by_role='manager',
+        is_cancelled=False
     ).order_by('-created_date')[:5]
 
     recent_approved_employee_leaves = LeaveRequest.objects.filter(
@@ -325,9 +372,18 @@ def approve_employee_leave(request, leave_id):
     employee_profile = leave_request.employee
 
     if request.method == 'POST':
-        if not (request.user.is_superuser or employee_profile.manager.user == request.user):
+        is_owner_founder = False
+        if is_founder(request.user):
+            try:
+                founder = Founder.objects.get(user=request.user)
+                if employee_profile.founder == founder:
+                    is_owner_founder = True
+            except Founder.DoesNotExist:
+                pass
+
+        if not (request.user.is_superuser or (employee_profile.manager and employee_profile.manager.user == request.user) or is_owner_founder):
             messages.error(request, "You do not have permission to approve this leave request.")
-            return redirect('managers:manager_dashboard')
+            return redirect('managers:leavelist')
 
         leave_days = calculate_leave_days(leave_request.start_date, leave_request.end_date)
 
@@ -335,9 +391,36 @@ def approve_employee_leave(request, leave_id):
             employee_profile.medical_leaves_taken += leave_days
             employee_profile.available_medical_leaves -= leave_days
         elif leave_request.leave_type == 'AL':
-            employee_profile.leaves_taken += leave_days
-            employee_profile.available_leaves -= leave_days
-
+            # Carry-forward deduction logic
+            cf_eligible_days = 0
+            
+            # Get holidays within range
+            from employe.models import Holiday # Local import to avoid potential circularity if not already imported correctly
+            holidays = Holiday.objects.filter(date__range=[leave_request.start_date, leave_request.end_date]).values_list('date', flat=True)
+            
+            curr = leave_request.start_date
+            while curr <= leave_request.end_date:
+                # Is it a working day and within Jan 1 - March 31?
+                if curr.weekday() < 5 and curr not in holidays:
+                    if curr.month <= 3:
+                        cf_eligible_days += 1
+                curr += timedelta(days=1)
+            
+            cf_available = employee_profile.carryforward_available_leaves
+            
+            # More robust check: how much CF is actually available from the grant
+            from django.db.models import Sum
+            other_cf_used = LeaveRequest.objects.filter(
+                employee=employee_profile, 
+                status='Approved'
+            ).exclude(id=leave_request.id).aggregate(total=Sum('carryforward_used'))['total'] or 0
+            
+            cf_available_from_grant = max(0, employee_profile.carryforward_granted - other_cf_used)
+            cf_to_use = min(cf_eligible_days, cf_available_from_grant)
+            
+            leave_request.carryforward_used = cf_to_use
+            # employee_profile fields will be updated by recalculate_leave_counts() below
+            
         employee_profile.save()
 
         leave_request.status = 'Approved'
@@ -351,8 +434,12 @@ def approve_employee_leave(request, leave_id):
         send_leave_notification(request, leave_request, 'approved', leave_request.employee.user.email, cc_founder=True)
 
         messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} approved.")
+        if is_founder(request.user):
+            return redirect('managers:founder_dashboard')
         return redirect('managers:leavelist')
 
+    if is_founder(request.user):
+        return redirect('managers:founder_dashboard')
     return redirect('managers:leavelist')
 
 
@@ -363,9 +450,20 @@ def reject_employee_leave(request, leave_id):
     employee_profile = leave_request.employee
 
     if request.method == 'POST':
-        if not (request.user.is_superuser or employee_profile.manager.user == request.user):
+        is_owner_founder = False
+        if is_founder(request.user):
+            try:
+                founder = Founder.objects.get(user=request.user)
+                if employee_profile.founder == founder:
+                    is_owner_founder = True
+            except Founder.DoesNotExist:
+                pass
+
+        if not (request.user.is_superuser or (employee_profile.manager and employee_profile.manager.user == request.user) or is_owner_founder):
             messages.error(request, "You do not have permission to reject this leave request.")
-            return redirect('managers:manager_dashboard')
+            if is_founder(request.user):
+                return redirect('managers:founder_dashboard')
+            return redirect('managers:leavelist')
 
         leave_request.status = 'Rejected'
         leave_request.is_rejected = True
@@ -375,8 +473,12 @@ def reject_employee_leave(request, leave_id):
         send_leave_notification(request, leave_request, 'rejected', leave_request.employee.user.email, cc_founder=True)
 
         messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} rejected.")
+        if is_founder(request.user):
+            return redirect('managers:founder_dashboard')
         return redirect('managers:leavelist')
 
+    if is_founder(request.user):
+        return redirect('managers:founder_dashboard')
     return redirect('managers:leavelist')
 
 
@@ -413,12 +515,88 @@ def manager_apply_leave(request):
 
 
 @login_required(login_url='/managers/login')
+@role_required('manager')
+def manager_cancel_leave(request, id):
+    try:
+        manager = Manager.objects.get(user=request.user)
+    except Manager.DoesNotExist:
+        messages.error(request, "Manager profile not found.")
+        return redirect(reverse('managers:login'))
+
+    leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, manager=manager, requested_by_role='manager')
+
+    if leave_request.status != 'Pending':
+        messages.error(request, f"Cannot cancel a leave request that is already {leave_request.status}.")
+        return redirect(reverse('managers:manager_leave_history'))
+
+    leave_request.is_cancelled = True
+    leave_request.cancellation_date = timezone.now()
+    leave_request.cancelled_by = request.user
+    leave_request.save()
+
+    # Notify founders
+    try:
+        if manager.founder:
+            # Notify the specific founder who assigned this manager
+            send_leave_notification(request, leave_request, 'cancelled', manager.founder.user.email, manager_name=manager.founder.user.get_full_name())
+        else:
+            # Fallback: notify all founders if no specific founder is assigned
+            founders = Founder.objects.all()
+            for founder in founders:
+                send_leave_notification(request, leave_request, 'cancelled', founder.user.email, manager_name=founder.user.get_full_name())
+        
+        messages.success(request, "Leave request cancelled successfully!")
+    except Exception as e:
+        messages.warning(request, f"Leave cancelled, but failed to send notifications: {str(e)}")
+
+    return redirect(reverse('managers:manager_leave_history'))
+
+
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def approve_manager_leave(request, id):
     leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
     manager = leave_request.manager
 
+    # Check if the founder has permission to approve this manager's leave
+    if not request.user.is_superuser:
+        try:
+            founder = Founder.objects.get(user=request.user)
+            if manager.founder != founder:
+                messages.error(request, "You do not have permission to approve this leave request.")
+                return redirect(reverse("managers:founder_dashboard"))
+        except Founder.DoesNotExist:
+            messages.error(request, "Founder profile not found.")
+            return redirect(reverse("managers:founder_login"))
+
     actual_leave_days = calculate_leave_days(leave_request.start_date, leave_request.end_date)
+
+    if leave_request.leave_type == 'AL':
+        # Carry-forward deduction logic
+        cf_eligible_days = 0
+        
+        # Get holidays within range
+        from employe.models import Holiday
+        holidays = Holiday.objects.filter(date__range=[leave_request.start_date, leave_request.end_date]).values_list('date', flat=True)
+        
+        curr = leave_request.start_date
+        while curr <= leave_request.end_date:
+            # Is it a working day and within Jan 1 - March 31?
+            if curr.weekday() < 5 and curr not in holidays:
+                if curr.month <= 3:
+                    cf_eligible_days += 1
+            curr += timedelta(days=1)
+        
+        # How much CF is actually available from the grant
+        other_cf_used = UnifiedLeaveRequest.objects.filter(
+            manager=manager, 
+            is_approved=True
+        ).exclude(id=leave_request.id).aggregate(total=Sum('carryforward_used'))['total'] or 0
+        
+        cf_available_from_grant = max(0, manager.carryforward_granted - other_cf_used)
+        cf_to_use = min(cf_eligible_days, cf_available_from_grant)
+        
+        leave_request.carryforward_used = cf_to_use
 
     leave_request.is_approved = True
     leave_request.is_rejected = False
@@ -427,14 +605,8 @@ def approve_manager_leave(request, id):
     leave_request.leave_duration = actual_leave_days
     leave_request.save()
 
-    if leave_request.leave_type == 'ML':
-        manager.medical_leaves_taken += actual_leave_days
-        manager.available_medical_leaves -= actual_leave_days
-    elif leave_request.leave_type == 'AL':
-        manager.leaves_taken += actual_leave_days
-        manager.available_leaves -= actual_leave_days
-
-    manager.save()
+    # Refresh leave counts
+    manager.recalculate_leave_counts()
 
     send_leave_notification(request, leave_request, 'approved', manager.user.email)
 
@@ -442,10 +614,22 @@ def approve_manager_leave(request, id):
     return redirect(reverse("managers:founder_dashboard"))
 
 
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def reject_manager_leave(request, id):
     leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
+    manager = leave_request.manager
+
+    # Check if the founder has permission to reject this manager's leave
+    if not request.user.is_superuser:
+        try:
+            founder = Founder.objects.get(user=request.user)
+            if manager.founder != founder:
+                messages.error(request, "You do not have permission to reject this leave request.")
+                return redirect(reverse("managers:founder_dashboard"))
+        except Founder.DoesNotExist:
+            messages.error(request, "Founder profile not found.")
+            return redirect(reverse("managers:founder_login"))
 
     leave_request.is_rejected = True
     leave_request.is_approved = False
@@ -517,7 +701,8 @@ def manager_leave_requests_list(request):
     pending_requests = UnifiedLeaveRequest.objects.filter(
         requested_by_role='manager',
         is_approved=False,
-        is_rejected=False
+        is_rejected=False,
+        is_cancelled=False
     ).order_by('-created_date')
 
     for leave_request in pending_requests:
@@ -530,7 +715,7 @@ def manager_leave_requests_list(request):
     return render(request, 'managers/manager_leave_requests.html', context)
 
 
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def view_manager_leave_request(request, id):
     if not is_founder(request.user):
@@ -562,7 +747,8 @@ def leave_requests(request):
 
     pending_employee_requests = LeaveRequest.objects.filter(
         employee__in=employees,
-        status='Pending'
+        status='Pending',
+        is_cancelled=False
     ).order_by('-created_date')
 
     context = {
@@ -575,11 +761,51 @@ def leave_requests(request):
 
 def login(request):
     if request.method == "GET":
-        # Clear any existing messages
         storage = messages.get_messages(request)
         storage.used = True
         
-    context = {"title": "Login"}
+    context = {"title": "Manager Login"}
+    
+    if request.method == 'POST':
+        manager_id = request.POST.get("manager_id")
+        email = request.POST.get("email")
+        password = request.POST.get("password")
+
+        if email and password and manager_id:
+            user = authenticate(request, email=email, password=password)
+            
+            if user:
+                try:
+                    manager_profile = Manager.objects.get(user=user)
+                    if manager_profile.manager_id != manager_id:
+                        messages.error(request, "Invalid Manager ID for this account")
+                        return render(request, "managers/login.html", context)
+                    
+                    auth_login(request, user)
+                    user.is_manager = True
+                    user.save()
+                    return HttpResponseRedirect(reverse("managers:index"))
+                except Manager.DoesNotExist:
+                    if not user.is_superuser:
+                        messages.error(request, "Manager profile not found")
+                        return render(request, "managers/login.html", context)
+                    else:
+                        auth_login(request, user)
+                        return HttpResponseRedirect(reverse("managers:index"))
+            else:
+                messages.error(request, "Invalid email or password")
+        else:
+            messages.error(request, "Manager ID, Email and password are required")
+
+    return render(request, "managers/login.html", context)
+
+
+def founder_login(request):
+    if request.method == "GET":
+        storage = messages.get_messages(request)
+        storage.used = True
+        
+    context = {"title": "Founder Login"}
     
     if request.method == 'POST':
         email = request.POST.get("email")
@@ -589,20 +815,17 @@ def login(request):
             user = authenticate(request, email=email, password=password)
             
             if user:
-                if user.is_superuser or user.is_manager:
+                if is_founder(user):
                     auth_login(request, user)
-                    user.is_manager = True
-                    user.save()
-                    manager, created = Manager.objects.get_or_create(user=user)
                     return HttpResponseRedirect(reverse("managers:index"))
                 else:
-                    messages.error(request, "Access restricted")
+                    messages.error(request, "Access restricted to founders only")
             else:
                 messages.error(request, "Invalid email or password")
         else:
             messages.error(request, "Email and password are required")
 
-    return render(request, "managers/login.html", context)
+    return render(request, "managers/founder_login.html", context)
 
 
 def logout(request):
@@ -657,17 +880,46 @@ def add_employe(request):
                 employe.user = user
                 
                 if is_manager(request.user):
-                    manager = Manager.objects.get(user=request.user)
-                    employe.manager = manager
+                    try:
+                        manager = Manager.objects.get(user=request.user)
+                        employe.manager = manager
+                    except Manager.DoesNotExist:
+                        pass
+                
+                if is_founder(request.user):
+                    try:
+                        founder = Founder.objects.get(user=request.user)
+                        employe.founder = founder
+                    except Founder.DoesNotExist:
+                        pass
                 
                 employe.save()
                 
-                messages.success(request, f"✅ Employee {user.get_full_name()} created successfully!")
+                # Set available carryforward if within Jan-Mar
+                current_date = timezone.now().date()
+                if current_date.month <= 3:
+                    employe.carryforward_available_leaves = employe.carryforward_granted
+                    employe.save()
+                
+                success_msg = f"✅ Employee {user.get_full_name()} created successfully!"
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({"status": "success", "message": success_msg})
+                    
+                messages.success(request, success_msg)
+                if is_founder(request.user):
+                    return redirect(reverse('managers:founder_dashboard'))
                 return redirect(reverse('managers:manager_dashboard'))
                     
             except Exception as e:
-                messages.error(request, f"Error creating employee: {str(e)}")
+                error_msg = f"Error creating employee: {str(e)}"
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({"status": "error", "message": error_msg})
+                messages.error(request, error_msg)
         else:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                errors = {**user_form.errors, **employe_form.errors}
+                return JsonResponse({"status": "error", "message": "Please correct the form errors.", "errors": errors})
+                
             messages.error(request, "Please correct the form errors.")
             # Re-populate the context for the manager dashboard to show errors in the sidebar
             try:
@@ -780,27 +1032,25 @@ def edit_employe(request, id):
     
     if request.method == 'POST':
         try:
-            user.first_name = request.POST.get('first_name', user.first_name)
-            user.last_name = request.POST.get('last_name', user.last_name)
-            user.email = request.POST.get('email', user.email)
-            user.phone_number = request.POST.get('phone_number', user.phone_number)
+            employe_id = request.POST.get('employe_id', '').strip()
+            carryforward_granted = request.POST.get('carryforward_granted', 0)
             
-            date_of_birth_str = request.POST.get('date_of_birth')
-            if date_of_birth_str:
-                user.date_of_birth = date_of_birth_str
+            if employe_id:
+                employe.employe_id = employe_id
+            
+            try:
+                cf_granted = int(carryforward_granted)
+                employe.carryforward_granted = cf_granted
                 
-            user.save()
-            
-            employe.department = request.POST.get('department', employe.department)
-            employe.designation = request.POST.get('designation', employe.designation)
-            employe.work_location = request.POST.get('work_location', employe.work_location)
-            
-            if request.FILES.get('image'):
-                employe.image = request.FILES['image']
-            
+                # Update available carryforward if within Jan-Mar
+                current_date = timezone.now().date()
+                if current_date.month <= 3:
+                    employe.carryforward_available_leaves = max(0, cf_granted - employe.carryforward_leaves_taken)
+            except (ValueError, TypeError):
+                pass
+                
             employe.save()
-            
-            messages.success(request, f"Employee {user.get_full_name()} updated successfully!")
+            messages.success(request, "Employee details updated successfully!")
             return redirect(reverse('managers:employees_list'))
             
         except Exception as e:
@@ -816,12 +1066,78 @@ def edit_employe(request, id):
 @login_required(login_url='/managers/login')
 @role_required('manager', 'founder')
 def details(request, id):
+    from employe.models import Address, EmergencyContact, Benefits, WorkSchedule
     employe = get_object_or_404(Employe, id=id)
     user = employe.user
     
+    # Fetch related data for employee
+    try:
+        address = Address.objects.filter(employe=employe).first()
+    except:
+        address = None
+        
+    try:
+        contact = EmergencyContact.objects.filter(employe=employe).first()
+    except:
+        contact = None
+        
+    try:
+        benefits = Benefits.objects.filter(employe=employe).first()
+    except:
+        benefits = None
+        
+    try:
+        workschedule = WorkSchedule.objects.filter(employe=employe).first()
+    except:
+        workschedule = None
+
     context = {
-        'employe': employe,
+        'manager': employe,  # Use 'manager' key for template compatibility
         'user': user,
+        'address': address,
+        'contact': contact,
+        'benefits': benefits,
+        'workschedule': workschedule,
+        'is_employee_view': True,
+        'back_url': request.META.get('HTTP_REFERER', reverse('managers:manager_dashboard')),
+    }
+    return render(request, 'managers/details.html', context)
+
+
+@login_required(login_url='/managers/founder/login/')
+@allow_founder
+def manager_full_details(request, id):
+    manager_obj = get_object_or_404(Manager, id=id)
+    
+    try:
+        address = AddressManager.objects.filter(manager=manager_obj).first()
+    except:
+        address = None
+        
+    try:
+        contact = EmergencyContactManager.objects.filter(manager=manager_obj).first()
+    except:
+        contact = None
+        
+    try:
+        benefits = BenefitsManager.objects.filter(manager=manager_obj).first()
+    except:
+        benefits = None
+        
+    try:
+        workschedule = WorkScheduleManager.objects.filter(manager=manager_obj).first()
+    except:
+        workschedule = None
+
+    context = {
+        'manager': manager_obj,
+        'user': manager_obj.user,
+        'address': address,
+        'contact': contact,
+        'benefits': benefits,
+        'workschedule': workschedule,
+        'is_manager_view_by_founder': True,
+        'back_url': request.META.get('HTTP_REFERER', reverse('managers:founder_dashboard')),
     }
     return render(request, 'managers/details.html', context)
 
@@ -834,8 +1150,15 @@ def delete_employee(request, id):
 
     # Permission check
     is_allowed = False
-    if request.user.is_superuser or is_founder(request.user):
+    if request.user.is_superuser:
         is_allowed = True
+    elif is_founder(request.user):
+        try:
+            founder = Founder.objects.get(user=request.user)
+            if employe.founder == founder:
+                is_allowed = True
+        except Founder.DoesNotExist:
+            pass
     elif is_manager(request.user):
         try:
             # Check if the employee belongs to this manager
@@ -862,11 +1185,12 @@ def delete_employee(request, id):
 
 
 @csrf_exempt
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def add_manager(request):
     if request.method == 'POST':
         try:
+            manager_id = request.POST.get("manager_id")
             first_name = request.POST.get("first_name")
             last_name = request.POST.get("last_name")
             email = request.POST.get("email")
@@ -874,11 +1198,16 @@ def add_manager(request):
             password = request.POST.get("password")
             joining_date = request.POST.get("joining_date")
             job_role = request.POST.get("job_role")
+            carryforward_granted = request.POST.get("carryforward_granted", 0)
             image = request.FILES.get("image")
 
             # check duplicate email
             if User.objects.filter(email=email).exists():
                 return JsonResponse({"status": "error", "message": "Email already exists."})
+            
+            # check duplicate manager_id
+            if Manager.objects.filter(manager_id=manager_id).exists():
+                return JsonResponse({"status": "error", "message": "Manager ID already exists."})
 
             # create user
             user = User.objects.create_user(
@@ -893,12 +1222,34 @@ def add_manager(request):
             user.save()
 
             # create manager profile
+            current_founder = None
+            if is_founder(request.user):
+                try:
+                    current_founder = Founder.objects.get(user=request.user)
+                except Founder.DoesNotExist:
+                    pass
+
+            # Convert carryforward to int
+            try:
+                cf_granted = int(carryforward_granted)
+            except (ValueError, TypeError):
+                cf_granted = 0
+
             manager = Manager.objects.create(
                 user=user,
+                manager_id=manager_id,
+                founder=current_founder,
                 date_of_joining=joining_date,
                 designation=job_role,
                 image=image,
+                carryforward_granted=cf_granted,
             )
+
+            # Set available carryforward if within Jan-Mar
+            current_date = timezone.now().date()
+            if current_date.month <= 3:
+                manager.carryforward_available_leaves = cf_granted
+                manager.save()
 
             return JsonResponse({"status": "success", "message": "Manager added successfully."})
         except Exception as e:
@@ -908,11 +1259,20 @@ def add_manager(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def delete_manager(request, id):
     manager = get_object_or_404(Manager, id=id)
     if request.method == 'POST':
+        # Check ownership
+        if not request.user.is_superuser:
+            try:
+                founder = Founder.objects.get(user=request.user)
+                if manager.founder != founder:
+                    return JsonResponse({'status': 'error', 'message': 'You do not have permission to delete this manager.'})
+            except Founder.DoesNotExist:
+                return JsonResponse({'status': 'error', 'message': 'Founder profile not found.'})
+
         try:
             manager.user.delete()
             return JsonResponse({'status': 'success', 'message': 'Manager deleted successfully.'})
@@ -921,7 +1281,7 @@ def delete_manager(request, id):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'})
 
 
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def founder_add(request):
     if request.method == 'POST':
@@ -974,7 +1334,7 @@ def founder_add(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def delete_founder(request, id):
     founder = get_object_or_404(Founder, id=id)
@@ -1055,7 +1415,8 @@ def bulk_delete_holidays(request):
 @role_required('manager', 'founder')
 def employees_list(request):
     if is_founder(request.user):
-        employees = Employe.objects.all().select_related('user', 'manager')
+        founder = Founder.objects.get(user=request.user)
+        employees = Employe.objects.filter(Q(founder=founder) | Q(manager__founder=founder)).select_related('user', 'manager')
     else:
         try:
             manager = Manager.objects.get(user=request.user)
@@ -1070,16 +1431,32 @@ def employees_list(request):
     return render(request, 'managers/employees_list.html', context)
 
 
-@login_required(login_url='/managers/login')
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def all_leave_history(request):
-    # Fetch all leave requests for employees
-    employee_leaves = LeaveRequest.objects.all().select_related('employee')
-
-    # Fetch all leave requests for managers
-    manager_leaves = UnifiedLeaveRequest.objects.filter(
-        requested_by_role='manager'
-    ).select_related('manager__user')
+    user_role = get_user_role(request.user)
+    
+    if user_role == 'founder':
+        founder = Founder.objects.get(user=request.user)
+        # Fetch all leave requests for employees under this founder
+        employee_leaves = LeaveRequest.objects.filter(employee__founder=founder).select_related('employee')
+        # Fetch all leave requests for managers under this founder
+        manager_leaves = UnifiedLeaveRequest.objects.filter(
+            requested_by_role='manager',
+            manager__founder=founder
+        ).select_related('manager__user')
+    else:
+        # Fallback for managers or others - should ideally be filtered too
+        try:
+            manager = Manager.objects.get(user=request.user)
+            employee_leaves = LeaveRequest.objects.filter(employee__manager=manager).select_related('employee')
+            manager_leaves = UnifiedLeaveRequest.objects.filter(
+                manager=manager,
+                requested_by_role='manager'
+            ).select_related('manager__user')
+        except Manager.DoesNotExist:
+            employee_leaves = LeaveRequest.objects.none()
+            manager_leaves = UnifiedLeaveRequest.objects.none()
 
     # Combine and sort all leave requests by creation date
     all_leaves = sorted(
@@ -1098,7 +1475,8 @@ def all_leave_history(request):
 @role_required('manager', 'founder')
 def employee_leave_history(request):
     if is_founder(request.user):
-        leave_requests = LeaveRequest.objects.all().select_related('employee').order_by('-created_date')
+        founder = Founder.objects.get(user=request.user)
+        leave_requests = LeaveRequest.objects.filter(employee__founder=founder).select_related('employee').order_by('-created_date')
     else:
         try:
             manager = Manager.objects.get(user=request.user)
@@ -1120,21 +1498,51 @@ def employee_leave_history(request):
 @role_required('manager', 'founder')
 def leave_summary(request):
     if is_founder(request.user):
-        employees = Employe.objects.all()
-        managers = Manager.objects.all()
+        founder = Founder.objects.get(user=request.user)
+        employees = Employe.objects.filter(founder=founder)
+        managers = Manager.objects.filter(founder=founder)
     else:
         try:
             manager = Manager.objects.get(user=request.user)
-            from common.utils import get_employees_under_manager
-            employees = get_employees_under_manager(manager)
-            managers = Manager.objects.none()
+            employees = Employe.objects.filter(manager=manager)
+            managers = Manager.objects.filter(id=manager.id)
         except Manager.DoesNotExist:
             employees = Employe.objects.none()
             managers = Manager.objects.none()
     
+    employee_summary = []
+    for emp in employees:
+        employee_summary.append({
+            'employee': emp,
+            'leave_balance': get_leave_balance_info(emp.user)
+        })
+    
+    manager_summary = []
+    for mng in managers:
+        # Calculate remaining leaves for the manager
+        total_annual_taken = UnifiedLeaveRequest.objects.filter(
+            manager=mng,
+            leave_type='AL',
+            is_approved=True
+        ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+        total_medical_taken = UnifiedLeaveRequest.objects.filter(
+            manager=mng,
+            leave_type='ML',
+            is_approved=True
+        ).aggregate(total=Sum('leave_duration'))['total'] or 0
+
+        manager_summary.append({
+            'manager': mng,
+            'annual_taken': total_annual_taken,
+            'medical_taken': total_medical_taken,
+            'annual_remaining': 18 - total_annual_taken,
+            'medical_remaining': 14 - total_medical_taken,
+        })
+
     context = {
-        'employees': employees,
-        'managers': managers,
+        'employee_summary': employee_summary,
+        'manager_summary': manager_summary,
     }
     return render(request, 'managers/leave_summary.html', context)
 
@@ -1240,12 +1648,18 @@ def view_profile(request):
     except BenefitsManager.DoesNotExist:
         benefits = None
 
+    try:
+        workschedule = WorkScheduleManager.objects.get(manager=manager)
+    except WorkScheduleManager.DoesNotExist:
+        workschedule = None
+
     context = {
-        'employe': manager,
+        'manager': manager,
         'user': manager.user,
         'address': address,
         'contact': contact,
         'benefits': benefits,
+        'workschedule': workschedule,
     }
     return render(request, 'managers/details.html', context)
 
@@ -1263,10 +1677,51 @@ def edit_profile(request):
             user.first_name = form.cleaned_data['first_name']
             user.last_name = form.cleaned_data['last_name']
             user.phone_number = form.cleaned_data['phone_number']
+            user.gender = form.cleaned_data['gender']
+            user.date_of_birth = form.cleaned_data['date_of_birth']
             user.save()
             
-            # Update Manager model fields
+            # Update Manager model fields (manager_id, designation, image)
             form.save()
+            
+            # Update or create related models
+            AddressManager.objects.update_or_create(
+                manager=manager,
+                defaults={
+                    'Permanent_address': form.cleaned_data['address_permanent_address'],
+                    'city': form.cleaned_data['address_city'],
+                    'country': form.cleaned_data['address_country'],
+                    'pincode': form.cleaned_data['address_pincode'],
+                }
+            )
+            
+            EmergencyContactManager.objects.update_or_create(
+                manager=manager,
+                defaults={
+                    'Permanent_address': form.cleaned_data['contact_permanent_address'],
+                    'country': form.cleaned_data['contact_country'],
+                    'city': form.cleaned_data['contact_city'],
+                    'pincode': form.cleaned_data['contact_pincode'],
+                }
+            )
+            
+            BenefitsManager.objects.update_or_create(
+                manager=manager,
+                defaults={
+                    'bank_name': form.cleaned_data.get('bank_name'),
+                    'account_number': form.cleaned_data.get('bank_account_number'),
+                    'branch_name': form.cleaned_data.get('bank_branch_name'),
+                    'ifsc_code': form.cleaned_data.get('bank_ifsc_code'),
+                }
+            )
+            
+            WorkScheduleManager.objects.update_or_create(
+                manager=manager,
+                defaults={
+                    'start_time': form.cleaned_data['work_start_time'],
+                    'end_time': form.cleaned_data['work_end_time'],
+                }
+            )
             
             messages.success(request, "Profile updated successfully!")
             return redirect('managers:view_profile')
@@ -1277,7 +1732,7 @@ def edit_profile(request):
         'manager': manager,
         'form': form,
     }
-    return render(request, 'managers/view_profile.html', context)
+    return render(request, 'managers/edit_profile.html', context)
 
 @login_required
 def manager_employee_leave_detail(request, employee_id):
@@ -1324,7 +1779,7 @@ def founder_employee_leave_detail(request, employee_id):
     return render(request, 'managers/founder_employee_leave_detail.html', context)
 
 
-@login_required
+@login_required(login_url='/managers/founder/login/')
 @allow_founder
 def founder_manager_leave_detail(request, manager_id):
     manager_obj = get_object_or_404(Manager, id=manager_id)

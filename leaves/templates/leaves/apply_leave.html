@@ -3,11 +3,13 @@
 {% block content %}
 <div class="p-4">
     <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Apply for Leave</h1>
-    <form method="post" enctype="multipart/form-data" action="{% url 'leaves:apply_leave' %}" class="mt-4 bg-white dark:bg-gray-800 p-6 rounded-md shadow-md">
+    <form id="leaveForm" method="post" enctype="multipart/form-data" action="{% url 'leaves:apply_leave' %}" class="mt-4 bg-white dark:bg-gray-800 p-6 rounded-md shadow-md">
         {% csrf_token %}
         {{ form.as_p }}
         <div class="mt-6">
-            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Submit</button>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">
+                Submit
+            </button>
         </div>
     </form>
 </div>
