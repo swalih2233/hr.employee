@@ -39,8 +39,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
 
     # Celery apps (commented out until Celery is installed)
-    # 'django_celery_beat',
-    # 'django_celery_results',
+    'django_celery_beat',
+    'django_celery_results',
 
         'users',
     'common',
