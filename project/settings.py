@@ -188,33 +188,33 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Fixed: Added missing DEFAULT_FROM_EMAIL
 # ==================== CELERY CONFIGURATION ====================
 # Temporarily commented out until Celery is installed
 
-# # Celery Configuration Options
-# CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-# CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+# Celery Configuration Options
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 
-# # Celery Beat (Scheduler) Configuration
-# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+# Celery Beat (Scheduler) Configuration
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
-# # Celery Task Configuration
-# CELERY_ACCEPT_CONTENT = ['json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
-# CELERY_TIMEZONE = 'UTC'
+# Celery Task Configuration
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
 
-# # Celery Worker Configuration
-# CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-# CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+# Celery Worker Configuration
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 
-# # Celery Results Configuration
-# CELERY_RESULT_EXPIRES = 3600  # 1 hour
+# Celery Results Configuration
+CELERY_RESULT_EXPIRES = 3600  # 1 hour
 
-# # Task routing
-# CELERY_TASK_ROUTES = {
-#     'managers.tasks.*': {'queue': 'leave_management'},
-# }
+# Task routing
+CELERY_TASK_ROUTES = {
+    'managers.tasks.*': {'queue': 'leave_management'},
+}
 
-# # Default queue
-# CELERY_TASK_DEFAULT_QUEUE = 'default'
+# Default queue
+CELERY_TASK_DEFAULT_QUEUE = 'default'
 
 # Leave Management Configuration
 LEAVE_MANAGEMENT_CONFIG = {
