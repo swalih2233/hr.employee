@@ -174,20 +174,18 @@ def founder_dashboard(request):
     from django.db.models import Q
     logged_in_founder = get_object_or_404(Founder, user=request.user)
     founders = Founder.objects.all()
-    managers = Manager.objects.filter(founder=logged_in_founder)
-    employes = Employe.objects.filter(Q(founder=logged_in_founder) | Q(manager__founder=logged_in_founder)).select_related('user', 'manager', 'manager__user')
+    managers = Manager.objects.all()
+    employes = Employe.objects.all().select_related('user', 'manager', 'manager__user')
     holidays = Holiday.objects.all()
 
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(
         requested_by_role='manager',
-        manager__founder=logged_in_founder,
         is_approved=False,
         is_rejected=False,
         is_cancelled=False
     ).select_related('manager__user').order_by('-created_date')[:5]
 
     employee_leave_requests = LeaveRequest.objects.filter(
-        employee__founder=logged_in_founder,
         status='Pending',
         is_cancelled=False
     ).select_related('employee').order_by('-created_date')[:5]
@@ -195,7 +193,6 @@ def founder_dashboard(request):
     recent_approved_leaves = []
     recent_manager_leaves = UnifiedLeaveRequest.objects.filter(
         requested_by_role='manager',
-        manager__founder=logged_in_founder,
         is_approved=True
     ).select_related('manager__user', 'approved_by').order_by('-id')[:5]
 
@@ -212,7 +209,6 @@ def founder_dashboard(request):
         })
 
     recent_employee_leaves = LeaveRequest.objects.filter(
-        employee__founder=logged_in_founder,
         status='Approved'
     ).select_related('employee__user').order_by('-id')[:5]
 
@@ -374,12 +370,7 @@ def approve_employee_leave(request, leave_id):
     if request.method == 'POST':
         is_owner_founder = False
         if is_founder(request.user):
-            try:
-                founder = Founder.objects.get(user=request.user)
-                if employee_profile.founder == founder:
-                    is_owner_founder = True
-            except Founder.DoesNotExist:
-                pass
+            is_owner_founder = True
 
         if not (request.user.is_superuser or (employee_profile.manager and employee_profile.manager.user == request.user) or is_owner_founder):
             messages.error(request, "You do not have permission to approve this leave request.")
@@ -452,12 +443,7 @@ def reject_employee_leave(request, leave_id):
     if request.method == 'POST':
         is_owner_founder = False
         if is_founder(request.user):
-            try:
-                founder = Founder.objects.get(user=request.user)
-                if employee_profile.founder == founder:
-                    is_owner_founder = True
-            except Founder.DoesNotExist:
-                pass
+            is_owner_founder = True
 
         if not (request.user.is_superuser or (employee_profile.manager and employee_profile.manager.user == request.user) or is_owner_founder):
             messages.error(request, "You do not have permission to reject this leave request.")
@@ -559,15 +545,9 @@ def approve_manager_leave(request, id):
     manager = leave_request.manager
 
     # Check if the founder has permission to approve this manager's leave
-    if not request.user.is_superuser:
-        try:
-            founder = Founder.objects.get(user=request.user)
-            if manager.founder != founder:
-                messages.error(request, "You do not have permission to approve this leave request.")
-                return redirect(reverse("managers:founder_dashboard"))
-        except Founder.DoesNotExist:
-            messages.error(request, "Founder profile not found.")
-            return redirect(reverse("managers:founder_login"))
+    if not is_founder(request.user) and not request.user.is_superuser:
+        messages.error(request, "Access denied. Only founders can approve manager leaves.")
+        return redirect(reverse("managers:index"))
 
     actual_leave_days = calculate_leave_days(leave_request.start_date, leave_request.end_date)
 
@@ -621,15 +601,9 @@ def reject_manager_leave(request, id):
     manager = leave_request.manager
 
     # Check if the founder has permission to reject this manager's leave
-    if not request.user.is_superuser:
-        try:
-            founder = Founder.objects.get(user=request.user)
-            if manager.founder != founder:
-                messages.error(request, "You do not have permission to reject this leave request.")
-                return redirect(reverse("managers:founder_dashboard"))
-        except Founder.DoesNotExist:
-            messages.error(request, "Founder profile not found.")
-            return redirect(reverse("managers:founder_login"))
+    if not is_founder(request.user) and not request.user.is_superuser:
+        messages.error(request, "Access denied. Only founders can reject manager leaves.")
+        return redirect(reverse("managers:index"))
 
     leave_request.is_rejected = True
     leave_request.is_approved = False
@@ -1153,12 +1127,7 @@ def delete_employee(request, id):
     if request.user.is_superuser:
         is_allowed = True
     elif is_founder(request.user):
-        try:
-            founder = Founder.objects.get(user=request.user)
-            if employe.founder == founder:
-                is_allowed = True
-        except Founder.DoesNotExist:
-            pass
+        is_allowed = True
     elif is_manager(request.user):
         try:
             # Check if the employee belongs to this manager
@@ -1265,13 +1234,8 @@ def delete_manager(request, id):
     manager = get_object_or_404(Manager, id=id)
     if request.method == 'POST':
         # Check ownership
-        if not request.user.is_superuser:
-            try:
-                founder = Founder.objects.get(user=request.user)
-                if manager.founder != founder:
-                    return JsonResponse({'status': 'error', 'message': 'You do not have permission to delete this manager.'})
-            except Founder.DoesNotExist:
-                return JsonResponse({'status': 'error', 'message': 'Founder profile not found.'})
+        if not is_founder(request.user) and not request.user.is_superuser:
+            return JsonResponse({'status': 'error', 'message': 'You do not have permission to delete this manager.'})
 
         try:
             manager.user.delete()
@@ -1415,8 +1379,7 @@ def bulk_delete_holidays(request):
 @role_required('manager', 'founder')
 def employees_list(request):
     if is_founder(request.user):
-        founder = Founder.objects.get(user=request.user)
-        employees = Employe.objects.filter(Q(founder=founder) | Q(manager__founder=founder)).select_related('user', 'manager')
+        employees = Employe.objects.all().select_related('user', 'manager')
     else:
         try:
             manager = Manager.objects.get(user=request.user)
@@ -1437,13 +1400,11 @@ def all_leave_history(request):
     user_role = get_user_role(request.user)
     
     if user_role == 'founder':
-        founder = Founder.objects.get(user=request.user)
-        # Fetch all leave requests for employees under this founder
-        employee_leaves = LeaveRequest.objects.filter(employee__founder=founder).select_related('employee')
-        # Fetch all leave requests for managers under this founder
+        # Fetch all leave requests for all employees
+        employee_leaves = LeaveRequest.objects.all().select_related('employee')
+        # Fetch all leave requests for all managers
         manager_leaves = UnifiedLeaveRequest.objects.filter(
-            requested_by_role='manager',
-            manager__founder=founder
+            requested_by_role='manager'
         ).select_related('manager__user')
     else:
         # Fallback for managers or others - should ideally be filtered too
@@ -1475,8 +1436,7 @@ def all_leave_history(request):
 @role_required('manager', 'founder')
 def employee_leave_history(request):
     if is_founder(request.user):
-        founder = Founder.objects.get(user=request.user)
-        leave_requests = LeaveRequest.objects.filter(employee__founder=founder).select_related('employee').order_by('-created_date')
+        leave_requests = LeaveRequest.objects.all().select_related('employee').order_by('-created_date')
     else:
         try:
             manager = Manager.objects.get(user=request.user)
@@ -1498,9 +1458,8 @@ def employee_leave_history(request):
 @role_required('manager', 'founder')
 def leave_summary(request):
     if is_founder(request.user):
-        founder = Founder.objects.get(user=request.user)
-        employees = Employe.objects.filter(founder=founder)
-        managers = Manager.objects.filter(founder=founder)
+        employees = Employe.objects.all()
+        managers = Manager.objects.all()
     else:
         try:
             manager = Manager.objects.get(user=request.user)
