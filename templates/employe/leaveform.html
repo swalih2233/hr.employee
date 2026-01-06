@@ -11,7 +11,7 @@
         {% if leave_balance_info.is_cf_period and leave_balance_info.carryforward_available_leaves > 0 %}
         <div class="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 text-sm">
             <p class="font-bold">Carry-Forward Leaves Available: {{ leave_balance_info.carryforward_available_leaves }}</p>
-            <p>These leaves will be automatically used first for Annual Leave and expire on March 31st.</p>
+            <p>These leaves will be automatically used first for Annual Leave and expire on March 31st, {% now "Y" %}.</p>
         </div>
         {% endif %}
 

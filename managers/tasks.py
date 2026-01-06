@@ -8,14 +8,7 @@ from django.core.mail import send_mail
 from django.core.management import call_command
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-# Temporarily disabled until Celery is installed
-# from celery import shared_task
-
-# Dummy decorator for when Celery is not available
-def shared_task(*args, **kwargs):
-    def decorator(func):
-        return func
-    return decorator
+from celery import shared_task
 from django.db import transaction
 
 from .models import Manager, Founder

@@ -46,6 +46,14 @@
                             <p class="text-gray-900">{{ employe.leaves_taken }}</p>
                         </div>
 
+                        {% if employe.carryforward_available_leaves > 0 %}
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Carry Forward Available</label>
+                            <p class="text-gray-900">{{ employe.carryforward_available_leaves }}</p>
+                            <p class="text-[10px] text-purple-600 italic">Valid until March 31st, {% now "Y" %}</p>
+                        </div>
+                        {% endif %}
+
                         <div class="sm:col-span-2">
                             <p class="font-semibold">Paid Annual Leave:</p>
                             <p class="text-gray-900"> {{ employe.available_medical_leaves}}</p>

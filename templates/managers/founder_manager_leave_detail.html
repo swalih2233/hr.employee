@@ -215,6 +215,9 @@
         </div>
         <p class="text-3xl font-bold text-gray-800">{{ manager_obj.carryforward_available_leaves }}</p>
         <p class="text-sm text-gray-600 mt-1">Carry Forward Available</p>
+        {% if manager_obj.carryforward_available_leaves > 0 %}
+          <p class="text-xs text-blue-600 font-medium mt-1 italic">Valid until March 31st, {% now "Y" %}</p>
+        {% endif %}
       </div>
 
       <!-- Medical Leave Available -->

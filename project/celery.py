@@ -51,6 +51,15 @@ app.conf.beat_schedule = {
             'month_of_year': 3,
         },
     },
+
+    # Daily health check at 2 AM
+    'daily-leave-system-health-check': {
+        'task': 'managers.tasks.test_carryforward_system',
+        'schedule': {
+            'minute': 0,
+            'hour': 2,
+        },
+    },
 }
 
 # Timezone configuration
