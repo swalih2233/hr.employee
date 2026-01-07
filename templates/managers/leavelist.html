@@ -98,6 +98,7 @@
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Name</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Employee ID</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Subject</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Reason</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Requesting Date</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Date</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Leave Type</th>
@@ -111,6 +112,20 @@
                             <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</td>
                             <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.employe_id|default:"-" }}</td>
                             <td class="py-3 px-4 text-gray-700">{{ instance.subject }}</td>
+                            <td class="py-3 px-4 text-gray-700">
+                                <div x-data="{ expanded: false }">
+                                    <div class="text-xs text-gray-500" x-show="!expanded">
+                                        {{ instance.description|truncatechars:50|default:"-" }}
+                                        {% if instance.description|length > 50 %}
+                                            <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-xs text-gray-500" x-show="expanded" x-cloak>
+                                        {{ instance.description }}
+                                        <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                                    </div>
+                                </div>
+                            </td>
                             <td class="py-3 px-4 text-gray-700">{{ instance.created_date|date:"M d, Y" }}</td>
                             <td class="py-3 px-4 text-gray-700">
                                 {{ instance.start_date }} - {{ instance.end_date }} <br>
@@ -142,7 +157,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="py-3 px-4 text-center text-gray-700">No leave requests found.</td>
+                            <td colspan="9" class="py-3 px-4 text-center text-gray-700">No leave requests found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -156,6 +171,21 @@
                     <p class="text-gray-600"><strong>Name:</strong> {{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</p>
                     <p class="text-gray-600"><strong>Employee ID:</strong> {{ instance.employe.user.employe_id|default:"-" }}</p>
                     <p class="text-gray-600"><strong>Subject:</strong> {{ instance.subject }}</p>
+                    <div class="text-gray-600 flex gap-1">
+                        <strong>Reason:</strong>
+                        <div x-data="{ expanded: false }" class="inline-block">
+                            <div class="text-gray-600" x-show="!expanded">
+                                {{ instance.description|truncatechars:50|default:"-" }}
+                                {% if instance.description|length > 50 %}
+                                    <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                                {% endif %}
+                            </div>
+                            <div class="text-gray-600" x-show="expanded" x-cloak>
+                                {{ instance.description }}
+                                <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                            </div>
+                        </div>
+                    </div>
                     <p class="text-gray-600"><strong>Request Date:</strong> {{ instance.created_date|date:"M d, Y" }}</p>
                     <p class="text-gray-600"><strong>Date:</strong> {{ instance.start_date }} - {{ instance.end_date }} <span class="text-sm text-gray-500">({{ instance.leave_duration }} days)</span></p>
                     <p class="text-gray-600"><strong>Leave Type:</strong> {{ instance.get_leave_type_display }}</p>

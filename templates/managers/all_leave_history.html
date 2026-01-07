@@ -158,7 +158,18 @@
                                     <div class="text-gray-900">{{ leave.subject }}</div>
                                 </td>
                                 <td class="px-4 sm:px-6 py-4">
-                                    <div class="text-gray-900">{{ leave.description|truncatechars:30|default:"-" }}</div>
+                                    <div x-data="{ expanded: false }">
+                                        <div class="text-gray-900" x-show="!expanded">
+                                            {{ leave.description|truncatechars:50|default:"-" }}
+                                            {% if leave.description|length > 50 %}
+                                                <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-gray-900" x-show="expanded" x-cloak>
+                                            {{ leave.description }}
+                                            <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                                     <div class="text-gray-900">{{ leave.start_date }} to {{ leave.end_date }}</div>

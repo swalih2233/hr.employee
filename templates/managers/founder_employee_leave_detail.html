@@ -313,7 +313,7 @@
                     <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
-                            <div class="text-xs text-gray-500">{{ request.description|truncatechars:30 }}</div>
+                            <div class="text-xs text-gray-500">{{ request.description|truncatechars:50 }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="text-sm text-gray-900">{{ request.get_leave_type_display }}</span>

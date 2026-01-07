@@ -82,6 +82,8 @@
           <thead class="bg-gray-50">
             <tr>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">End Date</th>
@@ -93,6 +95,21 @@
             <tr>
               <td class="px-6 py-4 text-sm text-gray-900">
                 {{ leave.employee.user.first_name }} {{ leave.employee.user.last_name }}
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-900">{{ leave.subject }}</td>
+              <td class="px-6 py-4 text-sm text-gray-900">
+                <div x-data="{ expanded: false }">
+                    <div class="text-xs text-gray-500" x-show="!expanded">
+                        {{ leave.description|truncatechars:50|default:"-" }}
+                        {% if leave.description|length > 50 %}
+                            <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-gray-500" x-show="expanded" x-cloak>
+                        {{ leave.description }}
+                        <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                    </div>
+                </div>
               </td>
               <td class="px-6 py-4 text-sm text-gray-900">{{ leave.get_leave_type_display }}</td>
               <td class="px-6 py-4 text-sm text-gray-900">{{ leave.start_date }}</td>
@@ -133,6 +150,25 @@
             {% endif %}
           </div>
           <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-600 font-medium">Subject:</span>
+              <span class="text-gray-900">{{ leave.subject }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600 font-medium">Reason:</span>
+              <div x-data="{ expanded: false }" class="inline-block text-right">
+                <div class="text-gray-900" x-show="!expanded">
+                    {{ leave.description|truncatechars:50|default:"-" }}
+                    {% if leave.description|length > 50 %}
+                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                    {% endif %}
+                </div>
+                <div class="text-gray-900" x-show="expanded" x-cloak>
+                    {{ leave.description }}
+                    <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                </div>
+              </div>
+            </div>
             <div class="flex justify-between">
               <span class="text-gray-600 font-medium">Leave Type:</span>
               <span class="text-gray-900">{{ leave.get_leave_type_display }}</span>

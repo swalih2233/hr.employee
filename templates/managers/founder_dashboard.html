@@ -257,7 +257,20 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">{{ request.subject }}</td>
-                        <td class="px-6 py-4">{{ request.description|truncatechars:30|default:"-" }}</td>
+                        <td class="px-6 py-4">
+                            <div x-data="{ expanded: false }">
+                                <div class="text-gray-900" x-show="!expanded">
+                                    {{ request.description|truncatechars:50|default:"-" }}
+                                    {% if request.description|length > 50 %}
+                                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                                    {% endif %}
+                                </div>
+                                <div class="text-gray-900" x-show="expanded" x-cloak>
+                                    {{ request.description }}
+                                    <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                                </div>
+                            </div>
+                        </td>
                         <td class="px-6 py-4">{{ request.start_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ request.end_date|date:"d M Y" }}</td>
                        <td class="px-6 py-4">{{ request.created_date|date:"d M Y" }}</td>
@@ -332,7 +345,20 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">{{ request.subject }}</td>
-                        <td class="px-6 py-4">{{ request.description|truncatechars:30|default:"-" }}</td>
+                        <td class="px-6 py-4">
+                            <div x-data="{ expanded: false }">
+                                <div class="text-gray-900" x-show="!expanded">
+                                    {{ request.description|truncatechars:50|default:"-" }}
+                                    {% if request.description|length > 50 %}
+                                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                                    {% endif %}
+                                </div>
+                                <div class="text-gray-900" x-show="expanded" x-cloak>
+                                    {{ request.description }}
+                                    <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                                </div>
+                            </div>
+                        </td>
                         <td class="px-6 py-4">{{ request.start_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ request.end_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ request.created_date|date:"d M Y" }}</td>

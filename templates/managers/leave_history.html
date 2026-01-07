@@ -186,7 +186,18 @@
                 <td class="px-6 py-4">
                   <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
                   {% if request.description %}
-                  <div class="text-sm text-gray-500">{{ request.description|truncatechars:50 }}</div>
+                  <div x-data="{ expanded: false }">
+                    <div class="text-sm text-gray-500" x-show="!expanded">
+                      {{ request.description|truncatechars:50 }}
+                      {% if request.description|length > 50 %}
+                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                      {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-500" x-show="expanded" x-cloak>
+                      {{ request.description }}
+                      <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                    </div>
+                  </div>
                   {% endif %}
                 </td>
                 <td class="px-6 py-4">
@@ -234,7 +245,18 @@
                 <td class="px-6 py-4">
                   <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
                   {% if request.description %}
-                  <div class="text-sm text-gray-500">{{ request.description|truncatechars:50 }}</div>
+                  <div x-data="{ expanded: false }">
+                    <div class="text-sm text-gray-500" x-show="!expanded">
+                      {{ request.description|truncatechars:50 }}
+                      {% if request.description|length > 50 %}
+                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                      {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-500" x-show="expanded" x-cloak>
+                      {{ request.description }}
+                      <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                    </div>
+                  </div>
                   {% endif %}
                   <div class="text-xs text-gray-400">(Legacy)</div>
                 </td>

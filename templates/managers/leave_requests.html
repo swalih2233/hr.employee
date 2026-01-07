@@ -114,7 +114,20 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ leave.get_leave_type_display }}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ leave.start_date|date:"M d" }} - {{ leave.end_date|date:"M d, Y" }}</td>
-              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{{ leave.description|truncatechars:40 }}</td>
+              <td class="px-6 py-4">
+                <div x-data="{ expanded: false }">
+                    <div class="text-sm text-gray-500" x-show="!expanded">
+                        {{ leave.description|truncatechars:40|default:"-" }}
+                        {% if leave.description|length > 40 %}
+                            <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                        {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-500" x-show="expanded" x-cloak>
+                        {{ leave.description }}
+                        <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                    </div>
+                </div>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 {% if leave.is_approved %}
                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
@@ -209,7 +222,18 @@
             </div>
             <div class="flex flex-col">
               <span class="text-gray-600 font-medium mb-1">Reason:</span>
-              <span class="text-gray-900 text-xs">{{ leave.description }}</span>
+              <div x-data="{ expanded: false }">
+                <div class="text-gray-900 text-xs" x-show="!expanded">
+                  {{ leave.description|truncatechars:100|default:"-" }}
+                  {% if leave.description|length > 100 %}
+                    <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-[10px] focus:outline-none">Read More</button>
+                  {% endif %}
+                </div>
+                <div class="text-gray-900 text-xs" x-show="expanded" x-cloak>
+                  {{ leave.description }}
+                  <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-[10px] focus:outline-none">Show Less</button>
+                </div>
+              </div>
             </div>
           </div>
 
