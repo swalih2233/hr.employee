@@ -129,6 +129,7 @@
                         <tr>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                            <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Dates</th>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Applied On</th>
@@ -155,6 +156,9 @@
                               
                                 <td class="px-4 sm:px-6 py-4">
                                     <div class="text-gray-900">{{ leave.subject }}</div>
+                                </td>
+                                <td class="px-4 sm:px-6 py-4">
+                                    <div class="text-gray-900">{{ leave.description|truncatechars:30|default:"-" }}</div>
                                 </td>
                                 <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                                     <div class="text-gray-900">{{ leave.start_date }} to {{ leave.end_date }}</div>

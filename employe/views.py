@@ -199,10 +199,13 @@ from common.utils import is_employee
 from .models import Employe
 
 def login(request):
+    # Consume all existing messages so they don't appear on the login page
+    storage = messages.get_messages(request)
+    for _ in storage:
+        pass
+
     if request.method == "GET":
-        # Clear any existing messages
-        storage = messages.get_messages(request)
-        storage.used = True
+        return render(request, "employe/login.html", {"title": "Login", "messages": []})
 
     if request.method == 'POST':
         employe_id = request.POST.get("employe_id")
@@ -216,21 +219,21 @@ def login(request):
                     employee_profile = Employe.objects.get(user=user)
                     if employee_profile.employe_id != employe_id:
                         messages.error(request, "Invalid Employee ID for this account.")
-                        return render(request, "employe/login.html", {"title": "Login"})
+                        return render(request, "employe/login.html", {"title": "Login", "messages": messages.get_messages(request)})
                     
                     auth_login(request, user)
                     return HttpResponseRedirect(reverse("employe:details"))
                 except Employe.DoesNotExist:
                     messages.error(request, "Employee profile not found.")
-                    return render(request, "employe/login.html", {"title": "Login"})
+                    return render(request, "employe/login.html", {"title": "Login", "messages": messages.get_messages(request)})
             else:
                 messages.error(request, "Invalid credentials, please check your email and password.")
-                return render(request, "employe/login.html", {"title": "Login"})
+                return render(request, "employe/login.html", {"title": "Login", "messages": messages.get_messages(request)})
         
         messages.error(request, "Employee ID, Email and password are required.")
-        return render(request, "employe/login.html", {"title": "Login"})
+        return render(request, "employe/login.html", {"title": "Login", "messages": messages.get_messages(request)})
     
-    return render(request, "employe/login.html", {"title": "Login"})
+    return render(request, "employe/login.html", {"title": "Login", "messages": messages.get_messages(request)})
 
 
 @login_required(login_url='/login')
@@ -491,6 +494,33 @@ def forget_password(request):
     
     context = {"title": "Forget Password"}
     return render(request, "employe/forget_password.html", context)
+
+
+def resend_otp(request):
+    email = request.session.get('reset_user_email')
+    if not email:
+        messages.error(request, "Session expired. Please restart the password reset process.")
+        return redirect('employe:forget_password')
+    
+    try:
+        user = User.objects.get(email=email)
+        otp = secrets.randbelow(899999) + 100000
+        expires_at = timezone.now() + timedelta(minutes=10)
+        
+        OTP.objects.create(user=user, otp=otp, expires_at=expires_at)
+        
+        send_mail(
+            'Reset Password OTP',
+            f'Your OTP for resetting the password is {otp}',
+            settings.EMAIL_HOST_USER,
+            [email],
+            fail_silently=False,
+        )
+        messages.success(request, "OTP resent to your email!")
+    except Exception as e:
+        messages.error(request, f"Failed to resend OTP: {str(e)}")
+        
+    return redirect('employe:reset_password')
 
 
 def reset_password(request):

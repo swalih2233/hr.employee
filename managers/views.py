@@ -175,7 +175,7 @@ def founder_dashboard(request):
     logged_in_founder = get_object_or_404(Founder, user=request.user)
     founders = Founder.objects.all()
     managers = Manager.objects.all()
-    employes = Employe.objects.all().select_related('user', 'manager', 'manager__user')
+    employes = Employe.objects.all().select_related('user', 'manager', 'manager__user', 'founder', 'founder__user')
     holidays = Holiday.objects.all()
 
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(
@@ -187,7 +187,8 @@ def founder_dashboard(request):
 
     employee_leave_requests = LeaveRequest.objects.filter(
         status='Pending',
-        is_cancelled=False
+        is_cancelled=False,
+        employee__founder__isnull=False
     ).select_related('employee').order_by('-created_date')[:5]
 
     recent_approved_leaves = []
@@ -368,11 +369,25 @@ def approve_employee_leave(request, leave_id):
     employee_profile = leave_request.employee
 
     if request.method == 'POST':
-        is_owner_founder = False
-        if is_founder(request.user):
-            is_owner_founder = True
+        can_approve = False
+        if request.user.is_superuser:
+            can_approve = True
+        elif is_founder(request.user):
+            # Founders can only approve leaves for founder-created employees
+            if employee_profile.founder:
+                can_approve = True
+            else:
+                messages.error(request, "Founders can only approve leaves for founder-created employees.")
+                return redirect('managers:founder_dashboard')
+        elif is_manager(request.user):
+            # Managers can only approve leaves for their own created employees
+            if employee_profile.manager and employee_profile.manager.user == request.user and not employee_profile.founder:
+                can_approve = True
+            else:
+                messages.error(request, "Managers can only approve leaves for their own created employees.")
+                return redirect('managers:leavelist')
 
-        if not (request.user.is_superuser or (employee_profile.manager and employee_profile.manager.user == request.user) or is_owner_founder):
+        if not can_approve:
             messages.error(request, "You do not have permission to approve this leave request.")
             return redirect('managers:leavelist')
 
@@ -441,11 +456,25 @@ def reject_employee_leave(request, leave_id):
     employee_profile = leave_request.employee
 
     if request.method == 'POST':
-        is_owner_founder = False
-        if is_founder(request.user):
-            is_owner_founder = True
+        can_reject = False
+        if request.user.is_superuser:
+            can_reject = True
+        elif is_founder(request.user):
+            # Founders can only reject leaves for founder-created employees
+            if employee_profile.founder:
+                can_reject = True
+            else:
+                messages.error(request, "Founders can only reject leaves for founder-created employees.")
+                return redirect('managers:founder_dashboard')
+        elif is_manager(request.user):
+            # Managers can only reject leaves for their own created employees
+            if employee_profile.manager and employee_profile.manager.user == request.user and not employee_profile.founder:
+                can_reject = True
+            else:
+                messages.error(request, "Managers can only reject leaves for their own created employees.")
+                return redirect('managers:leavelist')
 
-        if not (request.user.is_superuser or (employee_profile.manager and employee_profile.manager.user == request.user) or is_owner_founder):
+        if not can_reject:
             messages.error(request, "You do not have permission to reject this leave request.")
             if is_founder(request.user):
                 return redirect('managers:founder_dashboard')
@@ -734,9 +763,13 @@ def leave_requests(request):
 
 
 def login(request):
+    # Consume all existing messages so they don't appear on the login page
+    storage = messages.get_messages(request)
+    for _ in storage:
+        pass
+        
     if request.method == "GET":
-        storage = messages.get_messages(request)
-        storage.used = True
+        return render(request, "managers/login.html", {"title": "Manager Login", "messages": []})
         
     context = {"title": "Manager Login"}
     
@@ -753,7 +786,7 @@ def login(request):
                     manager_profile = Manager.objects.get(user=user)
                     if manager_profile.manager_id != manager_id:
                         messages.error(request, "Invalid Manager ID for this account")
-                        return render(request, "managers/login.html", context)
+                        return render(request, "managers/login.html", {"title": "Manager Login", "messages": messages.get_messages(request)})
                     
                     auth_login(request, user)
                     user.is_manager = True
@@ -762,7 +795,7 @@ def login(request):
                 except Manager.DoesNotExist:
                     if not user.is_superuser:
                         messages.error(request, "Manager profile not found")
-                        return render(request, "managers/login.html", context)
+                        return render(request, "managers/login.html", {"title": "Manager Login", "messages": messages.get_messages(request)})
                     else:
                         auth_login(request, user)
                         return HttpResponseRedirect(reverse("managers:index"))
@@ -771,13 +804,17 @@ def login(request):
         else:
             messages.error(request, "Manager ID, Email and password are required")
 
-    return render(request, "managers/login.html", context)
+    return render(request, "managers/login.html", {"title": "Manager Login", "messages": messages.get_messages(request)})
 
 
 def founder_login(request):
+    # Consume all existing messages so they don't appear on the login page
+    storage = messages.get_messages(request)
+    for _ in storage:
+        pass
+        
     if request.method == "GET":
-        storage = messages.get_messages(request)
-        storage.used = True
+        return render(request, "managers/founder_login.html", {"title": "Founder Login", "messages": []})
         
     context = {"title": "Founder Login"}
     
@@ -799,7 +836,7 @@ def founder_login(request):
         else:
             messages.error(request, "Email and password are required")
 
-    return render(request, "managers/founder_login.html", context)
+    return render(request, "managers/founder_login.html", {"title": "Founder Login", "messages": messages.get_messages(request)})
 
 
 def logout(request):
@@ -1549,6 +1586,34 @@ def manager_forget_password(request):
             messages.error(request, "No manager account found with this email.")
     
     return render(request, 'managers/forget_password.html')
+
+
+def manager_resend_otp(request):
+    email = request.session.get('reset_email')
+    if not email:
+        messages.error(request, "Session expired. Please try again.")
+        return redirect(reverse('managers:forget_password'))
+    
+    try:
+        user = User.objects.get(email=email)
+        otp_code = str(random.randint(100000, 999999))
+        OTP.objects.update_or_create(
+            user=user,
+            defaults={
+                'otp': otp_code,
+                'expires_at': timezone.now() + timedelta(minutes=10)
+            }
+        )
+        
+        subject = "Password Reset OTP"
+        message = f"Your OTP for password reset is: {otp_code}\nThis OTP is valid for 10 minutes."
+        send_mail(subject, message, settings.EMAIL_HOST_USER, [email])
+        
+        messages.success(request, "OTP resent to your email!")
+    except Exception as e:
+        messages.error(request, f"Failed to resend OTP: {str(e)}")
+        
+    return redirect(reverse('managers:reset_password'))
 
 
 def manager_reset_password(request):

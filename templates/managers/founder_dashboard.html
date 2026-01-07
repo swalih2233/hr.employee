@@ -234,6 +234,7 @@
                     <tr>
                         <th class="px-6 py-3">Manager Name</th>
                         <th class="px-6 py-3">Subject</th>
+                        <th class="px-6 py-3">Reason</th>
                         <th class="px-6 py-3">From</th>
                         <th class="px-6 py-3">To</th>
                         <th class="px-6 py-3">Applied On</th>
@@ -256,6 +257,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">{{ request.subject }}</td>
+                        <td class="px-6 py-4">{{ request.description|truncatechars:30|default:"-" }}</td>
                         <td class="px-6 py-4">{{ request.start_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ request.end_date|date:"d M Y" }}</td>
                        <td class="px-6 py-4">{{ request.created_date|date:"d M Y" }}</td>
@@ -307,6 +309,7 @@
                     <tr>
                         <th class="px-6 py-3">Employee Name</th>
                         <th class="px-6 py-3">Subject</th>
+                        <th class="px-6 py-3">Reason</th>
                         <th class="px-6 py-3">From</th>
                         <th class="px-6 py-3">To</th>
                         <th class="px-6 py-3">Applied On</th>
@@ -329,6 +332,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">{{ request.subject }}</td>
+                        <td class="px-6 py-4">{{ request.description|truncatechars:30|default:"-" }}</td>
                         <td class="px-6 py-4">{{ request.start_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ request.end_date|date:"d M Y" }}</td>
                         <td class="px-6 py-4">{{ request.created_date|date:"d M Y" }}</td>
@@ -554,6 +558,8 @@
                         <span class="text-sm text-gray-600">
                             {% if employee.manager %}
                                 {{ employee.manager.user.get_full_name }}
+                            {% elif employee.founder %}
+                                {{ employee.founder.user.get_full_name }}
                             {% else %}
                                 <span class="text-gray-400">-</span>
                             {% endif %}

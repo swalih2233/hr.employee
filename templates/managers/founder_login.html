@@ -54,10 +54,10 @@
             <input type="checkbox" id="show-password" class="mr-2">
             Remember Me
           </label>
-          <a href="{% url 'managers:forget_password' %}" class="text-sm text-gray-900 hover:underline">Forgot Password?</a>
+          <a href="{% url 'managers:forget_password' %}" class="text-sm text-gray-900 hover:underline">Reset Password?</a>
         </div>
         <div class="mb-6">
-          <button type="submit" class="w-full p-3 text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400">Login</button>
+          <button type="submit" id="login-btn" class="w-full p-3 text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:opacity-50">Login</button>
         </div>
         {% if messages %}
         <div class="text-center text-red-600 mt-4">

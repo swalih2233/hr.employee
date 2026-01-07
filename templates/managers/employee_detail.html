@@ -10,7 +10,15 @@
             <p class="text-gray-600"><strong>Email:</strong> {{ employee.user.email }}</p>
             <p class="text-gray-600"><strong>Department:</strong> {{ employee.department }}</p>
             <p class="text-gray-600"><strong>Job Title:</strong> {{ employee.designation }}</p>
-            <p class="text-gray-600"><strong>Manager:</strong> {{ employee.manager.user.first_name }} {{ employee.manager.user.last_name }}</p>
+            <p class="text-gray-600"><strong>Manager:</strong> 
+                {% if employee.manager %}
+                    {{ employee.manager.user.get_full_name }}
+                {% elif employee.founder %}
+                    {{ employee.founder.user.get_full_name }}
+                {% else %}
+                    -
+                {% endif %}
+            </p>
             <p class="text-gray-600"><strong>Joining Date:</strong> {{ employee.date_of_joining }}</p>
             <p class="text-gray-600"><strong>Status:</strong> {{ employee.employe_status }}</p>
         </div>

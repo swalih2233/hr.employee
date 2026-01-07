@@ -41,6 +41,7 @@ urlpatterns=[
 
     path('forget-password/', views.manager_forget_password, name='forget_password'),
     path('reset-password/', views.manager_reset_password, name='reset_password'),
+    path('resend-otp/', views.manager_resend_otp, name='resend_otp'),
 
     path("founder/add/", views.founder_add, name="add_founder"),
     path("founder/delete/<int:id>/", views.delete_founder, name="delete_founder"),
