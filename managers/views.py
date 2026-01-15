@@ -66,7 +66,7 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
         logger.error(f"Unknown leave model type: {type(leave)}")
         return
 
-    if email_type == 'new_request':
+    if email_type in ['new_request', 'new_manager_request']:
         subject = f"New Leave Request from {requester_name}"
     elif email_type == 'approved':
         subject = "Your Leave Request has been Approved"
@@ -79,7 +79,7 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
     else:
         subject = "Leave Request Update"
 
-    if email_type == 'new_request':
+    if email_type in ['new_request', 'new_manager_request']:
         if leave_model_name == 'LeaveRequest':
             # FIX: Corrected reverse lookup from 'leave_requests' to 'leavelist'
             review_path = reverse('managers:leavelist')
@@ -101,38 +101,38 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
     try:
         cc_list = []
         if cc_founder:
-            # If the employee has a specific founder, only CC that founder
-            employee_founder = None
-            if isinstance(leave, LeaveRequest):
-                employee_founder = leave.employee.founder
-            elif isinstance(leave, UnifiedLeaveRequest) and leave.employee:
-                employee_founder = leave.employee.founder
-            
-            if employee_founder:
-                cc_list.append(employee_founder.user.email)
-            else:
-                # Fallback: CC all founders if no specific founder is assigned
-                founders = Founder.objects.all()
-                for founder in founders:
+            # CC all founders to ensure every founder account receives the notification
+            founders = Founder.objects.all()
+            for founder in founders:
+                if founder.user.email not in cc_list:
                     cc_list.append(founder.user.email)
 
-        # If it's a new request or a cancellation and the employee has a founder, 
-        # the founder should be the primary recipient if they are the one to notify/approve
+        # If it's a new request or a cancellation and the requester has a founder, 
+        # that founder should be the primary recipient if no manager is assigned
         actual_recipient = recipient_email
-        if email_type in ['new_request', 'cancelled']:
-            employee_founder = None
+        if email_type in ['new_request', 'new_manager_request', 'cancelled']:
+            requester_founder = None
             if isinstance(leave, LeaveRequest):
-                employee_founder = leave.employee.founder
-            elif isinstance(leave, UnifiedLeaveRequest) and leave.employee:
-                employee_founder = leave.employee.founder
+                requester_founder = leave.employee.founder
+            elif isinstance(leave, UnifiedLeaveRequest):
+                if leave.employee:
+                    requester_founder = leave.employee.founder
+                elif leave.manager:
+                    requester_founder = leave.manager.founder
             
-            if employee_founder:
+            if requester_founder:
                 # If we don't have a recipient email (like manager email), or if it's already set to founder
-                if not actual_recipient or actual_recipient == employee_founder.user.email:
-                    actual_recipient = employee_founder.user.email
-                    # If founder is the recipient, we don't need to CC them
+                # or if recipient_email is a list (like for new_manager_request)
+                if not actual_recipient or actual_recipient == requester_founder.user.email:
+                    actual_recipient = requester_founder.user.email
+                
+                # If founder is the recipient, we don't need to CC them
+                if isinstance(actual_recipient, str) and actual_recipient == requester_founder.user.email:
                     if actual_recipient in cc_list:
                         cc_list.remove(actual_recipient)
+                elif isinstance(actual_recipient, (list, tuple)) and requester_founder.user.email in actual_recipient:
+                    if requester_founder.user.email in cc_list:
+                        cc_list.remove(requester_founder.user.email)
 
         # Final check: if we still don't have a recipient but have CCs, use first CC as recipient
         if not actual_recipient and cc_list:
@@ -142,11 +142,19 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
             logger.warning(f"No recipient found for leave notification '{email_type}'")
             return
 
+        # Ensure actual_recipient is a list for EmailMessage 'to' field
+        if isinstance(actual_recipient, str):
+            recipient_list = [actual_recipient]
+        elif isinstance(actual_recipient, (list, tuple)):
+            recipient_list = list(actual_recipient)
+        else:
+            recipient_list = [str(actual_recipient)]
+
         email = EmailMessage(
             subject,
             body=html_content,
             from_email=settings.EMAIL_HOST_USER,
-            to=[actual_recipient],
+            to=recipient_list,
             cc=cc_list
         )
         email.content_subtype = 'html'
@@ -179,6 +187,7 @@ def founder_dashboard(request):
     holidays = Holiday.objects.all()
 
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(
+        manager__founder=logged_in_founder,
         requested_by_role='manager',
         is_approved=False,
         is_rejected=False,
@@ -186,10 +195,10 @@ def founder_dashboard(request):
     ).select_related('manager__user').order_by('-created_date')[:5]
 
     employee_leave_requests = LeaveRequest.objects.filter(
+        employee__founder=logged_in_founder,
         status='Pending',
-        is_cancelled=False,
-        employee__founder__isnull=False
-    ).select_related('employee').order_by('-created_date')[:5]
+        is_cancelled=False
+    ).select_related('employee', 'employee__user').order_by('-created_date')[:5]
 
     recent_approved_leaves = []
     recent_manager_leaves = UnifiedLeaveRequest.objects.filter(
@@ -373,11 +382,11 @@ def approve_employee_leave(request, leave_id):
         if request.user.is_superuser:
             can_approve = True
         elif is_founder(request.user):
-            # Founders can only approve leaves for founder-created employees
-            if employee_profile.founder:
+            # Founders can only approve leaves for their own created employees
+            if employee_profile.founder and employee_profile.founder.user == request.user:
                 can_approve = True
             else:
-                messages.error(request, "Founders can only approve leaves for founder-created employees.")
+                messages.error(request, "Founders can only approve leaves for their own created employees.")
                 return redirect('managers:founder_dashboard')
         elif is_manager(request.user):
             # Managers can only approve leaves for their own created employees
@@ -460,11 +469,11 @@ def reject_employee_leave(request, leave_id):
         if request.user.is_superuser:
             can_reject = True
         elif is_founder(request.user):
-            # Founders can only reject leaves for founder-created employees
-            if employee_profile.founder:
+            # Founders can only reject leaves for their own created employees
+            if employee_profile.founder and employee_profile.founder.user == request.user:
                 can_reject = True
             else:
-                messages.error(request, "Founders can only reject leaves for founder-created employees.")
+                messages.error(request, "Founders can only reject leaves for their own created employees.")
                 return redirect('managers:founder_dashboard')
         elif is_manager(request.user):
             # Managers can only reject leaves for their own created employees
@@ -511,9 +520,8 @@ def manager_apply_leave(request):
                 leave_request.requested_by_role = 'manager'
                 leave_request.save()
 
-                founders = Founder.objects.all()
-                for founder in founders:
-                    send_leave_notification(request, leave_request, 'new_request', founder.user.email, manager_name=founder.user.get_full_name())
+                # Notify all founders
+                send_leave_notification(request, leave_request, 'new_request', None, cc_founder=True)
                 
                 send_leave_notification(request, leave_request, 'submission_confirmation', request.user.email)
 
@@ -549,16 +557,11 @@ def manager_cancel_leave(request, id):
     leave_request.cancelled_by = request.user
     leave_request.save()
 
-    # Notify founders
+    # Notify all founders
     try:
-        if manager.founder:
-            # Notify the specific founder who assigned this manager
-            send_leave_notification(request, leave_request, 'cancelled', manager.founder.user.email, manager_name=manager.founder.user.get_full_name())
-        else:
-            # Fallback: notify all founders if no specific founder is assigned
-            founders = Founder.objects.all()
-            for founder in founders:
-                send_leave_notification(request, leave_request, 'cancelled', founder.user.email, manager_name=founder.user.get_full_name())
+        send_leave_notification(request, leave_request, 'cancelled', None, cc_founder=True)
+    except Exception as e:
+        logger.error(f"Failed to send cancellation notification: {e}")
         
         messages.success(request, "Leave request cancelled successfully!")
     except Exception as e:
@@ -574,7 +577,11 @@ def approve_manager_leave(request, id):
     manager = leave_request.manager
 
     # Check if the founder has permission to approve this manager's leave
-    if not is_founder(request.user) and not request.user.is_superuser:
+    if is_founder(request.user):
+        if not manager.founder or manager.founder.user != request.user:
+            messages.error(request, "Access denied. You can only approve leaves for managers you added.")
+            return redirect(reverse("managers:founder_dashboard"))
+    elif not request.user.is_superuser:
         messages.error(request, "Access denied. Only founders can approve manager leaves.")
         return redirect(reverse("managers:index"))
 
@@ -617,7 +624,7 @@ def approve_manager_leave(request, id):
     # Refresh leave counts
     manager.recalculate_leave_counts()
 
-    send_leave_notification(request, leave_request, 'approved', manager.user.email)
+    send_leave_notification(request, leave_request, 'approved', manager.user.email, cc_founder=True)
 
     messages.success(request, f"Manager leave request approved successfully for {actual_leave_days} days.")
     return redirect(reverse("managers:founder_dashboard"))
@@ -630,7 +637,11 @@ def reject_manager_leave(request, id):
     manager = leave_request.manager
 
     # Check if the founder has permission to reject this manager's leave
-    if not is_founder(request.user) and not request.user.is_superuser:
+    if is_founder(request.user):
+        if not manager.founder or manager.founder.user != request.user:
+            messages.error(request, "Access denied. You can only reject leaves for managers you added.")
+            return redirect(reverse("managers:founder_dashboard"))
+    elif not request.user.is_superuser:
         messages.error(request, "Access denied. Only founders can reject manager leaves.")
         return redirect(reverse("managers:index"))
 
@@ -640,7 +651,7 @@ def reject_manager_leave(request, id):
     leave_request.rejected_by = request.user
     leave_request.save()
 
-    send_leave_notification(request, leave_request, 'rejected', leave_request.manager.user.email)
+    send_leave_notification(request, leave_request, 'rejected', leave_request.manager.user.email, cc_founder=True)
 
     messages.success(request, "Manager leave request rejected successfully.")
     return redirect(reverse("managers:founder_dashboard"))
@@ -1565,22 +1576,34 @@ def manager_forget_password(request):
         try:
             user = User.objects.get(Q(email=email) & (Q(is_manager=True) | Q(is_superuser=True)))
             
+            # Rate limiting: Max 3 OTPs per hour
+            one_hour_ago = timezone.now() - timedelta(hours=1)
+            otp_count = OTP.objects.filter(user=user, created_at__gte=one_hour_ago).count()
+            
+            if otp_count >= 3:
+                messages.error(request, "Maximum OTP limit reached (3 per hour). Please try again later.")
+                return render(request, 'managers/forget_password.html')
+
             otp_code = str(random.randint(100000, 999999))
             otp, created = OTP.objects.update_or_create(
                 user=user,
                 defaults={
                     'otp': otp_code,
-                    'expires_at': timezone.now() + timedelta(minutes=10)
+                    'expires_at': timezone.now() + timedelta(minutes=5)
                 }
             )
             
             subject = "Password Reset OTP"
-            message = f"Your OTP for password reset is: {otp_code}\nThis OTP is valid for 10 minutes."
-            send_mail(subject, message, settings.EMAIL_HOST_USER, [email])
+            message = f"Your OTP for password reset is: {otp_code}\nThis OTP is valid for 5 minutes."
             
-            request.session['reset_email'] = email
-            messages.success(request, "OTP sent to your email!")
-            return redirect(reverse('managers:reset_password'))
+            try:
+                send_mail(subject, message, settings.EMAIL_HOST_USER, [email])
+                request.session['reset_email'] = email
+                messages.success(request, "OTP sent to your email!")
+                return redirect(reverse('managers:reset_password'))
+            except Exception as e:
+                messages.error(request, f"Failed to send email. You may have reached your daily limit or the configuration is incorrect. Error: {str(e)}")
+                return render(request, 'managers/forget_password.html')
             
         except User.DoesNotExist:
             messages.error(request, "No manager account found with this email.")
@@ -1596,24 +1619,37 @@ def manager_resend_otp(request):
     
     try:
         user = User.objects.get(email=email)
+        
+        # Rate limiting: Max 3 OTPs per hour
+        one_hour_ago = timezone.now() - timedelta(hours=1)
+        otp_count = OTP.objects.filter(user=user, created_at__gte=one_hour_ago).count()
+        
+        if otp_count >= 3:
+            messages.error(request, "Maximum OTP limit reached (3 per hour). Please try again later.")
+            return redirect(reverse('managers:reset_password'))
+
         otp_code = str(random.randint(100000, 999999))
         OTP.objects.update_or_create(
             user=user,
             defaults={
                 'otp': otp_code,
-                'expires_at': timezone.now() + timedelta(minutes=10)
+                'expires_at': timezone.now() + timedelta(minutes=5)
             }
         )
         
         subject = "Password Reset OTP"
-        message = f"Your OTP for password reset is: {otp_code}\nThis OTP is valid for 10 minutes."
-        send_mail(subject, message, settings.EMAIL_HOST_USER, [email])
+        message = f"Your OTP for password reset is: {otp_code}\nThis OTP is valid for 5 minutes."
         
-        messages.success(request, "OTP resent to your email!")
-    except Exception as e:
-        messages.error(request, f"Failed to resend OTP: {str(e)}")
-        
-    return redirect(reverse('managers:reset_password'))
+        try:
+            send_mail(subject, message, settings.EMAIL_HOST_USER, [email])
+            messages.success(request, "OTP resent to your email!")
+        except Exception as e:
+            messages.error(request, f"Failed to send email. Error: {str(e)}")
+            
+        return redirect(reverse('managers:reset_password'))
+    except User.DoesNotExist:
+        messages.error(request, "User not found.")
+        return redirect(reverse('managers:forget_password'))
 
 
 def manager_reset_password(request):

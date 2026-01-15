@@ -234,7 +234,7 @@
                     <tr>
                         <th class="px-6 py-3">Manager Name</th>
                         <th class="px-6 py-3">Subject</th>
-                        <th class="px-6 py-3">Reason</th>
+                        <th class="px-6 py-3 min-w-[200px] max-w-[300px]">Reason</th>
                         <th class="px-6 py-3">From</th>
                         <th class="px-6 py-3">To</th>
                         <th class="px-6 py-3">Applied On</th>
@@ -257,7 +257,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">{{ request.subject }}</td>
-                        <td class="px-6 py-4">
+                        <td class="px-6 py-4 max-w-[300px] break-words">
                             <div x-data="{ expanded: false }">
                                 <div class="text-gray-900" x-show="!expanded">
                                     {{ request.description|truncatechars:50|default:"-" }}
@@ -322,7 +322,7 @@
                     <tr>
                         <th class="px-6 py-3">Employee Name</th>
                         <th class="px-6 py-3">Subject</th>
-                        <th class="px-6 py-3">Reason</th>
+                        <th class="px-6 py-3 min-w-[200px] max-w-[300px]">Reason</th>
                         <th class="px-6 py-3">From</th>
                         <th class="px-6 py-3">To</th>
                         <th class="px-6 py-3">Applied On</th>
@@ -345,7 +345,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">{{ request.subject }}</td>
-                        <td class="px-6 py-4">
+                        <td class="px-6 py-4 max-w-[300px] break-words">
                             <div x-data="{ expanded: false }">
                                 <div class="text-gray-900" x-show="!expanded">
                                     {{ request.description|truncatechars:50|default:"-" }}

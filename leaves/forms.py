@@ -1,5 +1,5 @@
 from django import forms
-from .models import LeaveRequest
+from employe.models import LeaveRequest
 
 class LeaveRequestForm(forms.ModelForm):
     class Meta:

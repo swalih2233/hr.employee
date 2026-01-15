@@ -160,6 +160,9 @@ def apply_leave(request):
             try:
                 if employe.manager and employe.manager.user.email:
                     send_leave_notification(request, leave_request, 'new_request', employe.manager.user.email, manager_name=employe.manager.user.get_full_name(), cc_founder=True)
+                else:
+                    # If no manager, notify founder directly
+                    send_leave_notification(request, leave_request, 'new_request', None, cc_founder=True)
                 
                 send_leave_notification(request, leave_request, 'submission_confirmation', user.email)
                 
@@ -462,8 +465,19 @@ def forget_password(request):
         if User.objects.filter(email=email).exists():
             user = User.objects.get(email=email)
             
+            # Rate limiting: Max 3 OTPs per hour
+            one_hour_ago = timezone.now() - timedelta(hours=1)
+            otp_count = OTP.objects.filter(user=user, created_at__gte=one_hour_ago).count()
+            
+            if otp_count >= 3:
+                context = {
+                    "title": "Forget Password",
+                    "message": "Maximum OTP limit reached (3 per hour). Please try again later.",
+                }
+                return render(request, "employe/forget_password.html", context)
+            
             otp = secrets.randbelow(899999) + 100000
-            expires_at = timezone.now() + timedelta(minutes=10)
+            expires_at = timezone.now() + timedelta(minutes=5)
             
             OTP.objects.create(user=user, otp=otp, expires_at=expires_at)
             
@@ -472,7 +486,7 @@ def forget_password(request):
             try:
                 send_mail(
                     'Reset Password OTP',
-                    f'Your OTP for resetting the password is {otp}',
+                    f'Your OTP for resetting the password is {otp}. This OTP is valid for 5 minutes.',
                     settings.EMAIL_HOST_USER,
                     [email],
                     fail_silently=False,
@@ -504,19 +518,32 @@ def resend_otp(request):
     
     try:
         user = User.objects.get(email=email)
+        
+        # Rate limiting: Max 3 OTPs per hour
+        one_hour_ago = timezone.now() - timedelta(hours=1)
+        otp_count = OTP.objects.filter(user=user, created_at__gte=one_hour_ago).count()
+        
+        if otp_count >= 3:
+            messages.error(request, "Maximum OTP limit reached (3 per hour). Please try again later.")
+            return redirect('employe:reset_password')
+
         otp = secrets.randbelow(899999) + 100000
-        expires_at = timezone.now() + timedelta(minutes=10)
+        expires_at = timezone.now() + timedelta(minutes=5)
         
         OTP.objects.create(user=user, otp=otp, expires_at=expires_at)
         
-        send_mail(
-            'Reset Password OTP',
-            f'Your OTP for resetting the password is {otp}',
-            settings.EMAIL_HOST_USER,
-            [email],
-            fail_silently=False,
-        )
-        messages.success(request, "OTP resent to your email!")
+        try:
+            send_mail(
+                'Reset Password OTP',
+                f'Your OTP for resetting the password is {otp}. This OTP is valid for 5 minutes.',
+                settings.EMAIL_HOST_USER,
+                [email],
+                fail_silently=False,
+            )
+            messages.success(request, "OTP resent to your email!")
+        except Exception as e:
+            messages.error(request, f"Failed to send OTP. You may have reached your daily limit. Error: {str(e)}")
+            
     except Exception as e:
         messages.error(request, f"Failed to resend OTP: {str(e)}")
         

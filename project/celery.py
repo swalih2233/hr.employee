@@ -3,6 +3,7 @@ Celery configuration for automated leave management system
 """
 import os
 from celery import Celery
+from celery.schedules import crontab
 from django.conf import settings
 
 # Set the default Django settings module for the 'celery' program.
@@ -22,43 +23,25 @@ app.conf.beat_schedule = {
     # Yearly leave reset on December 31st at 11:59 PM
     'yearly-leave-reset': {
         'task': 'managers.tasks.yearly_leave_reset',
-        'schedule': {
-            'minute': 59,
-            'hour': 23,
-            'day_of_month': 31,
-            'month_of_year': 12,
-        },
+        'schedule': crontab(minute=59, hour=23, day_of_month=31, month_of_year=12),
     },
     
     # Carryforward cleanup on March 31st at 11:59 PM
     'carryforward-cleanup': {
         'task': 'managers.tasks.carryforward_cleanup',
-        'schedule': {
-            'minute': 59,
-            'hour': 23,
-            'day_of_month': 31,
-            'month_of_year': 3,
-        },
+        'schedule': crontab(minute=59, hour=23, day_of_month=31, month_of_year=3),
     },
     
     # Notification reminder on March 15th at 9:00 AM
     'carryforward-reminder': {
         'task': 'managers.tasks.send_carryforward_reminder',
-        'schedule': {
-            'minute': 0,
-            'hour': 9,
-            'day_of_month': 15,
-            'month_of_year': 3,
-        },
+        'schedule': crontab(minute=0, hour=9, day_of_month=15, month_of_year=3),
     },
 
     # Daily health check at 2 AM
     'daily-leave-system-health-check': {
         'task': 'managers.tasks.test_carryforward_system',
-        'schedule': {
-            'minute': 0,
-            'hour': 2,
-        },
+        'schedule': crontab(minute=0, hour=2),
     },
 }
 

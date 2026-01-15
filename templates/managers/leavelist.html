@@ -98,7 +98,7 @@
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Name</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Employee ID</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Subject</th>
-                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Reason</th>
+                            <th class="py-2 px-4 text-left text-sm font-medium text-gray-600 min-w-[200px] max-w-[300px]">Reason</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Requesting Date</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Date</th>
                             <th class="py-2 px-4 text-left text-sm font-medium text-gray-600">Leave Type</th>
@@ -112,7 +112,7 @@
                             <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.first_name }} {{ instance.employe.user.last_name }}</td>
                             <td class="py-3 px-4 text-gray-700">{{ instance.employe.user.employe_id|default:"-" }}</td>
                             <td class="py-3 px-4 text-gray-700">{{ instance.subject }}</td>
-                            <td class="py-3 px-4 text-gray-700">
+                            <td class="py-3 px-4 text-gray-700 max-w-[300px] break-words">
                                 <div x-data="{ expanded: false }">
                                     <div class="text-xs text-gray-500" x-show="!expanded">
                                         {{ instance.description|truncatechars:50|default:"-" }}
