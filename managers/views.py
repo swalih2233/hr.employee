@@ -187,7 +187,6 @@ def founder_dashboard(request):
     holidays = Holiday.objects.all()
 
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(
-        manager__founder=logged_in_founder,
         requested_by_role='manager',
         is_approved=False,
         is_rejected=False,
@@ -195,10 +194,9 @@ def founder_dashboard(request):
     ).select_related('manager__user').order_by('-created_date')[:5]
 
     employee_leave_requests = LeaveRequest.objects.filter(
-        employee__founder=logged_in_founder,
         status='Pending',
         is_cancelled=False
-    ).select_related('employee', 'employee__user').order_by('-created_date')[:5]
+    ).select_related('employee', 'employee__user').distinct().order_by('-created_date')[:5]
 
     recent_approved_leaves = []
     recent_manager_leaves = UnifiedLeaveRequest.objects.filter(
@@ -240,6 +238,18 @@ def founder_dashboard(request):
     user_form = AddUserForm()
     employe_form = AddEmployeModelForm()
 
+    pending_manager_leaves_count = UnifiedLeaveRequest.objects.filter(
+        requested_by_role='manager',
+        is_approved=False,
+        is_rejected=False,
+        is_cancelled=False
+    ).count()
+
+    pending_employee_leaves_count = LeaveRequest.objects.filter(
+        status='Pending',
+        is_cancelled=False
+    ).count()
+
     context = {
         'founder': logged_in_founder,
         'founders': founders,
@@ -253,8 +263,8 @@ def founder_dashboard(request):
         'manager_leave_requests': manager_leave_requests,
         'employee_leave_requests': employee_leave_requests,
         'recent_approved_leaves': recent_approved_leaves,
-        'pending_manager_leaves': manager_leave_requests.count(),
-        'pending_employee_leaves': employee_leave_requests.count(),
+        'pending_manager_leaves': pending_manager_leaves_count,
+        'pending_employee_leaves': pending_employee_leaves_count,
         'user_form': user_form,
         'employe_form': employe_form,
     }
@@ -382,18 +392,14 @@ def approve_employee_leave(request, leave_id):
         if request.user.is_superuser:
             can_approve = True
         elif is_founder(request.user):
-            # Founders can only approve leaves for their own created employees
-            if employee_profile.founder and employee_profile.founder.user == request.user:
-                can_approve = True
-            else:
-                messages.error(request, "Founders can only approve leaves for their own created employees.")
-                return redirect('managers:founder_dashboard')
+            # Founders can approve any employee leave
+            can_approve = True
         elif is_manager(request.user):
-            # Managers can only approve leaves for their own created employees
-            if employee_profile.manager and employee_profile.manager.user == request.user and not employee_profile.founder:
+            # Managers can only approve leaves for their own employees
+            if employee_profile.manager and employee_profile.manager.user == request.user:
                 can_approve = True
             else:
-                messages.error(request, "Managers can only approve leaves for their own created employees.")
+                messages.error(request, "Managers can only approve leaves for their own employees.")
                 return redirect('managers:leavelist')
 
         if not can_approve:
@@ -469,18 +475,14 @@ def reject_employee_leave(request, leave_id):
         if request.user.is_superuser:
             can_reject = True
         elif is_founder(request.user):
-            # Founders can only reject leaves for their own created employees
-            if employee_profile.founder and employee_profile.founder.user == request.user:
-                can_reject = True
-            else:
-                messages.error(request, "Founders can only reject leaves for their own created employees.")
-                return redirect('managers:founder_dashboard')
+            # Founders can reject any employee leave
+            can_reject = True
         elif is_manager(request.user):
-            # Managers can only reject leaves for their own created employees
-            if employee_profile.manager and employee_profile.manager.user == request.user and not employee_profile.founder:
+            # Managers can only reject leaves for their own employees
+            if employee_profile.manager and employee_profile.manager.user == request.user:
                 can_reject = True
             else:
-                messages.error(request, "Managers can only reject leaves for their own created employees.")
+                messages.error(request, "Managers can only reject leaves for their own employees.")
                 return redirect('managers:leavelist')
 
         if not can_reject:
@@ -576,12 +578,8 @@ def approve_manager_leave(request, id):
     leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
     manager = leave_request.manager
 
-    # Check if the founder has permission to approve this manager's leave
-    if is_founder(request.user):
-        if not manager.founder or manager.founder.user != request.user:
-            messages.error(request, "Access denied. You can only approve leaves for managers you added.")
-            return redirect(reverse("managers:founder_dashboard"))
-    elif not request.user.is_superuser:
+    # Check if the founder has permission to approve manager leave
+    if not is_founder(request.user) and not request.user.is_superuser:
         messages.error(request, "Access denied. Only founders can approve manager leaves.")
         return redirect(reverse("managers:index"))
 
@@ -636,12 +634,8 @@ def reject_manager_leave(request, id):
     leave_request = get_object_or_404(UnifiedLeaveRequest, id=id, requested_by_role='manager')
     manager = leave_request.manager
 
-    # Check if the founder has permission to reject this manager's leave
-    if is_founder(request.user):
-        if not manager.founder or manager.founder.user != request.user:
-            messages.error(request, "Access denied. You can only reject leaves for managers you added.")
-            return redirect(reverse("managers:founder_dashboard"))
-    elif not request.user.is_superuser:
+    # Check if the founder has permission to reject manager leave
+    if not is_founder(request.user) and not request.user.is_superuser:
         messages.error(request, "Access denied. Only founders can reject manager leaves.")
         return redirect(reverse("managers:index"))
 
@@ -905,6 +899,9 @@ def add_employe(request):
                     try:
                         manager = Manager.objects.get(user=request.user)
                         employe.manager = manager
+                        # Automatically link the employee to the same founder as the manager
+                        if manager.founder:
+                            employe.founder = manager.founder
                     except Manager.DoesNotExist:
                         pass
                 

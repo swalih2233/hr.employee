@@ -8,7 +8,7 @@ class Leave(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     reason = models.TextField()
-    status = models.CharField(max_length=20, default='pending')
+    status = models.CharField(max_length=20, default='Pending')
 
     def __str__(self):
         return f'{self.employee} - {self.leave_type}'
@@ -30,7 +30,7 @@ class LeaveRequest(models.Model):
     leave_type = models.CharField(max_length=100, choices=LEAVE_CHOICES, null=True, blank=True)
     start_date = models.DateField()
     end_date = models.DateField()
-    status = models.CharField(max_length=20, default='pending')
+    status = models.CharField(max_length=20, default='Pending')
     requested_by_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
     is_approved = models.BooleanField(default=False)
     is_rejected = models.BooleanField(default=False)

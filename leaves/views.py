@@ -72,23 +72,18 @@ def update_leave_status(request, pk, status):
     
     # 1. Permission check: Only respective manager or founder can take action
     can_action = False
+    from common.utils import is_founder, is_manager
+    
     if request.user.is_superuser:
         can_action = True
-    elif hasattr(request.user, 'manager'):
-        if employee_profile.manager and employee_profile.manager.user == request.user and not employee_profile.founder:
-            can_action = True
-    elif hasattr(request.user, 'founder_profile'): # Assuming founder has founder_profile or similar
-        if employee_profile.founder and employee_profile.founder.user == request.user:
+    elif is_founder(request.user):
+        can_action = True
+    elif is_manager(request.user):
+        if employee_profile.manager and employee_profile.manager.user == request.user:
             can_action = True
     
-    # Check if user is founder via utility if profile attribute name is different
-    from common.utils import is_founder
-    if not can_action and is_founder(request.user):
-        if employee_profile.founder and employee_profile.founder.user == request.user:
-            can_action = True
-
     if not can_action:
-        return JsonResponse({'error': 'Permission denied. Only the respective manager can take action.'}, status=403)
+        return JsonResponse({'error': 'Permission denied. You do not have permission to action this leave request.'}, status=403)
     
     # 2. Update status
     if status in ['approved', 'rejected']:

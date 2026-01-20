@@ -1,6 +1,5 @@
-from leaves.models import LeaveRequest
-from employe.models import Employe
-from managers.models import Manager, Founder
+from employe.models import Employe, LeaveRequest
+from managers.models import Manager, Founder, UnifiedLeaveRequest
 
 def user_context(request):
     context = {
@@ -16,15 +15,22 @@ def user_context(request):
             founder = Founder.objects.get(user=request.user)
             context['profile'] = founder
             context['is_founder'] = True
-            # Founders see all pending requests
-            context['notification_count'] = LeaveRequest.objects.filter(status='pending').count()
+            # Founders see all pending requests (both employee and manager)
+            emp_pending = LeaveRequest.objects.filter(status='Pending', is_cancelled=False).count()
+            mgr_pending = UnifiedLeaveRequest.objects.filter(
+                requested_by_role='manager',
+                is_approved=False,
+                is_rejected=False,
+                is_cancelled=False
+            ).count()
+            context['notification_count'] = emp_pending + mgr_pending
         except Founder.DoesNotExist:
             try:
                 manager = Manager.objects.get(user=request.user)
                 context['profile'] = manager
                 context['is_manager'] = True
                 employees = Employe.objects.filter(manager=manager)
-                context['notification_count'] = LeaveRequest.objects.filter(employee__in=employees, status='pending').count()
+                context['notification_count'] = LeaveRequest.objects.filter(employee__in=employees, status='Pending').count()
             except Manager.DoesNotExist:
                 try:
                     employee = Employe.objects.get(user=request.user)
