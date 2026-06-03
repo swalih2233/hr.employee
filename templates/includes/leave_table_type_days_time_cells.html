@@ -1,0 +1,4 @@
+{% load leave_filters %}
+<td class="{% if td_class %}{{ td_class }}{% else %}py-3 px-4 text-sm text-gray-900{% endif %}">{{ leave|leave_type_name }}</td>
+<td class="{% if td_class %}{{ td_class }}{% else %}py-3 px-4 text-sm text-gray-900{% endif %}">{{ leave|leave_days_count }}</td>
+<td class="{% if td_class %}{{ td_class }}{% else %}py-3 px-4 text-sm text-gray-900{% endif %}">{{ leave|leave_session_time }}</td>

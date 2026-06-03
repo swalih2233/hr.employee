@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% load static leave_filters %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manager Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50">
+<div class="flex h-screen" x-data="{ 
+    showWithdrawSidebar: false, 
+    withdrawLeaveId: null, 
+    withdrawLeaveSubject: '', 
+    withdrawLeaveDates: '',
+    isProcessing: false
+}">
+  <!-- Add Alpine.js for dropdown functionality -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-y-auto">
+    <!-- Header -->
+    <header class="flex items-center justify-between px-4 md:px-8 py-5 border-b bg-white shadow-sm">
+      <!-- Logo and Greeting -->
+     <div class="flex items-center space-x-4">
+    <a href="{% url 'managers:manager_dashboard' %}" class="flex items-center">
+        <img src="/static/images/Black Transparent Mavendeor .png"
+             alt="Logo"
+             class="h-10 md:h-[70px] w-auto object-contain">
+    </a>
+   
+    </div>
+      
+      <div class="flex items-center space-x-2 md:space-x-5">
+        <!-- Search -->
+        <input type="text" placeholder="Search…" 
+               class="hidden md:block px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+
+        <!-- Notification -->
+        <a href="{% url 'managers:leavelist' %}" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+          <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+          {% if notification_count > 0 %}
+          <span class="absolute top-0 right-0 block h-4 w-4 md:h-5 md:w-5 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">{{ notification_count }}</span>
+          {% endif %}
+        </a>
+
+        <!-- Profile Image — shows only logged-in user's image -->
+        <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open" class="flex items-center focus:outline-none">
+            <img src="{% if profile.image %}{{ profile.image.url }}{% else %}{% static 'images/1.png' %}{% endif %}" class="w-7 h-7 md:w-8 md:h-8 rounded-full" alt="Profile">
+          </button>
+          <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20" style="display: none;">
+            <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+  
+
+    <!-- Back Link (Below Header) -->
+    <div class="px-4 md:px-8 py-4">
+      <a href="{% url 'managers:manager_dashboard' %}" class="text-blue-600 hover:underline text-sm font-medium inline-flex items-center">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Section -->
+    <section class="p-4 md:p-6">
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+  <!-- Available Annual Leaves -->
+  <a href="#leave-history-table" class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-green-500 block">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-green-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">Available</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Available Annual Leaves</h3>
+    <p class="text-2xl md:text-3xl font-bold {% if annual_remaining < 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ annual_remaining }}</p>
+  </a>
+
+  <!-- Available Medical Leaves -->
+  <a href="#leave-history-table" class="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-blue-500 block">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-blue-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded-full">Available</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Available Medical Leaves</h3>
+    <p class="text-2xl md:text-3xl font-bold {% if medical_remaining < 0 %}text-red-600{% else %}text-blue-600{% endif %}">{{ medical_remaining }}</p>
+  </a>
+
+  <!-- Carry Forward Available -->
+  <a href="#leave-history-table" class="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-purple-500 block">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-purple-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-1 rounded-full">Available</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Carry Forward Available</h3>
+    <p class="text-2xl md:text-3xl font-bold text-purple-600">{{ manager.carryforward_available_leaves }}</p>
+    {% if manager.carryforward_available_leaves > 0 %}
+      <p class="text-xs text-purple-500 mt-1 italic">Valid until March 31st, {% now "Y" %}</p>
+    {% endif %}
+  </a>
+
+  <!-- Annual Leaves Taken -->
+  <a href="#leave-history-table" class="bg-gradient-to-br from-red-50 to-rose-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-red-500 block">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-red-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded-full">Taken</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Annual Leaves Taken</h3>
+    <p class="text-2xl md:text-3xl font-bold text-red-600">{{ manager.leaves_taken }}</p>
+  </a>
+
+  <!-- Medical Leaves Taken -->
+  <a href="#leave-history-table" class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-orange-500 block">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-orange-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-1 rounded-full">Taken</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Medical Leaves Taken</h3>
+    <p class="text-2xl md:text-3xl font-bold text-orange-600">{{ manager.medical_leaves_taken }}</p>
+  </a>
+
+  <!-- Carry Forward Taken -->
+  <a href="#leave-history-table" class="bg-gradient-to-br from-indigo-50 to-blue-50 p-5 md:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-indigo-500 block">
+    <div class="flex items-center justify-between mb-3">
+      <div class="bg-indigo-100 p-2 rounded-lg">
+        <svg class="w-5 h-5 md:w-6 md:h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+      <span class="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-1 rounded-full">Taken</span>
+    </div>
+    <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Carry Forward Taken</h3>
+    <p class="text-2xl md:text-3xl font-bold text-indigo-600">{{ manager.carryforward_leaves_taken }}</p>
+  </a>
+</div>
+
+      <!-- Leave Requests Table -->
+      <div id="leave-history-table" class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-4 md:px-6 py-4 border-b border-gray-200">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-800">Leave Requests</h2>
+        </div>
+
+        {% if unified_requests or old_requests %}
+        <!-- Desktop Table -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Applied On</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <!-- Unified Requests -->
+              {% for request in unified_requests %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                  <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
+                  {% if request.description %}
+                  <div x-data="{ expanded: false }">
+                    <div class="text-sm text-gray-500" x-show="!expanded">
+                      {{ request.description|truncatechars:50 }}
+                      {% if request.description|length > 50 %}
+                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                      {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-500" x-show="expanded" x-cloak>
+                      {{ request.description }}
+                      <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                    </div>
+                  </div>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                        {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                    {{ request.get_leave_type_display }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                  {{ request.start_date }} to {{ request.end_date }}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">{{ request|leave_days_count }}</td>
+                <td class="px-6 py-4 text-sm text-gray-900">{{ request|leave_session_time }}</td>
+                <td class="px-6 py-4">
+                  {% if request.is_approved %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
+                  {% elif request.is_rejected %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
+                  {% elif request.is_cancelled %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Cancelled</span>
+                  {% else %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">{{ request.created_date }}</td>
+                <td class="px-6 py-4 text-sm">
+                  {% if not request.is_approved and not request.is_rejected and not request.is_cancelled %}
+                    <a href="{% url 'managers:manager_cancel_leave' request.id %}" 
+                       class="text-red-600 hover:text-red-800 font-medium flex items-center"
+                       onclick="return confirm('Are you sure you want to cancel this leave request?')">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      Cancel
+                    </a>
+                  {% elif request.is_approved and not request.is_withdrawal_requested and not request.is_withdrawn %}
+                    <button @click="
+                          showWithdrawSidebar = true; 
+                          withdrawLeaveId = '{{ request.id }}';
+                          withdrawLeaveSubject = '{{ request.subject|escapejs }}';
+                          withdrawLeaveDates = '{{ request.start_date|date:'d M Y' }} to {{ request.end_date|date:'d M Y' }}';
+                        "
+                        class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"></path></svg>
+                      Withdraw
+                    </button>
+                  {% elif request.is_withdrawal_requested %}
+                    <span class="text-indigo-600 italic font-medium">Withdrawal Pending</span>
+                  {% else %}
+                    <span class="text-gray-400">No Actions</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+
+              <!-- Old Requests -->
+              {% for request in old_requests %}
+              <tr class="hover:bg-gray-50 bg-gray-25">
+                <td class="px-6 py-4">
+                  <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
+                  {% if request.description %}
+                  <div x-data="{ expanded: false }">
+                    <div class="text-sm text-gray-500" x-show="!expanded">
+                      {{ request.description|truncatechars:50 }}
+                      {% if request.description|length > 50 %}
+                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                      {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-500" x-show="expanded" x-cloak>
+                      {{ request.description }}
+                      <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                    </div>
+                  </div>
+                  {% endif %}
+                  <div class="text-xs text-gray-400">(Legacy)</div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                        {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                    {{ request.get_leave_type_display }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                  {{ request.start_date }} to {{ request.end_date }}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">{{ request|leave_days_count }}</td>
+                <td class="px-6 py-4 text-sm text-gray-900">{{ request|leave_session_time }}</td>
+                <td class="px-6 py-4">
+                  {% if request.is_approved %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
+                  {% elif request.is_rejected %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
+                  {% elif request.is_cancelled %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Cancelled</span>
+                  {% else %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">{{ request.created_date }}</td>
+                <td class="px-6 py-4 text-sm text-gray-400">—</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="md:hidden p-4 space-y-4">
+          <!-- Unified Requests -->
+          {% for request in unified_requests %}
+          <div class="border rounded-lg p-4 bg-gray-50">
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex-1">
+                <h4 class="font-semibold text-gray-900 text-sm">{{ request.subject }}</h4>
+                {% if request.description %}
+                <p class="text-xs text-gray-500 mt-1">{{ request.description|truncatechars:50 }}</p>
+                {% endif %}
+              </div>
+              {% if request.is_approved %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Approved</span>
+              {% elif request.is_rejected %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 ml-2">Rejected</span>
+              {% elif request.is_cancelled %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 ml-2">Cancelled</span>
+              {% else %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 ml-2">Pending</span>
+              {% endif %}
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Type:</span>
+                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                      {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                  {{ request.get_leave_type_display }}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Dates:</span>
+                <span class="text-gray-900 text-xs">{{ request.start_date }} to {{ request.end_date }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Days:</span>
+                <span class="text-gray-900">{{ request|leave_days_count }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Time:</span>
+                <span class="text-gray-900">{{ request|leave_session_time }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Applied On:</span>
+                <span class="text-gray-900 text-xs">{{ request.created_date }}</span>
+              </div>
+
+              {% if not request.is_approved and not request.is_rejected and not request.is_cancelled %}
+              <div class="pt-2 border-t mt-2">
+                <a href="{% url 'managers:manager_cancel_leave' request.id %}" 
+                   class="text-red-600 hover:text-red-800 font-medium flex items-center justify-center w-full py-2 bg-red-50 rounded-lg"
+                   onclick="return confirm('Are you sure you want to cancel this leave request?')">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  Cancel Leave
+                </a>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- Old Requests -->
+          {% for request in old_requests %}
+          <div class="border rounded-lg p-4 bg-gray-100">
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex-1">
+                <h4 class="font-semibold text-gray-900 text-sm">{{ request.subject }}</h4>
+                {% if request.description %}
+                <p class="text-xs text-gray-500 mt-1">{{ request.description|truncatechars:50 }}</p>
+                {% endif %}
+                <span class="text-xs text-gray-400">(Legacy)</span>
+              </div>
+              {% if request.is_approved %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Approved</span>
+              {% elif request.is_rejected %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 ml-2">Rejected</span>
+              {% elif request.is_cancelled %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 ml-2">Cancelled</span>
+              {% else %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 ml-2">Pending</span>
+              {% endif %}
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Type:</span>
+                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                      {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                  {{ request.get_leave_type_display }}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Dates:</span>
+                <span class="text-gray-900 text-xs">{{ request.start_date }} to {{ request.end_date }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Days:</span>
+                <span class="text-gray-900">{{ request|leave_days_count }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Time:</span>
+                <span class="text-gray-900">{{ request|leave_session_time }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600 font-medium">Applied On:</span>
+                <span class="text-gray-900 text-xs">{{ request.created_date }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="px-6 py-8 text-center">
+          <div class="text-gray-500 mb-4">
+            <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">No leave requests found</h3>
+          <p class="text-gray-500 mb-4">You haven't applied for any leaves yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <!-- Withdrawal Sidebar Overlay -->
+  <div x-show="showWithdrawSidebar" 
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       @click="showWithdrawSidebar = false"
+       class="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-40" x-cloak style="display: none;"></div>
+
+  <!-- Withdrawal Sidebar Drawer -->
+  <div x-show="showWithdrawSidebar" 
+       x-transition:enter="transition ease-in-out duration-300 transform"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in-out duration-300 transform"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full"
+       class="fixed top-0 right-0 w-full sm:w-[450px] h-full bg-white shadow-2xl z-50 overflow-y-auto" x-cloak style="display: none;">
+    
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-6 border-b pb-4">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">Withdrawal Request</h2>
+          <p class="text-sm text-gray-500 mt-1">Submit your reason for withdrawing this leave</p>
+        </div>
+        <button @click="showWithdrawSidebar = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="mb-6 p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded-r-lg">
+        <h3 class="text-sm font-semibold text-indigo-900 mb-1">Leave Details:</h3>
+        <p class="text-sm text-indigo-800 font-medium" x-text="withdrawLeaveSubject"></p>
+        <p class="text-xs text-indigo-600 mt-1" x-text="withdrawLeaveDates"></p>
+      </div>
+
+      <form :action="'/managers/leave/withdraw/' + withdrawLeaveId + '/'" method="post" @submit="isProcessing = true">
+        {% csrf_token %}
+        
+        <div class="mb-5">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Subject</label>
+          <input type="text" name="subject" required
+                 placeholder="e.g., Change of plans, Personal reasons"
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all">
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Reason for Withdrawal</label>
+          <textarea name="reason" rows="5" required
+                    placeholder="Please explain why you are withdrawing this leave request..."
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+          <button type="button" @click="showWithdrawSidebar = false" :disabled="isProcessing"
+                  class="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
+            Cancel
+          </button>
+          <button type="submit" :disabled="isProcessing"
+                  class="flex-1 px-4 py-2.5 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center">
+            <span x-show="!isProcessing">Confirm Withdrawal</span>
+            <span x-show="isProcessing" class="flex items-center" x-cloak>
+              <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Processing...
+            </span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js Scripts -->
+<script>
+  const ctx1 = document.getElementById('employeeChart');
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'pie',
+      data: {
+        labels: ['Others', 'Onboarding', 'Offboarding'],
+        datasets: [{
+          data: [71, 27, 23],
+          backgroundColor: ['#6366F1', '#FACC15', '#F87171']
+        }]
+      }
+    });
+  }
+
+  const ctx2 = document.getElementById('jobChart');
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: ['Designers', 'Managers', 'Developers', 'HR'],
+        datasets: [{
+          data: [25, 15, 40, 20],
+          backgroundColor: ['#34D399', '#60A5FA', '#F472B6', '#FBBF24']
+        }]
+      }
+    });
+  }
+</script>
+</body>
+</html>

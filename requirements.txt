@@ -1,0 +1,21 @@
+Django~=4.2.0
+djangorestframework~=3.14.0
+fcm-django~=1.0.0
+django-cors-headers~=4.3.0
+djangorestframework-simplejwt~=5.3.0
+python-dotenv~=1.0.0
+gunicorn~=21.2.0
+psycopg2-binary~=2.9.9
+
+# Celery and related packages for automated leave management
+celery==5.3.4
+redis==5.0.1
+django-celery-beat==2.5.0
+django-celery-results==2.5.1
+kombu==5.3.4
+
+# For email templates
+premailer==3.10.0
+
+# For timezone handling
+pytz==2023.3

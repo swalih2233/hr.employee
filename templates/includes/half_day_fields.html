@@ -1,0 +1,18 @@
+<div class="half-day-section mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+  <label class="flex items-center cursor-pointer">
+    <input type="checkbox" name="is_half_day" class="half-day-toggle rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+    <span class="text-sm font-medium text-gray-700">Half-day leave</span>
+  </label>
+  <p class="text-xs text-gray-500 mt-1 ml-6">Office hours 9:00 AM – 6:00 PM. One date only.</p>
+  <div class="half-day-session hidden mt-3 ml-6 space-y-2">
+    <p class="text-xs font-medium text-gray-600">Select session</p>
+    <label class="flex items-center cursor-pointer text-sm text-gray-700">
+      <input type="radio" name="half_day_session" value="AM" class="mr-2 text-indigo-600 focus:ring-indigo-500">
+      Morning (9:00 AM – 1:00 PM)
+    </label>
+    <label class="flex items-center cursor-pointer text-sm text-gray-700">
+      <input type="radio" name="half_day_session" value="PM" class="mr-2 text-indigo-600 focus:ring-indigo-500">
+      Afternoon (1:00 PM – 6:00 PM)
+    </label>
+  </div>
+</div>

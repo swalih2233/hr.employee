@@ -1,0 +1,13 @@
+{% load static %}
+<!-- Header -->
+<header class="flex items-center justify-between bg-white px-6 py-4 border-b">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Hi, {{ manager.user.first_name }}</h1>
+    <p class="text-sm text-gray-500">Here’s your HR report so far</p>
+  </div>
+  <div class="flex items-center space-x-4">
+    <input type="text" placeholder="Search…" class="px-3 py-2 border rounded-lg" />
+    <button class="relative">🔔 <span class="absolute top-0 right-0 bg-red-500 text-white text-xs px-1 rounded-full">3</span></button>
+    <img src="{% static 'images/avatar.png' %}" class="w-8 h-8 rounded-full" alt="Profile">
+  </div>
+</header>

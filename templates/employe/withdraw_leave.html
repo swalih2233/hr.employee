@@ -1,0 +1,47 @@
+{% extends "base/base.html" %}
+{% block container %}
+{% load static %}
+
+{% include 'includes/employee-nav.html' %}
+
+<div class="p-4 max-w-lg mx-auto pt-[15vh]">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-4 text-center">Withdrawal Request Form</h2>
+        
+        <div class="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-700 text-sm">
+            <p class="font-bold">Leave Details:</p>
+            <p>{{ leave_request.subject }} ({{ leave_request.start_date }} to {{ leave_request.end_date }})</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="subject">Withdrawal Subject</label>
+                <input type="text" name="subject" id="subject" required
+                       placeholder="e.g., Change of plans"
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="reason">Reason for Withdrawal</label>
+                <textarea name="reason" id="reason" rows="4" required
+                          placeholder="Please explain why you are withdrawing this leave request..."
+                          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            </div>
+
+            <div class="flex items-center justify-between gap-4">
+                <a href="{% url 'employe:leavelist' %}" 
+                   class="w-1/2 text-center bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-300">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="w-1/2 bg-red-600 text-white font-bold py-2 px-4 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    Confirm Withdrawal
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

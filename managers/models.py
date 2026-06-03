@@ -1,0 +1,423 @@
+from django.db import models
+from datetime import datetime, timedelta
+
+from common.models import CommonModel
+
+from users.models import User
+
+
+EMPLOYE_CHOICES = (
+
+   ('FT', 'FULL TIME'),
+   ('PT', 'PART TIME'),
+   ('CT', 'CONTRACT'),
+   ('FR', 'FREELANCE')
+)
+
+ID_CHOICES = (
+    ('AD', 'ADHAAR'),
+    ('PS', 'PASSPORT'),
+    ('SSN', ' SOCIAL SECURITY NUMBER (US)' )
+)
+
+
+class Manager(CommonModel):
+    user = models.ForeignKey(User ,on_delete=models.CASCADE, related_name='manager_profile')
+    founder = models.ForeignKey('Founder', on_delete=models.CASCADE, null=True, blank=True, related_name='founder_managers')
+    reporting_manager_profile = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='sub_managers')
+    previous_reporting_manager = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='previous_sub_managers')
+    manager_id = models.CharField(max_length=20, unique=True, null=True, blank=True)  # New manager ID field
+    department = models.CharField(max_length=100 , null=True, blank=True)
+    designation = models.CharField(max_length=100 , null=True, blank=True)
+    date_of_joining = models.DateField(null=True, blank=True)
+    employment_Type = models.CharField(max_length=100 , choices=EMPLOYE_CHOICES, null=True, blank=True)
+    reporting_manager = models.CharField(max_length=100 , null=True, blank=True)
+    work_location = models.CharField(max_length=100 , null=True, blank=True)
+    image = models.ImageField(upload_to='images/', null=True , blank=True)
+
+    # Leave management fields for managers
+    available_leaves = models.FloatField(default=18)
+    leaves_taken = models.FloatField(default=0)
+    medical_leaves_taken = models.FloatField(default=0)
+    available_medical_leaves = models.FloatField(default=14)
+    carryforward_leaves_taken = models.FloatField(default=0)
+    carryforward_available_leaves = models.FloatField(default=0)
+    carryforward_granted = models.FloatField(default=0)
+
+    class Meta:
+        db_table = 'manager_manager'
+        verbose_name = 'manager'
+        verbose_name_plural ='managers'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.user.email
+
+    def recalculate_leave_counts(self):
+        """Recalculate leave counts based on approved leave requests."""
+        approved_leaves = UnifiedLeaveRequest.objects.filter(manager=self, is_approved=True, is_withdrawn=False)
+
+        self.carryforward_leaves_taken = sum(getattr(leave, 'carryforward_used', 0) for leave in approved_leaves)
+        self.leaves_taken = sum(leave.leave_duration - getattr(leave, 'carryforward_used', 0) for leave in approved_leaves if leave.leave_type == 'AL')
+        self.medical_leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
+
+        self.available_leaves = 18 - self.leaves_taken
+        self.available_medical_leaves = 14 - self.medical_leaves_taken
+        
+        # update available carryforward based on granted and taken
+        # but only if we are still within the validity period (Jan 1 - March 31)
+        from django.utils import timezone
+        current_date = timezone.now().date()
+        if current_date.month <= 3:
+            self.carryforward_available_leaves = max(0, self.carryforward_granted - self.carryforward_leaves_taken)
+        else:
+            self.carryforward_available_leaves = 0
+
+        self.save()
+
+class Founder(CommonModel):
+    user = models.ForeignKey(User ,on_delete=models.CASCADE)
+    department = models.CharField(max_length=100 , null=True, blank=True)
+    designation = models.CharField(max_length=100 , null=True, blank=True)
+    date_of_joining = models.DateField(null=True, blank=True)
+    employment_Type = models.CharField(max_length=100 , choices=EMPLOYE_CHOICES, null=True, blank=True)
+    reporting_manager = models.CharField(max_length=100 , null=True, blank=True)
+    work_location = models.CharField(max_length=100 , null=True, blank=True)
+    image = models.ImageField(upload_to='founder_images/', null=True , blank=True)
+
+    class Meta:
+        db_table = 'manager_founder'
+        verbose_name = 'founder'
+        verbose_name_plural ='founders'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.user.email
+
+
+LEAVE_CHOICES = (
+    ('ML', 'Medical Leave'),
+    ('AL', 'Annual Leave'),
+)
+
+HALF_DAY_SESSION_CHOICES = (
+    ('AM', 'Morning'),
+    ('PM', 'Afternoon'),
+)
+
+ROLE_CHOICES = (
+    ('employee', 'Employee'),
+    ('manager', 'Manager'),
+)
+
+class UnifiedLeaveRequest(CommonModel):
+    """Unified leave request model for both employees and managers"""
+    subject = models.CharField(max_length=100)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    leave_type = models.CharField(max_length=100, choices=LEAVE_CHOICES, null=True, blank=True)
+    description = models.CharField(max_length=500, null=True, blank=True)
+    file = models.FileField(null=True, blank=True, upload_to='leave_files')
+
+    # Role-based requester
+    requested_by_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
+
+    # Foreign keys for different types of requesters
+    employee = models.ForeignKey('employe.Employe', on_delete=models.CASCADE, null=True, blank=True, related_name='unified_leave_requests')
+    manager = models.ForeignKey(Manager, on_delete=models.CASCADE, null=True, blank=True, related_name='unified_leave_requests')
+
+    # Approval fields
+    is_approved = models.BooleanField(default=False)
+    is_rejected = models.BooleanField(default=False)
+    is_cancelled = models.BooleanField(default=False)
+    approval_date = models.DateTimeField(null=True, blank=True)
+    rejection_date = models.DateTimeField(null=True, blank=True)
+    cancellation_date = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_unified_leaves')
+    rejected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='rejected_unified_leaves')
+    cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cancelled_unified_leaves')
+
+    # Leave calculation
+    is_half_day = models.BooleanField(default=False)
+    half_day_session = models.CharField(
+        max_length=2, choices=HALF_DAY_SESSION_CHOICES, null=True, blank=True
+    )
+    leave_duration = models.FloatField(default=0)
+    carryforward_used = models.FloatField(default=0)
+
+    # Withdrawal fields
+    is_withdrawal_requested = models.BooleanField(default=False)
+    withdrawal_subject = models.CharField(max_length=100, null=True, blank=True)
+    withdrawal_reason = models.TextField(null=True, blank=True)
+    withdrawal_requested_date = models.DateTimeField(null=True, blank=True)
+    is_withdrawn = models.BooleanField(default=False)
+    withdrawal_rejected = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'unified_leave_request'
+        verbose_name = 'Leave Request'
+        verbose_name_plural = 'Leave Requests'
+        ordering = ["-id"]
+
+    def calculate_working_days(self):
+        """Calculate working days between start_date and end_date (excluding weekends and holidays)"""
+        if not self.start_date or not self.end_date:
+            return 0
+
+        # Convert string dates to date objects if needed
+        start_date = self.start_date
+        end_date = self.end_date
+
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+        # Ensure start_date is not after end_date
+        if start_date > end_date:
+            return 0
+
+        # Get all holidays within the date range
+        from employe.models import Holiday
+        holidays = Holiday.objects.filter(date__range=[start_date, end_date]).values_list('date', flat=True)
+
+        # Count working days (Monday=0, Sunday=6)
+        working_days = 0
+        current_date = start_date
+
+        while current_date <= end_date:
+            # Monday=0, Tuesday=1, ..., Saturday=5, Sunday=6
+            if current_date.weekday() < 5 and current_date not in holidays:  # Monday to Friday and not a holiday
+                working_days += 1
+            current_date += timedelta(days=1)
+
+        if self.is_half_day:
+            return 0.5 if working_days > 0 else 0
+        return float(working_days)
+
+    def save(self, *args, **kwargs):
+        """Override save to automatically calculate leave duration"""
+        # Calculate working days before saving
+        self.leave_duration = self.calculate_working_days()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        if self.requested_by_role == 'manager' and self.manager:
+            return f"Manager: {self.manager.user.email} - {self.subject}"
+        elif self.requested_by_role == 'employee' and self.employee:
+            return f"Employee: {self.employee.user.email} - {self.subject}"
+        return f"Leave Request: {self.subject}"
+
+    @property
+    def status(self):
+        if self.is_withdrawn:
+            return "Withdrawn"
+        if self.is_withdrawal_requested:
+            return "Withdrawal Requested"
+        if self.is_approved:
+            return "Approved"
+        elif self.is_rejected:
+            return "Rejected"
+        elif self.is_cancelled:
+            return "Cancelled"
+        else:
+            return "Pending"
+
+    @property
+    def requester(self):
+        """Get the actual requester object"""
+        if self.requested_by_role == 'manager':
+            return self.manager
+        elif self.requested_by_role == 'employee':
+            return self.employee
+        return None
+
+    @property
+    def requester_name(self):
+        """Get the requester's full name"""
+        requester = self.requester
+        if requester:
+            return f"{requester.user.first_name} {requester.user.last_name}"
+        return "Unknown"
+
+    @property
+    def requester_email(self):
+        """Get the requester's email"""
+        requester = self.requester
+        if requester:
+            return requester.user.email
+        return "Unknown"
+
+    @property
+    def approved_manager(self):
+        return self.approved_by.manager_profile.first()
+
+
+# Keep the old ManagerLeaveRequest for backward compatibility (will be deprecated)
+class ManagerLeaveRequest(CommonModel):
+    """DEPRECATED: Use UnifiedLeaveRequest instead"""
+    subject = models.CharField(max_length=100)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    leave_type = models.CharField(max_length=100, choices=LEAVE_CHOICES, null=True, blank=True)
+    description = models.CharField(max_length=500, null=True, blank=True)
+    file = models.FileField(null=True, blank=True, upload_to='manager_leave_files')
+
+    # Manager who requested the leave
+    manager = models.ForeignKey(Manager, on_delete=models.CASCADE, related_name='old_leave_requests')
+
+    # Approval fields
+    is_approved = models.BooleanField(default=False)
+    is_rejected = models.BooleanField(default=False)
+    is_cancelled = models.BooleanField(default=False)
+    approval_date = models.DateTimeField(null=True, blank=True)
+    rejection_date = models.DateTimeField(null=True, blank=True)
+    cancellation_date = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_old_manager_leaves')
+    rejected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='rejected_old_manager_leaves')
+    cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cancelled_old_manager_leaves')
+
+    # Leave calculation
+    leave_duration = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'manager_leave_request'
+        verbose_name = 'Manager Leave Request (Old)'
+        verbose_name_plural = 'Manager Leave Requests (Old)'
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.manager.user.email} - {self.subject}"
+
+class EmergencyContactManager(CommonModel):
+    manager = models.ForeignKey(Manager ,on_delete=models.CASCADE )
+    contact_name = models.CharField(max_length=255, null=True, blank=True)
+    contact_number = models.CharField(max_length=100, null=True, blank=True)
+    relationship = models.CharField(max_length=100, null=True, blank=True)
+    Permanent_address = models.CharField(max_length=100, null=True, blank=True)
+    country = models.CharField(max_length=100,  null=True, blank=True)
+    city = models.CharField(max_length=100,  null=True, blank=True)
+    pincode = models.CharField(max_length=100,  null=True, blank=True) 
+    
+    class Meta:
+        db_table = 'manager_contact'
+        verbose_name = 'contact'
+        verbose_name_plural ='contacts'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.manager.user.email
+
+
+class AddressManager(CommonModel):
+    manager = models.ForeignKey(Manager ,on_delete=models.CASCADE )
+    Permanent_address = models.CharField(max_length=100, null=True, blank=True)
+    country = models.CharField(max_length=100, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    pincode = models.CharField(max_length=100, null=True, blank=True) 
+
+
+    class Meta:
+        db_table = 'manager_address'
+        verbose_name = 'address'
+        verbose_name_plural ='address'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.manager.user.email
+    
+
+class BenefitsManager(CommonModel):
+    manager = models.ForeignKey(Manager ,on_delete=models.CASCADE )
+    salary_details = models.CharField(max_length=100, null=True, blank=True) 
+    bank_name = models.CharField(max_length=100, null=True, blank=True)
+    account_number = models.IntegerField(null=True, blank=True)
+    branch_name = models.CharField(max_length=100, null=True, blank=True)
+    ifsc_code = models.CharField(max_length=100, null=True, blank=True)
+    pancard = models.CharField(max_length=100, null=True, blank=True)
+    pancard_file = models.FileField(max_length=100, null=True, blank=True)
+    pf_fund = models.FloatField(default=0)
+    state_insurance_number = models.CharField(max_length=100, null=True, blank=True)
+
+
+ 
+    class Meta:
+        db_table = 'manager_benefits'
+        verbose_name = 'benefits'
+        verbose_name_plural ='benefit'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.manager.user.email
+    
+
+class BackgroundManager(CommonModel):
+    manager = models.ForeignKey(Manager ,on_delete=models.CASCADE )
+    educational_qualifications = models.CharField(max_length=100, null=True, blank=True)
+    previous_details =models.CharField(max_length=100, null=True, blank=True)
+
+
+    class Meta:
+        db_table = 'manager_background'
+        verbose_name = 'background'
+        verbose_name_plural ='backgrounds'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.manager.user.email
+
+class SkillManager(CommonModel):
+    skill = models.CharField()
+
+
+    class Meta:
+        db_table = 'manager_ skill'
+        verbose_name = ' skill'
+        verbose_name_plural =' skills'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.skill
+    
+
+
+
+class IdentificationManager(CommonModel):
+    manager = models.ForeignKey(Manager ,on_delete=models.CASCADE )
+    employe_type = models.CharField(max_length=100, choices=ID_CHOICES, null=True, blank=True)  
+    work_authorization = models.CharField(max_length=100, null=True, blank=True)
+    skill = models.ManyToManyField(SkillManager)
+
+    class Meta:
+        db_table = 'manager_work_schedule'
+        verbose_name = 'work_schedule'
+        verbose_name_plural ='work_schedules'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.manager.user.email
+    
+
+class WorkScheduleManager(CommonModel):
+    manager = models.ForeignKey(Manager ,on_delete=models.CASCADE)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)    
+
+
+    class Meta:
+        db_table = 'manager_Identification'
+        verbose_name = 'Identification'
+        verbose_name_plural ='Identificationss'
+        ordering = ["-id"]
+
+
+    def __str__(self):
+        return self.manager.user.email

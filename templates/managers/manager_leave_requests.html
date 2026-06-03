@@ -1,0 +1,192 @@
+{% extends "base/base.html" %}
+{% block container %}
+{% load static leave_filters %}
+<script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+
+{% include 'includes/manager-nav.html' %}
+
+<section class="py-10">
+    <div class="wrapper">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Manager Leave Requests</h1>
+            <div class="text-sm text-gray-600">
+                Pending Approval: <span class="font-semibold text-red-600">{{ leave_requests|length }}</span>
+            </div>
+        </div>
+
+        <!-- Leave Requests - Responsive Design -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            {% if leave_requests %}
+                <!-- Desktop Table View (hidden on mobile) -->
+                <div class="hidden lg:block overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manager</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied On</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for request in leave_requests %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10">
+                                                {% if request.manager.image %}
+                                                    <img class="h-10 w-10 rounded-full object-cover" src="{{ request.manager.image.url }}" alt="">
+                                                {% else %}
+                                                    <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                                        <span class="text-sm font-medium text-gray-700">{{ request.manager.user.first_name.0 }}{{ request.manager.user.last_name.0 }}</span>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    {{ request.manager.user.first_name }} {{ request.manager.user.last_name }}
+                                                </div>
+                                                <div class="text-sm text-gray-500">{{ request.manager.user.email }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900">{{ request.subject }}</div>
+                                        {% if request.description %}
+                                            <div x-data="{ expanded: false }">
+                                                <div class="text-sm text-gray-500" x-show="!expanded">
+                                                    {{ request.description|truncatechars:50 }}
+                                                    {% if request.description|length > 50 %}
+                                                        <button @click="expanded = true" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Read More</button>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="text-sm text-gray-500" x-show="expanded" x-cloak>
+                                                    {{ request.description }}
+                                                    <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                            {% if request.leave_type == 'AL' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                                            {{ request.get_leave_type_display }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ request.start_date }} to {{ request.end_date }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ request|leave_days_count }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ request|leave_session_time }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ request.created_date }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <a href="{% url 'managers:view_manager_leave_request' request.id %}" 
+                                           class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">
+                                            View
+                                        </a>
+                                        <form action="{% url 'managers:approve_manager_leave' request.id %}" method="post" class="inline">
+                                            {% csrf_token %}
+                                            <button type="submit" 
+                                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs"
+                                                    onclick="return confirm('Are you sure you want to approve this leave request?')">
+                                                Approve
+                                            </button>
+                                        </form>
+                                        <form action="{% url 'managers:reject_manager_leave' request.id %}" method="post" class="inline">
+                                            {% csrf_token %}
+                                            <button type="submit" 
+                                                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs"
+                                                    onclick="return confirm('Are you sure you want to reject this leave request?')">
+                                                Reject
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card View (visible on mobile and tablet) -->
+                <div class="lg:hidden">
+                    {% for request in leave_requests %}
+                        <div class="border-b border-gray-200 p-4 hover:bg-gray-50">
+                            <div class="flex items-start space-x-4">
+                                <!-- Manager Avatar -->
+                                <div class="flex-shrink-0">
+                                    {% if request.manager.image %}
+                                        <img class="h-12 w-12 rounded-full object-cover" src="{{ request.manager.image.url }}" alt="">
+                                    {% else %}
+                                        <div class="h-12 w-12 rounded-full bg-gray-300 flex items-center justify-center">
+                                            <span class="text-sm font-medium text-gray-700">{{ request.manager.user.first_name.0 }}{{ request.manager.user.last_name.0 }}</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Request Details -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-sm font-medium text-gray-900 truncate">
+                                            {{ request.manager.user.first_name }} {{ request.manager.user.last_name }}
+                                        </h4>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            {{ request.get_leave_type_display }}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mt-1">{{ request.subject }}</p>
+                                    <div class="mt-2 flex flex-wrap items-center text-xs text-gray-500 space-x-4">
+                                        <span>📅 {{ request.start_date|date:"M d" }} - {{ request.end_date|date:"M d, Y" }}</span>
+                                        <span>⏱️ {{ request|leave_days_count }} · {{ request|leave_session_time }}</span>
+                                        <span>📝 {{ request.created_date|date:"M d, Y" }}</span>
+                                    </div>
+
+                                    <!-- Action Buttons - Mobile Optimized -->
+                                    <div class="mt-3 flex flex-wrap gap-2">
+                                        <a href="{% url 'managers:view_manager_leave_request' request.id %}"
+                                           class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors min-w-0 flex-1 text-center">
+                                            👁️ View
+                                        </a>
+                                        <form action="{% url 'managers:approve_manager_leave' request.id %}" method="post" class="flex-1 min-w-0">
+                                            {% csrf_token %}
+                                            <button type="submit" 
+                                                    class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors text-center"
+                                                    onclick="return confirm('Are you sure you want to approve this leave request?')">
+                                                ✅ Approve
+                                            </button>
+                                        </form>
+                                        <form action="{% url 'managers:reject_manager_leave' request.id %}" method="post" class="flex-1 min-w-0">
+                                            {% csrf_token %}
+                                            <button type="submit" 
+                                                    class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors text-center"
+                                                    onclick="return confirm('Are you sure you want to reject this leave request?')">
+                                                ❌ Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="px-6 py-8 text-center">
+                    <div class="text-gray-500 mb-4">
+                        <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No pending leave requests</h3>
+                    <p class="text-gray-500">All manager leave requests have been processed.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% endblock %}
