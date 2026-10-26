@@ -2,6 +2,7 @@ from django.db import models
 from datetime import datetime, timedelta
 from django.utils import timezone
 
+from common.functions import get_prorated_leave_allocation
 from common.models import CommonModel
 
 from users.models import User
@@ -43,6 +44,7 @@ class Employe(CommonModel):
     employe_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     manager =models.ForeignKey(Manager, on_delete=models.CASCADE, null=True, blank=True)
     previous_manager = models.ForeignKey(Manager, on_delete=models.SET_NULL, null=True, blank=True, related_name='previous_employees')
+    reporting_employee = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subordinates')
     founder = models.ForeignKey('managers.Founder', on_delete=models.CASCADE, null=True, blank=True, related_name='founder_employees')
     department = models.CharField(max_length=100, null=True, blank=True)
     designation = models.CharField(max_length=100, null=True, blank=True)
@@ -70,6 +72,13 @@ class Employe(CommonModel):
     def __str__(self):
         return self.user.email
 
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            annual, medical = get_prorated_leave_allocation(self.date_of_joining)
+            self.available_leaves = annual
+            self.available_medical_leaves = medical
+        super().save(*args, **kwargs)
+
     def recalculate_leave_counts(self):
         """Recalculate leave counts based on approved leave requests."""
         approved_leaves = LeaveRequest.objects.filter(employee=self, status='Approved', is_withdrawn=False)
@@ -78,8 +87,9 @@ class Employe(CommonModel):
         self.leaves_taken = sum(leave.leave_duration - leave.carryforward_used for leave in approved_leaves if leave.leave_type == 'AL')
         self.medical_leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
 
-        self.available_leaves = 18 - self.leaves_taken
-        self.available_medical_leaves = 14 - self.medical_leaves_taken
+        annual, medical = get_prorated_leave_allocation(self.date_of_joining)
+        self.available_leaves = annual - self.leaves_taken
+        self.available_medical_leaves = medical - self.medical_leaves_taken
         
         # update available carryforward based on granted and taken
         # but only if we are still within the validity period (Jan 1 - March 31)

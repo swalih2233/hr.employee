@@ -49,6 +49,25 @@
                         </svg>
                         Employee Dashboard
                     </a>
+                    <a href="{% url 'employe:add_employe' %}"
+                       class="flex items-center px-4 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors
+                              {% if request.resolver_match.url_name == 'add_employe' %}bg-gray-700{% endif %}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add Employee
+                    </a>
+                    <a href="{% url 'employe:subordinate_leave_requests' %}"
+                       class="flex items-center px-4 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors
+                              {% if request.resolver_match.url_name == 'subordinate_leave_requests' %}bg-gray-700{% endif %}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Team Leave Requests
+                        {% if subordinate_leave_count > 0 %}
+                            <span class="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">{{ subordinate_leave_count }}</span>
+                        {% endif %}
+                    </a>
                 {% endif %}
             {% endif %}
             
@@ -71,6 +90,22 @@
                 <div class="mt-2 space-y-1">
                     <!-- Manager Leave Requests (only for founders) -->
                     {% if is_founder %}
+                        <a href="{% url 'managers:approved_leaves_table' %}"
+                           class="flex items-center px-4 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors
+                                  {% if request.resolver_match.url_name == 'approved_leaves_table' %}bg-gray-700{% endif %}">
+                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 6h11M10 18h11M3 6h.01M3 18h.01"></path>
+                            </svg>
+                            View Approved Leaves
+                        </a>
+                        <a href="{% url 'managers:download_approved_leaves_excel' %}"
+                           class="flex items-center px-4 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors
+                                  {% if request.resolver_match.url_name == 'download_approved_leaves_excel' %}bg-gray-700{% endif %}">
+                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Download Excel
+                        </a>
                         <a href="{% url 'managers:manager_leave_requests_list' %}" 
                            class="flex items-center px-4 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors
                                   {% if 'manager_leave' in request.resolver_match.url_name %}bg-gray-700{% endif %}">

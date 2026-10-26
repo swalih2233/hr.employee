@@ -43,8 +43,11 @@ def apply_leave(request):
                 # A manager is applying for leave, notify all founders
                 send_leave_notification(request, leave, 'new_manager_request', None, cc_founder=True)
             elif is_employee:
-                # An employee is applying for leave, notify the manager and CC founders
-                if leave.employee.manager:
+                # An employee is applying for leave, notify reporting employee or manager and CC founders
+                if leave.employee.reporting_employee:
+                    supervisor = leave.employee.reporting_employee.user
+                    send_leave_notification(request, leave, 'new_request', supervisor.email, manager_name=supervisor.get_full_name(), cc_founder=True)
+                elif leave.employee.manager:
                     manager_email = leave.employee.manager.user.email
                     manager_name = leave.employee.manager.user.get_full_name()
                     send_leave_notification(request, leave, 'new_request', manager_email, manager_name=manager_name, cc_founder=True)
@@ -70,7 +73,7 @@ def update_leave_status(request, pk, status):
     leave = get_object_or_404(LeaveRequest, pk=pk)
     employee_profile = leave.employee
     
-    # 1. Permission check: Only respective manager or founder can take action
+    # 1. Permission check: Only respective manager, reporting employee, or founder can take action
     can_action = False
     from common.utils import is_founder, is_manager
     
@@ -79,8 +82,12 @@ def update_leave_status(request, pk, status):
     elif is_founder(request.user):
         can_action = True
     elif is_manager(request.user):
-        if employee_profile.manager and employee_profile.manager.user == request.user:
+        if employee_profile.reporting_employee:
+            can_action = False
+        elif employee_profile.manager and employee_profile.manager.user == request.user:
             can_action = True
+    elif employee_profile.reporting_employee and employee_profile.reporting_employee.user == request.user:
+        can_action = True
     
     if not can_action:
         return JsonResponse({'error': 'Permission denied. You do not have permission to action this leave request.'}, status=403)
@@ -95,6 +102,14 @@ def update_leave_status(request, pk, status):
             leave.is_rejected = True
             leave.rejection_date = timezone.now()
         leave.save()
+
+        if status == 'approved':
+            try:
+                employee_profile.recalculate_leave_counts()
+            except Exception:
+                pass
+            from common.leave_excel import sync_approved_leaves_excel
+            sync_approved_leaves_excel()
 
         # 3. Email employee
         try:

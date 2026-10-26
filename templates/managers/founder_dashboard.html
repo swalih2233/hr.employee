@@ -48,7 +48,7 @@
 <body class="bg-gray-100 text-gray-800 font-sans" x-data="founderDashboard()" x-cloak>
 
 <!-- ========================= HEADER ========================= -->
-<nav class="bg-[#1F2937] text-white px-4 md:px-[90px] py-4 shadow h-auto md:h-[160px]">
+<nav class="bg-[#1F2937] text-white px-4 md:px-[90px] py-4 shadow">
 
   <!-- ------------ TOP ROW ------------ -->
   <div class="flex items-center justify-between w-full">
@@ -81,11 +81,19 @@
       <button class="ml-2 bg-gray-700 px-2 py-0.5 rounded text-xs">⌘ F</button>
     </div>
 
-    <!-- DESKTOP: RIGHT SIDE ICONS + PROFILE -->
-    <div class="hidden md:flex items-center space-x-6 ml-6">
+    <!-- DESKTOP: EXCEL ACTIONS + PROFILE -->
+    <div class="hidden md:flex items-center space-x-3 ml-6 flex-shrink-0">
 
-      <!-- Notification -->
-      <a href="{% url 'managers:all_leave_history' %}" class="relative">
+      <a href="{% url 'managers:approved_leaves_table' %}"
+         class="inline-flex items-center gap-2 bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-md hover:bg-gray-100">
+        <i class="fa fa-table"></i> View
+      </a>
+      <a href="{% url 'managers:download_approved_leaves_excel' %}"
+         class="inline-flex items-center gap-2 border border-white/40 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-white/10">
+        <i class="fa fa-download"></i> Download
+      </a>
+
+      <a href="{% url 'managers:all_leave_history' %}" class="relative ml-2">
         <img src="/media/images/Vector (2).png" class="w-5 h-5">
         {% with total_pending=pending_manager_leaves|add:pending_employee_leaves %}
           {% if total_pending > 0 %}
@@ -96,33 +104,31 @@
         {% endwith %}
       </a>
 
-      <!-- PROFILE DROPDOWN -->
       <div class="relative">
-
         <button @click="open = !open" class="flex items-center space-x-2">
-
           {% if profile.image %}
           <img src="{{ profile.image.url }}" class="w-8 h-8 rounded-full object-cover">
           {% else %}
           <img src="{% static 'images/default-avatar.png' %}" class="w-8 h-8 rounded-full object-cover">
           {% endif %}
-
         </button>
 
-        <!-- Dropdown -->
-        <div 
+        <div
           x-show="open"
           x-cloak
           @click.away="open=false"
           x-transition
-          class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 text-gray-800 z-50">
-
-          <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm hover:bg-gray-100">
+          class="absolute right-0 mt-2 w-52 bg-white rounded-md shadow-lg py-1 text-gray-800 z-50">
+          <a href="{% url 'managers:approved_leaves_table' %}" class="block px-4 py-2 text-sm hover:bg-gray-100">
+            <i class="fa fa-table mr-2 text-gray-500"></i>View Excel Table
+          </a>
+          <a href="{% url 'managers:download_approved_leaves_excel' %}" class="block px-4 py-2 text-sm hover:bg-gray-100">
+            <i class="fa fa-download mr-2 text-gray-500"></i>Download Excel
+          </a>
+          <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm hover:bg-gray-100 border-t">
             Sign Out
           </a>
-
         </div>
-
       </div>
     </div>
   </div>
@@ -147,17 +153,20 @@
         {% endwith %}
       </a>
 
-      <a href="#" @click.prevent="toggleSidebar('addFounder')" class="hover:underline">
-        Add Founder
-      </a>
-
-      <a href="#" @click.prevent="toggleSidebar('addManager')" class="hover:underline">
-        Add Manager
-      </a>
-
-      <a href="#" @click.prevent="toggleSidebar('addEmployee')" class="hover:underline">
-        Add Employee
-      </a>
+      <div class="relative">
+        <button @click="addMenuOpen = !addMenuOpen" class="hover:underline flex items-center">
+          Add <i class="fa fa-chevron-down ml-1 text-[10px]"></i>
+        </button>
+        <div
+          x-show="addMenuOpen"
+          x-cloak
+          @click.away="addMenuOpen=false"
+          class="absolute right-0 mt-2 w-44 bg-white rounded-md shadow-lg py-1 text-gray-800 z-50">
+          <a href="#" @click.prevent="toggleSidebar('addFounder'); addMenuOpen=false" class="block px-4 py-2 text-sm hover:bg-gray-100">Add Founder</a>
+          <a href="#" @click.prevent="toggleSidebar('addManager'); addMenuOpen=false" class="block px-4 py-2 text-sm hover:bg-gray-100">Add Manager</a>
+          <a href="#" @click.prevent="toggleSidebar('addEmployee'); addMenuOpen=false" class="block px-4 py-2 text-sm hover:bg-gray-100">Add Employee</a>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -195,6 +204,8 @@
         <a href="{% url 'managers:founder_dashboard' %}" class="hover:underline">Dashboard</a>
         <a href="{% url 'managers:holidays_list' %}" class="hover:underline">Holidays</a>
         <a href="{% url 'managers:employees_list' %}" class="hover:underline">Employees</a>
+        <a href="{% url 'managers:approved_leaves_table' %}" class="hover:underline">View Excel Table</a>
+        <a href="{% url 'managers:download_approved_leaves_excel' %}" class="hover:underline">Download Excel</a>
         <a href="{% url 'managers:all_leave_history' %}" class="hover:underline flex items-center justify-between">
             Leave Management
             {% with total_pending=pending_manager_leaves|add:pending_employee_leaves %}
@@ -229,7 +240,7 @@
 <div class="wrapper max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
 
     <!-- Manager Leave Requests -->
-    <section class="bg-white rounded-lg shadow mt-6 md:mt-[-70px]">
+    <section class="bg-white rounded-lg shadow">
         <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
             <h2 class="text-base font-semibold">Manager Leave Requests</h2>
         </div>
@@ -1030,6 +1041,7 @@
       return {
         activeSidebar: null,
         open: false,
+        addMenuOpen: false,
         sidebarOpen: false,
         openSidebar(sidebarName) {
           this.activeSidebar = sidebarName;

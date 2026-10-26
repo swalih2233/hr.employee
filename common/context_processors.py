@@ -36,6 +36,23 @@ def user_context(request):
                     employee = Employe.objects.get(user=request.user)
                     context['profile'] = employee
                     context['is_employee'] = True
+                    subordinates = Employe.objects.filter(reporting_employee=employee)
+                    if subordinates.exists():
+                        sub_pending = LeaveRequest.objects.filter(
+                            employee__in=subordinates, status='Pending', is_cancelled=False
+                        ).count()
+                        sub_withdrawals = LeaveRequest.objects.filter(
+                            employee__in=subordinates,
+                            is_withdrawal_requested=True,
+                            is_withdrawn=False,
+                            withdrawal_rejected=False
+                        ).count()
+                        context['notification_count'] = sub_pending + sub_withdrawals
+                        context['subordinate_leave_count'] = sub_pending + sub_withdrawals
+                        context['has_subordinates'] = True
+                    else:
+                        context['subordinate_leave_count'] = 0
+                        context['has_subordinates'] = False
                 except Employe.DoesNotExist:
                     pass  # Handle other user types if necessary
 

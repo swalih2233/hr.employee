@@ -70,6 +70,8 @@ urlpatterns=[
 
     # All Leave History (for founders)
     path("all-leave-history/", views.all_leave_history, name="all_leave_history"),
+    path("approved-leaves-excel/", views.download_approved_leaves_excel, name="download_approved_leaves_excel"),
+    path("approved-leaves/", views.approved_leaves_table, name="approved_leaves_table"),
     path("leave-summary/", views.leave_summary, name="leave_summary"),
 
     # New URLs

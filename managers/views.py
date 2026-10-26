@@ -2,6 +2,7 @@ from django.shortcuts import render, reverse, get_object_or_404, redirect
 from django.urls import reverse
 from django.contrib import messages 
 from django.http.response import HttpResponseRedirect
+import os
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 import traceback
@@ -21,7 +22,7 @@ from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail, EmailMessage
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
-from django.http import JsonResponse
+from django.http import FileResponse, JsonResponse
 from django.contrib.auth.password_validation import validate_password
 import random
 from django.contrib.auth import get_user_model
@@ -92,7 +93,10 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
 
     if email_type in ['new_request', 'new_manager_request', 'withdrawal_requested', 'cancelled']:
         if leave_model_name == 'LeaveRequest':
-            review_path = reverse('managers:leavelist')
+            if getattr(leave, 'employee', None) and leave.employee.reporting_employee and recipient_email == leave.employee.reporting_employee.user.email:
+                review_path = reverse('employe:subordinate_leave_requests')
+            else:
+                review_path = reverse('managers:leavelist')
         else:
             review_path = reverse('managers:manager_leave_requests_list')
         review_url = request.build_absolute_uri(review_path)
@@ -299,6 +303,37 @@ def founder_dashboard(request):
     return render(request, 'managers/founder_dashboard.html', context)
 
 
+@login_required(login_url='/managers/founder/login/')
+@allow_founder
+def download_approved_leaves_excel(request):
+    from common.leave_excel import get_approved_leaves_excel_path, sync_approved_leaves_excel
+
+    path = sync_approved_leaves_excel() or get_approved_leaves_excel_path()
+    if not os.path.exists(path):
+        messages.error(request, "Approved leaves Excel sheet could not be created.")
+        return redirect(reverse("managers:founder_dashboard"))
+
+    return FileResponse(
+        open(path, "rb"),
+        as_attachment=True,
+        filename="approved_leaves.xlsx",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@login_required(login_url='/managers/founder/login/')
+@allow_founder
+def approved_leaves_table(request):
+    from common.leave_excel import HEADERS, collect_approved_leave_rows, sync_approved_leaves_excel
+
+    sync_approved_leaves_excel()
+    rows = collect_approved_leave_rows()
+    return render(request, "managers/approved_leaves_table.html", {
+        "headers": HEADERS,
+        "rows": rows,
+    })
+
+
 @login_required(login_url='/managers/login')
 @role_required('manager')
 def manager_dashboard(request):
@@ -368,9 +403,10 @@ def manager_dashboard(request):
     # Separate standard employees for LeaveRequest filter
     std_employees = [e for e in employees if not isinstance(e, Manager)]
     
+    direct_employees = [e for e in std_employees if not getattr(e, 'reporting_employee_id', None)]
     pending_employee_requests = LeaveRequest.objects.filter(
-        Q(employee__in=std_employees, status='Pending', is_cancelled=False) |
-        Q(employee__in=std_employees, is_withdrawal_requested=True, is_withdrawn=False, withdrawal_rejected=False)
+        Q(employee__in=direct_employees, status='Pending', is_cancelled=False) |
+        Q(employee__in=direct_employees, is_withdrawal_requested=True, is_withdrawn=False, withdrawal_rejected=False)
     ).order_by('-created_date')
 
     # Also include sub-manager requests in notification count if needed
@@ -458,12 +494,18 @@ def approve_employee_leave(request, leave_id):
             # Founders can approve any employee leave
             can_approve = True
         elif is_manager(request.user):
+            # Team employees reporting to another employee are actioned by that employee
+            if employee_profile.reporting_employee:
+                messages.error(request, "This leave is handled by the employee's reporting supervisor.")
+                return redirect('managers:leavelist')
             # Managers can only approve leaves for their own employees
             if employee_profile.manager and employee_profile.manager.user == request.user:
                 can_approve = True
             else:
                 messages.error(request, "Managers can only approve leaves for their own employees.")
                 return redirect('managers:leavelist')
+        elif employee_profile.reporting_employee and employee_profile.reporting_employee.user == request.user:
+            can_approve = True
 
         if not can_approve:
             messages.error(request, "You do not have permission to approve this leave request.")
@@ -522,15 +564,22 @@ def approve_employee_leave(request, leave_id):
 
         employee_profile.recalculate_leave_counts()
 
+        from common.leave_excel import sync_approved_leaves_excel
+        sync_approved_leaves_excel()
+
         send_leave_notification(request, leave_request, 'approved', leave_request.employee.user.email, cc_founder=True)
 
         messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} approved.")
         if is_founder(request.user):
             return redirect('managers:founder_dashboard')
+        if employee_profile.reporting_employee and employee_profile.reporting_employee.user == request.user:
+            return redirect('employe:subordinate_leave_requests')
         return redirect('managers:leavelist')
 
     if is_founder(request.user):
         return redirect('managers:founder_dashboard')
+    if employee_profile.reporting_employee and employee_profile.reporting_employee.user == request.user:
+        return redirect('employe:subordinate_leave_requests')
     return redirect('managers:leavelist')
 
 
@@ -548,12 +597,17 @@ def reject_employee_leave(request, leave_id):
             # Founders can reject any employee leave
             can_reject = True
         elif is_manager(request.user):
+            if employee_profile.reporting_employee:
+                messages.error(request, "This leave is handled by the employee's reporting supervisor.")
+                return redirect('managers:leavelist')
             # Managers can only reject leaves for their own employees
             if employee_profile.manager and employee_profile.manager.user == request.user:
                 can_reject = True
             else:
                 messages.error(request, "Managers can only reject leaves for their own employees.")
                 return redirect('managers:leavelist')
+        elif employee_profile.reporting_employee and employee_profile.reporting_employee.user == request.user:
+            can_reject = True
 
         if not can_reject:
             messages.error(request, "You do not have permission to reject this leave request.")
@@ -571,10 +625,14 @@ def reject_employee_leave(request, leave_id):
         messages.success(request, f"Leave request for {leave_request.employee.user.get_full_name()} rejected.")
         if is_founder(request.user):
             return redirect('managers:founder_dashboard')
+        if employee_profile.reporting_employee and employee_profile.reporting_employee.user == request.user:
+            return redirect('employe:subordinate_leave_requests')
         return redirect('managers:leavelist')
 
     if is_founder(request.user):
         return redirect('managers:founder_dashboard')
+    if employee_profile.reporting_employee and employee_profile.reporting_employee.user == request.user:
+        return redirect('employe:subordinate_leave_requests')
     return redirect('managers:leavelist')
 
 
@@ -703,6 +761,9 @@ def approve_manager_leave(request, id):
 
     # Refresh leave counts
     manager.recalculate_leave_counts()
+
+    from common.leave_excel import sync_approved_leaves_excel
+    sync_approved_leaves_excel()
 
     send_leave_notification(request, leave_request, 'approved', manager.user.email, cc_founder=True)
 
@@ -905,7 +966,10 @@ def leave_requests(request):
         return redirect(reverse('managers:login'))
 
     from common.utils import get_employees_under_manager
-    employees = get_employees_under_manager(manager)
+    employees = [
+        e for e in get_employees_under_manager(manager)
+        if not isinstance(e, Manager) and not getattr(e, 'reporting_employee_id', None)
+    ]
 
     pending_employee_requests = LeaveRequest.objects.filter(
         employee__in=employees,

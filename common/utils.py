@@ -340,6 +340,16 @@ def get_employees_under_manager(manager):
         return []
 
 
+def get_employees_under_employee(employee):
+    """Get all employees directly reporting to an employee"""
+    try:
+        from employe.models import Employe
+        return list(Employe.objects.filter(reporting_employee=employee))
+    except Exception as e:
+        print(f"Error in get_employees_under_employee: {e}")
+        return []
+
+
 def get_leave_balance_info(user):
     """Get leave balance information for a user"""
     profile = get_user_profile(user)

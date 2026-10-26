@@ -19,3 +19,6 @@ premailer==3.10.0
 
 # For timezone handling
 pytz==2023.3
+
+# Excel export for approved leaves
+openpyxl==3.1.5

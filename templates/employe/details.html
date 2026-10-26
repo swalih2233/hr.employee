@@ -72,6 +72,13 @@
         <!-- Apply Leave will trigger drawer -->
         <a href="#" id="apply-leave-btn" class="w-full bg-[#1E184D] hover:bg-[#17123a] text-white px-4 py-2 block text-center rounded-md">Apply for Leave</a>
         <a href="{% url 'employe:leavelist' %}" class="w-full border border-[#000000] hover:bg-gray-100 px-4 py-2 block text-gray-700 text-center rounded-md">Leave List</a>
+        <a href="{% url 'employe:add_employe' %}" class="w-full border border-[#1E184D] text-[#1E184D] hover:bg-indigo-50 px-4 py-2 block text-center rounded-md">Add Employee</a>
+        <a href="{% url 'employe:subordinate_leave_requests' %}" class="relative w-full border border-[#000000] hover:bg-gray-100 px-4 py-2 block text-gray-700 text-center rounded-md">
+          Team Leave Requests
+          {% if pending_sub_count > 0 %}
+            <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ pending_sub_count }}</span>
+          {% endif %}
+        </a>
       </div>
     </div>
 
@@ -330,6 +337,28 @@
       </div>
     </div>
     </div>
+
+    {% if subordinates %}
+    <div class="mt-12">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-900">My Team</h3>
+            <a href="{% url 'employe:add_employe' %}" class="text-indigo-600 hover:text-indigo-800 text-sm font-semibold">Add Employee →</a>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="divide-y divide-gray-100">
+                {% for member in subordinates %}
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div>
+                        <p class="font-semibold text-gray-900">{{ member.user.get_full_name }}</p>
+                        <p class="text-xs text-gray-500">{{ member.designation|default:"" }} {% if member.department %}· {{ member.department }}{% endif %}</p>
+                    </div>
+                    <p class="text-xs text-gray-500">{{ member.user.email }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Leave History Section -->
     <div id="leave-history-section" class="mt-12">

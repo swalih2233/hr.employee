@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approved Leaves</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+    <style>
+      [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans" x-data="{ open: false, sidebarOpen: false }" x-cloak>
+
+<nav class="bg-[#1F2937] text-white px-4 md:px-10 py-3 shadow">
+  <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+    <a href="{% url 'managers:founder_dashboard' %}" class="flex items-center flex-shrink-0">
+      <img src="{% static 'images/White Transparent Mavendoer.png' %}" alt="Logo" class="h-[30px] md:h-[36px] w-auto object-contain">
+    </a>
+
+    <div class="hidden md:flex items-center space-x-3">
+      <a href="{% url 'managers:founder_dashboard' %}" class="text-sm hover:underline">Dashboard</a>
+      <a href="{% url 'managers:approved_leaves_table' %}"
+         class="inline-flex items-center gap-2 bg-white text-gray-900 text-sm font-medium px-3 py-1.5 rounded-md">
+        <i class="fa fa-table"></i> View
+      </a>
+      <a href="{% url 'managers:download_approved_leaves_excel' %}"
+         class="inline-flex items-center gap-2 border border-white/40 text-white text-sm font-medium px-3 py-1.5 rounded-md hover:bg-white/10">
+        <i class="fa fa-download"></i> Download
+      </a>
+      <div class="relative">
+        <button @click="open = !open" class="flex items-center">
+          {% if profile.image %}
+          <img src="{{ profile.image.url }}" class="w-8 h-8 rounded-full object-cover">
+          {% else %}
+          <img src="{% static 'images/default-avatar.png' %}" class="w-8 h-8 rounded-full object-cover">
+          {% endif %}
+        </button>
+        <div x-show="open" x-cloak @click.away="open=false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 text-gray-800 z-50">
+          <a href="{% url 'managers:approved_leaves_table' %}" class="block px-4 py-2 text-sm hover:bg-gray-100">View Excel Table</a>
+          <a href="{% url 'managers:download_approved_leaves_excel' %}" class="block px-4 py-2 text-sm hover:bg-gray-100">Download Excel</a>
+          <a href="{% url 'managers:logout' %}" class="block px-4 py-2 text-sm hover:bg-gray-100">Sign Out</a>
+        </div>
+      </div>
+    </div>
+
+    <button class="md:hidden text-2xl" @click="sidebarOpen = true">
+      <i class="fa fa-bars"></i>
+    </button>
+  </div>
+</nav>
+
+<div x-show="sidebarOpen" x-cloak x-transition.opacity @click="sidebarOpen=false" class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"></div>
+<aside x-show="sidebarOpen" x-cloak
+       class="fixed top-0 right-0 w-64 h-full bg-[#1F2937] text-white p-5 z-50 md:hidden overflow-y-auto">
+  <button class="absolute top-4 right-4" @click="sidebarOpen=false"><i class="fa fa-times text-2xl"></i></button>
+  <h3 class="text-lg font-semibold mt-8 mb-6">Menu</h3>
+  <nav class="flex flex-col space-y-4 text-base">
+    <a href="{% url 'managers:founder_dashboard' %}">Dashboard</a>
+    <a href="{% url 'managers:approved_leaves_table' %}">View Excel Table</a>
+    <a href="{% url 'managers:download_approved_leaves_excel' %}">Download Excel</a>
+    <a href="{% url 'managers:logout' %}" class="text-red-300">Sign Out</a>
+  </nav>
+</aside>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+    <div>
+      <h1 class="text-xl font-semibold text-gray-900">Approved Leaves</h1>
+      <p class="text-sm text-gray-500">Same records as the Excel sheet. Use Download to export the file.</p>
+    </div>
+    <a href="{% url 'managers:download_approved_leaves_excel' %}"
+       class="inline-flex items-center justify-center gap-2 bg-[#1F2937] text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-gray-800">
+      <i class="fa fa-download"></i> Download Excel
+    </a>
+  </div>
+
+  <section class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm text-left text-gray-700">
+        <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+          <tr>
+            {% for header in headers %}
+            <th class="px-4 py-3 whitespace-nowrap">{{ header }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+            <td class="px-4 py-3 whitespace-nowrap">{{ cell }}</td>
+            {% endfor %}
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{{ headers|length }}" class="text-center py-8 text-gray-500">No approved leaves found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+</body>
+</html>

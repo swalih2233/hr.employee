@@ -9,6 +9,7 @@ __pycache__/
 # Django
 *.log
 db.sqlite3
+media/leave_reports/*.xlsx
 
 # Virtualenv
 venv/

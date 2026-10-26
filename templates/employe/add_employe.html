@@ -1,0 +1,128 @@
+{% extends "base/base.html" %}
+{% block container %}
+{% load static %}
+
+<section class="bg-gray-50 min-h-screen py-6 md:py-12">
+    <div class="container mx-auto px-4">
+        <div class="mb-4 md:mb-6">
+            <a href="{% url 'employe:details' %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium text-sm md:text-base">
+                <svg class="w-4 h-4 md:w-5 md:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Back to Profile
+            </a>
+        </div>
+
+        <div class="bg-white shadow-xl rounded-lg p-4 md:p-8 w-full max-w-4xl mx-auto">
+            <h1 class="text-2xl md:text-3xl font-semibold text-center mb-6 md:mb-8 text-gray-700">Add Team Employee</h1>
+            <p class="text-sm text-gray-500 text-center mb-8">This employee will report to you. Leave requests will come to you, with founders on CC.</p>
+
+            <form method="post" enctype="multipart/form-data" class="space-y-8">
+                {% csrf_token %}
+
+                {% if user_form.errors or employe_form.errors %}
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-red-700 font-medium mb-2">Please correct the following errors:</p>
+                    <ul class="list-disc list-inside text-sm text-red-700">
+                        {% for field in user_form %}
+                            {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for field in employe_form %}
+                            {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="bg-gray-50 p-4 md:p-6 rounded-lg">
+                    <h2 class="text-lg font-semibold mb-4 text-gray-700">Personal Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="first_name" class="block text-gray-600 font-medium text-sm">First Name *</label>
+                            <input type="text" id="first_name" name="first_name" value="{{ user_form.first_name.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="last_name" class="block text-gray-600 font-medium text-sm">Last Name *</label>
+                            <input type="text" id="last_name" name="last_name" value="{{ user_form.last_name.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="email" class="block text-gray-600 font-medium text-sm">Email *</label>
+                            <input type="email" id="email" name="email" value="{{ user_form.email.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="phone_number" class="block text-gray-600 font-medium text-sm">Phone Number *</label>
+                            <input type="tel" id="phone_number" name="phone_number" value="{{ user_form.phone_number.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="gender" class="block text-gray-600 font-medium text-sm">Gender *</label>
+                            <select id="gender" name="gender" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg bg-white">
+                                <option value="" {% if not user_form.gender.value %}selected{% endif %}>Select Gender</option>
+                                <option value="M" {% if user_form.gender.value == 'M' %}selected{% endif %}>Male</option>
+                                <option value="F" {% if user_form.gender.value == 'F' %}selected{% endif %}>Female</option>
+                                <option value="O" {% if user_form.gender.value == 'O' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="password" class="block text-gray-600 font-medium text-sm">Password *</label>
+                            <input type="password" id="password" name="password" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 md:p-6 rounded-lg">
+                    <h2 class="text-lg font-semibold mb-4 text-gray-700">Employment Details</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="employe_id" class="block text-gray-600 font-medium text-sm">Employee ID *</label>
+                            <input type="text" id="employe_id" name="employe_id" value="{{ employe_form.employe_id.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="department" class="block text-gray-600 font-medium text-sm">Department *</label>
+                            <input type="text" id="department" name="department" value="{{ employe_form.department.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="designation" class="block text-gray-600 font-medium text-sm">Designation *</label>
+                            <input type="text" id="designation" name="designation" value="{{ employe_form.designation.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="date_of_joining" class="block text-gray-600 font-medium text-sm">Date of Joining *</label>
+                            <input type="date" id="date_of_joining" name="date_of_joining" value="{{ employe_form.date_of_joining.value|default:''|date:'Y-m-d' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="employment_Type" class="block text-gray-600 font-medium text-sm">Employment Type *</label>
+                            <select id="employment_Type" name="employment_Type" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg bg-white">
+                                <option value="" {% if not employe_form.employment_Type.value %}selected{% endif %}>Select Type</option>
+                                <option value="Full-Time" {% if employe_form.employment_Type.value == 'Full-Time' %}selected{% endif %}>Full-Time</option>
+                                <option value="Part-Time" {% if employe_form.employment_Type.value == 'Part-Time' %}selected{% endif %}>Part-Time</option>
+                                <option value="Contract" {% if employe_form.employment_Type.value == 'Contract' %}selected{% endif %}>Contract</option>
+                                <option value="Internship" {% if employe_form.employment_Type.value == 'Internship' %}selected{% endif %}>Internship</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="work_location" class="block text-gray-600 font-medium text-sm">Work Location *</label>
+                            <input type="text" id="work_location" name="work_location" value="{{ employe_form.work_location.value|default:'' }}" required class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="image" class="block text-gray-600 font-medium text-sm">Profile Image</label>
+                            <input type="file" id="image" name="image" accept="image/*" class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="carryforward_granted" class="block text-gray-600 font-medium text-sm">Carry-forward Grant</label>
+                            <input type="number" id="carryforward_granted" name="carryforward_granted" value="{{ employe_form.carryforward_granted.value|default:0 }}" min="0" max="18" class="mt-1 block w-full border border-gray-300 p-3 rounded-lg">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4">
+                    <a href="{% url 'employe:details' %}" class="px-6 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50">Cancel</a>
+                    <button type="submit" class="px-6 py-3 bg-[#1E184D] text-white rounded-lg font-medium hover:bg-[#17123a]">Create Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}

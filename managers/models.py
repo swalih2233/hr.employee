@@ -1,6 +1,7 @@
 from django.db import models
 from datetime import datetime, timedelta
 
+from common.functions import get_prorated_leave_allocation
 from common.models import CommonModel
 
 from users.models import User
@@ -54,6 +55,13 @@ class Manager(CommonModel):
     def __str__(self):
         return self.user.email
 
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            annual, medical = get_prorated_leave_allocation(self.date_of_joining)
+            self.available_leaves = annual
+            self.available_medical_leaves = medical
+        super().save(*args, **kwargs)
+
     def recalculate_leave_counts(self):
         """Recalculate leave counts based on approved leave requests."""
         approved_leaves = UnifiedLeaveRequest.objects.filter(manager=self, is_approved=True, is_withdrawn=False)
@@ -62,8 +70,9 @@ class Manager(CommonModel):
         self.leaves_taken = sum(leave.leave_duration - getattr(leave, 'carryforward_used', 0) for leave in approved_leaves if leave.leave_type == 'AL')
         self.medical_leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
 
-        self.available_leaves = 18 - self.leaves_taken
-        self.available_medical_leaves = 14 - self.medical_leaves_taken
+        annual, medical = get_prorated_leave_allocation(self.date_of_joining)
+        self.available_leaves = annual - self.leaves_taken
+        self.available_medical_leaves = medical - self.medical_leaves_taken
         
         # update available carryforward based on granted and taken
         # but only if we are still within the validity period (Jan 1 - March 31)

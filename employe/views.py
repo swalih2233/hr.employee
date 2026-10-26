@@ -57,6 +57,14 @@ def details(request):
         leave.leave_duration = leave.calculate_working_days()
     leave_balance_info = get_leave_balance_info(request.user)
 
+    subordinates = Employe.objects.filter(reporting_employee=employe)
+    subordinate_leaves = LeaveRequest.objects.filter(employee__in=subordinates).order_by('-created_date')
+    for sub_leave in subordinate_leaves:
+        sub_leave.calculated_duration = sub_leave.calculate_working_days()
+    pending_sub_count = subordinate_leaves.filter(status='Pending', is_cancelled=False).count() + subordinate_leaves.filter(
+        is_withdrawal_requested=True, is_withdrawn=False, withdrawal_rejected=False
+    ).count()
+
     context ={
         'employe': employe,
         'user': user,
@@ -68,7 +76,10 @@ def details(request):
         'schedule': schedule,
         'holidays':holidays,
         'leave_history': leave_history,
-        'leave_balance_info': leave_balance_info
+        'leave_balance_info': leave_balance_info,
+        'subordinates': subordinates,
+        'subordinate_leaves': subordinate_leaves,
+        'pending_sub_count': pending_sub_count,
     }
 
     return render(request, "employe/details.html", context=context)
@@ -98,12 +109,17 @@ def employee_dashboard(request):
 
     leave_balance_info = get_leave_balance_info(request.user)
 
+    subordinates = Employe.objects.filter(reporting_employee=employee)
+    sub_pending = LeaveRequest.objects.filter(employee__in=subordinates, status='Pending', is_cancelled=False).count()
+
     context = {
         'employee': employee,
         'leave_requests': leave_requests,
         'pending_requests': pending_requests,
         'manager': employee.manager,
         'leave_balance_info': leave_balance_info,
+        'subordinates': subordinates,
+        'sub_pending': sub_pending,
     }
 
     return render(request, 'employe/employee_dashboard.html', context)
@@ -175,10 +191,18 @@ def apply_leave(request):
             )
 
             try:
-                if employe.manager and employe.manager.user.email:
+                if employe.reporting_employee and employe.reporting_employee.user.email:
+                    supervisor_user = employe.reporting_employee.user
+                    send_leave_notification(
+                        request, leave_request, 'new_request',
+                        supervisor_user.email,
+                        manager_name=supervisor_user.get_full_name(),
+                        cc_founder=True
+                    )
+                elif employe.manager and employe.manager.user.email:
                     send_leave_notification(request, leave_request, 'new_request', employe.manager.user.email, manager_name=employe.manager.user.get_full_name(), cc_founder=True)
                 else:
-                    # If no manager, notify founder directly
+                    # If no manager or reporting employee, notify founder directly
                     send_leave_notification(request, leave_request, 'new_request', None, cc_founder=True)
                 
                 send_leave_notification(request, leave_request, 'submission_confirmation', user.email)
@@ -334,13 +358,12 @@ def withdraw_leave(request, id):
 
         # Notification logic
         try:
-            # Send to manager and CC founder
-            if current_employee.manager:
+            if current_employee.reporting_employee:
+                supervisor_email = current_employee.reporting_employee.user.email
+                send_leave_notification(request, leave_request, 'withdrawal_requested', supervisor_email, cc_founder=True)
+            elif current_employee.manager:
                 manager_email = current_employee.manager.user.email
-                # We'll need to handle 'withdrawal_requested' in send_leave_notification
                 send_leave_notification(request, leave_request, 'withdrawal_requested', manager_email, cc_founder=True)
-            
-            # Send to founder if they exist as a direct link
             elif current_employee.founder:
                 founder_email = current_employee.founder.user.email
                 send_leave_notification(request, leave_request, 'withdrawal_requested', founder_email)
@@ -384,13 +407,17 @@ def cancel_leave(request, id):
     # Send notifications
     try:
         from managers.views import send_leave_notification
-        # Notify manager
-        if current_employee.manager:
+        # Notify reporting employee or manager
+        if current_employee.reporting_employee:
+            supervisor_email = current_employee.reporting_employee.user.email
+            supervisor_name = current_employee.reporting_employee.user.get_full_name()
+            send_leave_notification(request, leave_request, 'cancelled', supervisor_email, manager_name=supervisor_name, cc_founder=True)
+        elif current_employee.manager:
             manager_email = current_employee.manager.user.email
             manager_name = current_employee.manager.user.get_full_name()
             send_leave_notification(request, leave_request, 'cancelled', manager_email, manager_name=manager_name, cc_founder=True)
         else:
-            # If no manager, notify founder directly
+            # If no manager or supervisor, notify founder directly
             send_leave_notification(request, leave_request, 'cancelled', None, cc_founder=True)
             
         messages.success(request, "Leave request cancelled successfully!")
@@ -623,10 +650,10 @@ def reset_password(request):
         new_password = request.POST.get("new_password")
         confirm_password = request.POST.get("confirm_password")
         
-        email = request.session.get('reset_user_email')
+        email = request.session.get("reset_user_email")
         if not email:
             messages.error(request, "Session expired. Please restart the password reset process.")
-            return redirect('employe:forget_password')
+            return redirect("employe:forget_password")
         
         try:
             user = User.objects.get(email=email)
@@ -656,11 +683,292 @@ def reset_password(request):
             otp_obj.delete()
             
             messages.success(request, "Password reset successfully. Please login.")
-            return redirect('employe:login')
+            return redirect("employe:login")
         
         except User.DoesNotExist:
             messages.error(request, "User not found.")
-            return redirect('employe:forget_password')
+            return redirect("employe:forget_password")
             
-    
     return render(request, "employe/reset_password.html", context)
+
+
+from managers.forms import AddUserForm, AddEmployeModelForm
+from common.utils import calculate_leave_days
+
+
+@login_required(login_url="/login")
+@allow_employee
+def add_employe(request):
+    """Allow an employee to create a subordinate employee under their profile"""
+    current_employee = get_object_or_404(Employe, user=request.user)
+
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip()
+        if email and email.lower() == current_employee.user.email.lower():
+            messages.error(request, "You cannot add yourself as a team employee.")
+            return redirect("employe:add_employe")
+        existing_user = User.objects.filter(email=email).first()
+
+        if existing_user:
+            try:
+                sub_employe = Employe.objects.get(user=existing_user)
+                sub_employe.reporting_employee = current_employee
+                if current_employee.founder:
+                    sub_employe.founder = current_employee.founder
+                if current_employee.manager:
+                    sub_employe.manager = current_employee.manager
+                sub_employe.reporting_manager = current_employee.user.get_full_name()
+                sub_employe.department = request.POST.get("department", sub_employe.department)
+                sub_employe.designation = request.POST.get("designation", sub_employe.designation)
+                sub_employe.work_location = request.POST.get("work_location", sub_employe.work_location)
+                if not sub_employe.created_by:
+                    sub_employe.created_by = request.user
+                sub_employe.save()
+                messages.success(request, f"✅ Employee {existing_user.get_full_name()} is now assigned under you!")
+                return redirect("employe:details")
+            except Employe.DoesNotExist:
+                user_form = AddUserForm(request.POST)
+                employe_form = AddEmployeModelForm(request.POST, request.FILES)
+                if employe_form.is_valid():
+                    sub_employe = employe_form.save(commit=False)
+                    sub_employe.user = existing_user
+                    sub_employe.reporting_employee = current_employee
+                    if current_employee.founder:
+                        sub_employe.founder = current_employee.founder
+                    if current_employee.manager:
+                        sub_employe.manager = current_employee.manager
+                    sub_employe.reporting_manager = current_employee.user.get_full_name()
+                    sub_employe.created_by = request.user
+                    sub_employe.save()
+                    messages.success(request, f"✅ Employee profile created for {existing_user.get_full_name()} under you!")
+                    return redirect("employe:details")
+                else:
+                    messages.error(request, "Please correct the form errors.")
+                    return render(request, "employe/add_employe.html", {
+                        "employe": current_employee,
+                        "employe_form": employe_form,
+                        "user_form": user_form
+                    })
+
+        user_form = AddUserForm(request.POST)
+        employe_form = AddEmployeModelForm(request.POST, request.FILES)
+
+        if user_form.is_valid() and employe_form.is_valid():
+            try:
+                user = user_form.save(commit=False)
+                user.set_password(user_form.cleaned_data["password"])
+                user.is_employee = True
+                user.username = user_form.cleaned_data["email"]
+                user.save()
+
+                sub_employe = employe_form.save(commit=False)
+                sub_employe.user = user
+                sub_employe.reporting_employee = current_employee
+                if current_employee.founder:
+                    sub_employe.founder = current_employee.founder
+                if current_employee.manager:
+                    sub_employe.manager = current_employee.manager
+                sub_employe.reporting_manager = current_employee.user.get_full_name()
+                sub_employe.created_by = request.user
+                if not sub_employe.employe_status:
+                    sub_employe.employe_status = "AT"
+                sub_employe.save()
+
+                current_date = timezone.now().date()
+                if current_date.month <= 3:
+                    sub_employe.carryforward_available_leaves = sub_employe.carryforward_granted
+                    sub_employe.save()
+
+                messages.success(request, f"✅ Employee {user.get_full_name()} created successfully under your supervision!")
+                return redirect("employe:details")
+            except Exception as e:
+                messages.error(request, f"Error creating employee: {str(e)}")
+        else:
+            messages.error(request, "Please correct the form errors.")
+            return render(request, "employe/add_employe.html", {
+                "employe": current_employee,
+                "user_form": user_form,
+                "employe_form": employe_form
+            })
+
+    user_form = AddUserForm()
+    employe_form = AddEmployeModelForm()
+    return render(request, "employe/add_employe.html", {
+        "employe": current_employee,
+        "user_form": user_form,
+        "employe_form": employe_form
+    })
+
+
+@login_required(login_url="/login")
+@allow_employee
+def subordinate_leave_requests(request):
+    """View leave requests from subordinate employees"""
+    current_employee = get_object_or_404(Employe, user=request.user)
+    subordinates = Employe.objects.filter(reporting_employee=current_employee)
+
+    pending_leaves = LeaveRequest.objects.filter(
+        employee__in=subordinates,
+        status="Pending",
+        is_cancelled=False
+    ).order_by("-created_date")
+
+    withdrawal_leaves = LeaveRequest.objects.filter(
+        employee__in=subordinates,
+        is_withdrawal_requested=True,
+        is_withdrawn=False,
+        withdrawal_rejected=False
+    ).order_by("-created_date")
+
+    all_leaves = LeaveRequest.objects.filter(
+        employee__in=subordinates
+    ).order_by("-created_date")
+
+    for l in pending_leaves:
+        l.calculated_duration = l.calculate_working_days()
+    for l in all_leaves:
+        l.calculated_duration = l.calculate_working_days()
+
+    context = {
+        "employe": current_employee,
+        "subordinates": subordinates,
+        "pending_leaves": pending_leaves,
+        "withdrawal_leaves": withdrawal_leaves,
+        "all_leaves": all_leaves,
+        "notification_count": pending_leaves.count() + withdrawal_leaves.count(),
+    }
+    return render(request, "employe/subordinate_leave_requests.html", context)
+
+
+@login_required(login_url="/login")
+@allow_employee
+def approve_subordinate_leave(request, leave_id):
+    """Approve a leave request submitted by a subordinate employee"""
+    leave_request = get_object_or_404(LeaveRequest, id=leave_id)
+    employee_profile = leave_request.employee
+    current_employee = get_object_or_404(Employe, user=request.user)
+
+    if employee_profile.reporting_employee != current_employee and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to approve leaves for this employee.")
+        return redirect("employe:details")
+
+    if request.method == "POST":
+        leave_days = calculate_leave_days(
+            leave_request.start_date, leave_request.end_date, leave_request.is_half_day
+        )
+
+        if leave_request.leave_type == "ML":
+            employee_profile.medical_leaves_taken += leave_days
+            employee_profile.available_medical_leaves -= leave_days
+        elif leave_request.leave_type == "AL":
+            cf_eligible_days = 0
+            from employe.models import Holiday
+            holidays = Holiday.objects.filter(date__range=[leave_request.start_date, leave_request.end_date]).values_list("date", flat=True)
+            if leave_request.is_half_day:
+                curr = leave_request.start_date
+                if curr.weekday() < 5 and curr not in holidays and curr.month <= 3:
+                    cf_eligible_days = 0.5
+            else:
+                curr = leave_request.start_date
+                while curr <= leave_request.end_date:
+                    if curr.weekday() < 5 and curr not in holidays:
+                        if curr.month <= 3:
+                            cf_eligible_days += 1
+                    curr += timedelta(days=1)
+
+            from django.db.models import Sum
+            other_cf_used = LeaveRequest.objects.filter(
+                employee=employee_profile,
+                status="Approved"
+            ).exclude(id=leave_request.id).aggregate(total=Sum("carryforward_used"))["total"] or 0
+
+            cf_available_from_grant = max(0, employee_profile.carryforward_granted - other_cf_used)
+            cf_to_use = min(cf_eligible_days, cf_available_from_grant)
+            leave_request.carryforward_used = cf_to_use
+
+        employee_profile.save()
+
+        leave_request.status = "Approved"
+        leave_request.is_approved = True
+        leave_request.approved_by = request.user
+        leave_request.approval_date = timezone.now()
+        leave_request.leave_duration = leave_days
+        leave_request.save()
+
+        employee_profile.recalculate_leave_counts()
+
+        from common.leave_excel import sync_approved_leaves_excel
+        sync_approved_leaves_excel()
+
+        send_leave_notification(request, leave_request, "approved", employee_profile.user.email, cc_founder=True)
+        messages.success(request, f"Leave request for {employee_profile.user.get_full_name()} approved.")
+
+    return redirect("employe:subordinate_leave_requests")
+
+
+@login_required(login_url="/login")
+@allow_employee
+def reject_subordinate_leave(request, leave_id):
+    """Reject a leave request submitted by a subordinate employee"""
+    leave_request = get_object_or_404(LeaveRequest, id=leave_id)
+    employee_profile = leave_request.employee
+    current_employee = get_object_or_404(Employe, user=request.user)
+
+    if employee_profile.reporting_employee != current_employee and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to reject leaves for this employee.")
+        return redirect("employe:details")
+
+    if request.method == "POST":
+        leave_request.status = "Rejected"
+        leave_request.is_rejected = True
+        leave_request.rejection_date = timezone.now()
+        leave_request.save()
+
+        send_leave_notification(request, leave_request, "rejected", employee_profile.user.email, cc_founder=True)
+        messages.success(request, f"Leave request for {employee_profile.user.get_full_name()} rejected.")
+
+    return redirect("employe:subordinate_leave_requests")
+
+
+def _ensure_subordinate_leave(request, leave_id):
+    leave_request = get_object_or_404(LeaveRequest, id=leave_id)
+    current_employee = get_object_or_404(Employe, user=request.user)
+    if leave_request.employee.reporting_employee != current_employee and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to action leaves for this employee.")
+        return None, None
+    return leave_request, current_employee
+
+
+@login_required(login_url="/login")
+@allow_employee
+def approve_subordinate_withdrawal(request, leave_id):
+    leave_request, current_employee = _ensure_subordinate_leave(request, leave_id)
+    if not leave_request:
+        return redirect("employe:details")
+
+    if request.method == "POST":
+        leave_request.is_withdrawn = True
+        leave_request.is_withdrawal_requested = False
+        leave_request.save()
+        leave_request.employee.recalculate_leave_counts()
+        send_leave_notification(request, leave_request, "withdrawal_approved", leave_request.employee.user.email, cc_founder=True)
+        messages.success(request, "Withdrawal request approved.")
+
+    return redirect("employe:subordinate_leave_requests")
+
+
+@login_required(login_url="/login")
+@allow_employee
+def reject_subordinate_withdrawal(request, leave_id):
+    leave_request, current_employee = _ensure_subordinate_leave(request, leave_id)
+    if not leave_request:
+        return redirect("employe:details")
+
+    if request.method == "POST":
+        leave_request.is_withdrawal_requested = False
+        leave_request.withdrawal_rejected = True
+        leave_request.save()
+        send_leave_notification(request, leave_request, "withdrawal_rejected", leave_request.employee.user.email, cc_founder=True)
+        messages.success(request, "Withdrawal request rejected.")
+
+    return redirect("employe:subordinate_leave_requests")

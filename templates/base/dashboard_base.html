@@ -104,6 +104,9 @@
                                     <a href="{% url 'managers:manager_add' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Add Manager</a>
                                     <a href="{% url 'managers:add_holiday' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Add Holiday</a>
                                 {% endif %}
+                                {% if is_employee %}
+                                    <a href="{% url 'employe:add_employe' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Add Employee</a>
+                                {% endif %}
                                 {% if is_manager or is_employee %}
                                     <a href="{% if is_manager %}{% url 'managers:manager_apply_leave' %}{% else %}{% url 'employe:leaveform' %}{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Apply for Leave</a>
                                 {% endif %}
