@@ -146,7 +146,7 @@
               {% endif %}
             </td>
             <td class="py-3 px-4 text-sm relative">
-              {% if instance.is_approved and not instance.is_withdrawal_requested and not instance.is_withdrawn %}
+              {% if instance|can_withdraw %}
                 <button @click="
                       showWithdrawSidebar = true; 
                       withdrawLeaveId = '{{ instance.id }}';
@@ -269,7 +269,7 @@
               <i class="fas fa-times-circle mr-2"></i> Cancel Leave
             </a>
           </div>
-          {% elif instance.is_approved and not instance.is_withdrawal_requested and not instance.is_withdrawn %}
+          {% elif instance|can_withdraw %}
           <div class="pt-2 border-t mt-2">
             <button @click="
                       showWithdrawSidebar = true; 

@@ -172,7 +172,7 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium opacity-90 mb-1">Annual Leave</p>
-            <p class="text-4xl md:text-5xl font-bold {% if employe.available_leaves|add:employe.leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_leaves|add:employe.leaves_taken|leave_amount }}</p>
+            <p class="text-4xl md:text-5xl font-bold {% if employe.available_leaves|add_leaves:employe.leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_leaves|add_leaves:employe.leaves_taken|leave_amount }}</p>
             <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
           </div>
           <div class="bg-white bg-opacity-20 p-3 md:p-4 rounded-full">
@@ -188,7 +188,7 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium opacity-90 mb-1">Medical Leave</p>
-            <p class="text-4xl md:text-5xl font-bold {% if employe.available_medical_leaves|add:employe.medical_leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_medical_leaves|add:employe.medical_leaves_taken|leave_amount }}</p>
+            <p class="text-4xl md:text-5xl font-bold {% if employe.available_medical_leaves|add_leaves:employe.medical_leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_medical_leaves|add_leaves:employe.medical_leaves_taken|leave_amount }}</p>
             <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
           </div>
           <div class="bg-white bg-opacity-20 p-3 md:p-4 rounded-full">

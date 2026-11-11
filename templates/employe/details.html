@@ -101,6 +101,7 @@
           </a>
           <h3 class="font-semibold text-base md:text-lg mb-4">Personal Info</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
+            <p><strong>Employee ID:</strong> {{ employe.employe_id|default:"N/A" }}</p>
             <p><strong>Full Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
             <p><strong>Gender:</strong> {{ user.gender }}</p>
             <p><strong>Date of Birth:</strong> {{ user.date_of_birth }}</p>
@@ -135,20 +136,6 @@
             <p><strong>Contact Name:</strong> {{ contact.contact_name }}</p>
             <p><strong>Relationship:</strong> {{ contact.relationship }}</p>
             <p><strong>Contact Number:</strong> {{ contact.contact_number }}</p>
-          </div>
-        </div>
-
-        <!-- Bank & Benefits -->
-        <div class="bg-white shadow rounded-xl p-4 md:p-6 relative">
-          <a href="{% url 'employe:edit_employe' employe.id %}" class="absolute top-4 right-4 text-gray-500 hover:text-indigo-600">
-            <i class="fas fa-pencil-alt"></i>
-          </a>
-          <h3 class="font-semibold text-base md:text-lg mb-4">Bank & Benefits</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
-            <p><strong>Bank Name:</strong> {{ benefits.bank_name }}</p>
-            <p><strong>Account Number:</strong> {{ benefits.account_number }}</p>
-            <p><strong>Branch:</strong> {{ benefits.branch_name }}</p>
-            <p><strong>IFSC:</strong> {{ benefits.ifsc_code }}</p>
           </div>
         </div>
       </div>
@@ -219,7 +206,7 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium opacity-90 mb-1">Annual Leave</p>
-            <p class="text-5xl font-bold {% if employe.available_leaves|add:employe.leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_leaves|add:employe.leaves_taken|leave_amount }}</p>
+            <p class="text-5xl font-bold {% if employe.available_leaves|add_leaves:employe.leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_leaves|add_leaves:employe.leaves_taken|leave_amount }}</p>
             <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
           </div>
           <div class="bg-white bg-opacity-20 p-4 rounded-full">
@@ -235,7 +222,7 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium opacity-90 mb-1">Medical Leave</p>
-            <p class="text-5xl font-bold {% if employe.available_medical_leaves|add:employe.medical_leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_medical_leaves|add:employe.medical_leaves_taken|leave_amount }}</p>
+            <p class="text-5xl font-bold {% if employe.available_medical_leaves|add_leaves:employe.medical_leaves_taken < 0 %}text-red-300{% endif %}">{{ employe.available_medical_leaves|add_leaves:employe.medical_leaves_taken|leave_amount }}</p>
             <p class="text-sm opacity-90 mt-2">Total Days Allocated</p>
           </div>
           <div class="bg-white bg-opacity-20 p-4 rounded-full">
@@ -339,7 +326,7 @@
     </div>
 
     {% if subordinates %}
-    <div class="mt-12">
+    <div class="mt-12 px-4 md:px-6">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-bold text-gray-900">My Team</h3>
             <a href="{% url 'employe:add_employe' %}" class="text-indigo-600 hover:text-indigo-800 text-sm font-semibold">Add Employee →</a>
@@ -347,13 +334,98 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="divide-y divide-gray-100">
                 {% for member in subordinates %}
-                <div class="px-6 py-4 flex items-center justify-between">
+                <a href="{% url 'employe:team_member_leave_detail' member.id %}" class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                     <div>
-                        <p class="font-semibold text-gray-900">{{ member.user.get_full_name }}</p>
+                        <p class="font-semibold text-indigo-600 hover:underline">{{ member.user.get_full_name }}</p>
                         <p class="text-xs text-gray-500">{{ member.designation|default:"" }} {% if member.department %}· {{ member.department }}{% endif %}</p>
                     </div>
-                    <p class="text-xs text-gray-500">{{ member.user.email }}</p>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-500">{{ member.user.email }}</p>
+                        <p class="text-xs text-indigo-600 font-medium mt-0.5">View Profile &amp; Leaves →</p>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Leave History Section -->
+    <div id="team-leave-history-section" class="mt-12 px-4 md:px-6">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-900">Team Leave History</h3>
+            <a href="{% url 'employe:subordinate_leave_requests' %}" class="text-indigo-600 hover:text-indigo-800 text-sm font-semibold">View Team Requests →</a>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <!-- Desktop Table -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Leave Type</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Days</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Time</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for leave in subordinate_leaves|slice:":10" %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <a href="{% url 'employe:team_member_leave_detail' leave.employee.id %}" class="text-indigo-600 hover:underline">
+                                    {{ leave.employee.user.get_full_name }}
+                                </a>
+                            </td>
+                            {% include 'includes/leave_table_type_days_time_cells.html' with leave=leave td_class='px-6 py-4 whitespace-nowrap' %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full
+                                    {% if leave.is_withdrawn %}bg-purple-100 text-purple-700
+                                    {% elif leave.is_withdrawal_requested %}bg-indigo-100 text-indigo-700
+                                    {% elif leave.status == 'Approved' %}bg-green-100 text-green-700
+                                    {% elif leave.status == 'Pending' %}bg-yellow-100 text-yellow-700
+                                    {% elif leave.status == 'Cancelled' %}bg-gray-100 text-gray-700
+                                    {% else %}bg-red-100 text-red-700{% endif %}">
+                                    {% if leave.is_withdrawn %}Withdrawn{% elif leave.is_withdrawal_requested %}Withdrawal Pending{% else %}{{ leave.status }}{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ leave.start_date|date:"d M" }} - {{ leave.end_date|date:"d M Y" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-10 text-center text-gray-500 text-sm">No team leave history found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile View -->
+            <div class="md:hidden divide-y divide-gray-100">
+                {% for leave in subordinate_leaves|slice:":10" %}
+                <div class="p-4 space-y-2">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <a href="{% url 'employe:team_member_leave_detail' leave.employee.id %}" class="font-semibold text-indigo-600 hover:underline">{{ leave.employee.user.get_full_name }}</a>
+                            <p class="text-xs text-gray-600">{{ leave|leave_type_name }} · {{ leave|leave_days_count }} · {{ leave|leave_session_time }}</p>
+                            <p class="text-xs text-gray-500">{{ leave.start_date|date:"d M" }} - {{ leave.end_date|date:"d M Y" }}</p>
+                        </div>
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full uppercase
+                            {% if leave.is_withdrawn %}bg-purple-100 text-purple-700
+                            {% elif leave.is_withdrawal_requested %}bg-indigo-100 text-indigo-700
+                            {% elif leave.status == 'Approved' %}bg-green-100 text-green-700
+                            {% elif leave.status == 'Pending' %}bg-yellow-100 text-yellow-700
+                            {% elif leave.status == 'Cancelled' %}bg-gray-100 text-gray-700
+                            {% else %}bg-red-100 text-red-700{% endif %}">
+                            {% if leave.is_withdrawn %}Withdrawn{% elif leave.is_withdrawal_requested %}Withdrawal Pending{% else %}{{ leave.status }}{% endif %}
+                        </span>
+                    </div>
                 </div>
+                {% empty %}
+                <div class="p-8 text-center text-gray-500 text-sm">No team leave history found.</div>
                 {% endfor %}
             </div>
         </div>
@@ -361,7 +433,7 @@
     {% endif %}
 
     <!-- Leave History Section -->
-    <div id="leave-history-section" class="mt-12">
+    <div id="leave-history-section" class="mt-12 px-4 md:px-6">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-bold text-gray-900">My Leave History</h3>
             <a href="{% url 'employe:leavelist' %}" class="text-indigo-600 hover:text-indigo-800 text-sm font-semibold">View All History →</a>

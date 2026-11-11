@@ -177,7 +177,12 @@ class ManagerInline(admin.TabularInline):
 class ManagerAdmin(admin.ModelAdmin):
     form = ManagerAdminForm
     inlines = [EmployeInline, ManagerInline]
-    list_display = ('get_email', 'department', 'designation', 'available_leaves', 'available_medical_leaves', 'carryforward_available_leaves')
+    list_display = (
+        'get_email', 'department', 'designation',
+        'get_total_annual_leaves', 'available_leaves',
+        'get_total_medical_leaves', 'available_medical_leaves',
+        'carryforward_available_leaves'
+    )
     search_fields = ('user__email', 'department')
     fieldsets = (
         ('Personal Info', {
@@ -186,14 +191,23 @@ class ManagerAdmin(admin.ModelAdmin):
         ('Professional Info', {
             'fields': ('department', 'designation', 'manager_id', 'founder', 'date_of_joining', 'employment_Type', 'reporting_manager', 'work_location')
         }),
-        ('Leave Management', {
+        ('Leave Management (Total Days Allocated & Balances)', {
+            'description': 'Manually adjust Total Allocated Days or Available Leaves. When you update Total Allocated, Available Leaves is automatically calculated as (Allocated - Taken).',
             'fields': (
-                'available_leaves', 'leaves_taken',
-                'available_medical_leaves', 'medical_leaves_taken',
-                'carryforward_available_leaves', 'carryforward_leaves_taken', 'carryforward_granted'
+                ('total_annual_allocated', 'available_leaves', 'leaves_taken'),
+                ('total_medical_allocated', 'available_medical_leaves', 'medical_leaves_taken'),
+                ('carryforward_granted', 'carryforward_available_leaves', 'carryforward_leaves_taken'),
             )
         }),
     )
+
+    def get_total_annual_leaves(self, obj):
+        return obj.total_annual_leaves
+    get_total_annual_leaves.short_description = 'Allocated Annual'
+
+    def get_total_medical_leaves(self, obj):
+        return obj.total_medical_leaves
+    get_total_medical_leaves.short_description = 'Allocated Medical'
 
     def get_email(self, obj):
         return obj.user.email

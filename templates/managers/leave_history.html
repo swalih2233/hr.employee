@@ -219,7 +219,11 @@
                 <td class="px-6 py-4 text-sm text-gray-900">{{ request|leave_days_count }}</td>
                 <td class="px-6 py-4 text-sm text-gray-900">{{ request|leave_session_time }}</td>
                 <td class="px-6 py-4">
-                  {% if request.is_approved %}
+                  {% if request.is_withdrawn %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Withdrawn</span>
+                  {% elif request.is_withdrawal_requested %}
+                  <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">Withdrawal Pending</span>
+                  {% elif request.is_approved %}
                   <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
                   {% elif request.is_rejected %}
                   <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
@@ -238,7 +242,7 @@
                       <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                       Cancel
                     </a>
-                  {% elif request.is_approved and not request.is_withdrawal_requested and not request.is_withdrawn %}
+                  {% elif request|can_withdraw %}
                     <button @click="
                           showWithdrawSidebar = true; 
                           withdrawLeaveId = '{{ request.id }}';
@@ -321,7 +325,11 @@
                 <p class="text-xs text-gray-500 mt-1">{{ request.description|truncatechars:50 }}</p>
                 {% endif %}
               </div>
-              {% if request.is_approved %}
+              {% if request.is_withdrawn %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 ml-2">Withdrawn</span>
+              {% elif request.is_withdrawal_requested %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800 ml-2">Withdrawal Pending</span>
+              {% elif request.is_approved %}
                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Approved</span>
               {% elif request.is_rejected %}
                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 ml-2">Rejected</span>
@@ -365,6 +373,21 @@
                   Cancel Leave
                 </a>
               </div>
+              {% elif request|can_withdraw %}
+              <div class="pt-2 border-t mt-2">
+                <button @click="
+                      showWithdrawSidebar = true; 
+                      withdrawLeaveId = '{{ request.id }}';
+                      withdrawLeaveSubject = '{{ request.subject|escapejs }}';
+                      withdrawLeaveDates = '{{ request.start_date|date:'d M Y' }} to {{ request.end_date|date:'d M Y' }}';
+                    "
+                    class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center justify-center w-full py-2 bg-indigo-50 rounded-lg">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"></path></svg>
+                  Withdraw Leave
+                </button>
+              </div>
+              {% elif request.is_withdrawal_requested %}
+              <div class="pt-2 border-t mt-2 text-center text-indigo-600 italic text-xs font-medium">Withdrawal Pending</div>
               {% endif %}
             </div>
           </div>
@@ -381,7 +404,11 @@
                 {% endif %}
                 <span class="text-xs text-gray-400">(Legacy)</span>
               </div>
-              {% if request.is_approved %}
+              {% if request.is_withdrawn %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 ml-2">Withdrawn</span>
+              {% elif request.is_withdrawal_requested %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800 ml-2">Withdrawal Pending</span>
+              {% elif request.is_approved %}
                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Approved</span>
               {% elif request.is_rejected %}
                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 ml-2">Rejected</span>

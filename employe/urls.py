@@ -20,6 +20,8 @@ urlpatterns=[
 
     path("employe/edit/<int:id>/", views.edit_employe, name="edit_employe"),
     path("add-employe/", views.add_employe, name="add_employe"),
+    path("team-member/<int:employee_id>/", views.team_member_leave_detail, name="team_member_leave_detail"),
+    path("team-member/<int:employee_id>/profile/", views.team_member_profile, name="team_member_profile"),
     path("subordinate-leaves/", views.subordinate_leave_requests, name="subordinate_leave_requests"),
     path("subordinate-leaves/approve/<int:leave_id>/", views.approve_subordinate_leave, name="approve_subordinate_leave"),
     path("subordinate-leaves/reject/<int:leave_id>/", views.reject_subordinate_leave, name="reject_subordinate_leave"),

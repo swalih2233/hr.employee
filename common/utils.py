@@ -215,6 +215,29 @@ def sync_employee_profile_from_related(employe, save=True):
     return bool(updated_fields)
 
 
+def sync_prorated_leave_if_needed(profile):
+    """
+    If employee/manager joined after the 20th and has taken 0 leaves,
+    but still has the old +0.5 credit from before the policy update,
+    automatically update them to the correct 2-month allocation (0 for joining month).
+    """
+    if not profile or not getattr(profile, 'date_of_joining', None):
+        return
+    if (getattr(profile, 'leaves_taken', 0) or 0) > 0 or (getattr(profile, 'medical_leaves_taken', 0) or 0) > 0:
+        return
+
+    from common.functions import get_prorated_leave_allocation
+    expected_annual, expected_medical = get_prorated_leave_allocation(profile.date_of_joining)
+
+    current_annual = getattr(profile, 'available_leaves', None)
+    current_med = getattr(profile, 'available_medical_leaves', None)
+
+    if profile.date_of_joining.day > 20 and (current_annual != expected_annual or current_med != expected_medical):
+        profile.available_leaves = expected_annual
+        profile.available_medical_leaves = expected_medical
+        profile.save(update_fields=['available_leaves', 'available_medical_leaves'])
+
+
 def get_employee_reporting_manager(employe):
     """
     Who this employee reports to: direct manager FK, previous manager,
@@ -444,3 +467,49 @@ def calculate_leave_days(start_date, end_date, is_half_day=False):
     if is_half_day:
         return 0.5 if working_days > 0 else 0
     return float(working_days)
+
+
+def can_withdraw_leave(leave, max_days=7):
+    """
+    Allow leave withdrawal only if the leave is approved, not yet withdrawn
+    or pending withdrawal, and within `max_days` (default 7) of approval.
+    """
+    from datetime import date, datetime
+
+    if not leave:
+        return False
+
+    is_approved = bool(getattr(leave, 'is_approved', False) or getattr(leave, 'status', None) == 'Approved')
+    if not is_approved:
+        return False
+    if getattr(leave, 'is_withdrawn', False) or getattr(leave, 'is_withdrawal_requested', False):
+        return False
+    if getattr(leave, 'is_rejected', False) or getattr(leave, 'is_cancelled', False):
+        return False
+
+    ref = (
+        getattr(leave, 'approval_date', None)
+        or getattr(leave, 'updated_datetime', None)
+        or getattr(leave, 'created_date', None)
+    )
+    if not ref:
+        return False
+
+    if isinstance(ref, datetime):
+        if timezone.is_aware(ref):
+            try:
+                ref_date = timezone.localtime(ref).date()
+            except Exception:
+                ref_date = ref.date()
+        else:
+            ref_date = ref.date()
+    elif isinstance(ref, date):
+        ref_date = ref
+    else:
+        return False
+
+    try:
+        today = timezone.localdate()
+    except Exception:
+        today = timezone.now().date()
+    return (today - ref_date).days <= max_days

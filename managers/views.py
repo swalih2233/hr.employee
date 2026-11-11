@@ -17,6 +17,9 @@ from managers.models import *
 from django.utils import timezone
 import smtplib
 import ssl
+import base64
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail, EmailMessage
@@ -44,6 +47,7 @@ from common.utils import (
     generate_manager_id, calculate_leave_days, build_founder_employee_table_rows,
     sync_employee_profile_from_related, get_employee_display_profile,
     get_half_day_info, format_leave_duration_display, get_user_display_name,
+    sync_prorated_leave_if_needed, can_withdraw_leave, get_employees_under_manager,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,16 +65,44 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
     """
     
     if isinstance(leave, LeaveRequest):
-        requester_profile = leave.employee
-        requester_name = leave.employee.user.get_full_name()
+        requester_profile = getattr(leave, 'employee', None)
+        requester_name = (requester_profile.user.get_full_name() or requester_profile.user.username) if requester_profile and requester_profile.user else ""
         leave_model_name = 'LeaveRequest'
     elif isinstance(leave, UnifiedLeaveRequest):
-        requester_profile = leave.manager
-        requester_name = leave.manager.user.get_full_name()
+        if leave.requested_by_role == 'manager' and leave.manager:
+            requester_profile = leave.manager
+            requester_name = (leave.manager.user.get_full_name() or leave.manager.user.username) if leave.manager.user else ""
+        elif leave.employee:
+            requester_profile = leave.employee
+            requester_name = (leave.employee.user.get_full_name() or leave.employee.user.username) if leave.employee.user else ""
+        else:
+            requester_profile = leave.manager
+            requester_name = (leave.manager.user.get_full_name() or leave.manager.user.username) if leave.manager and leave.manager.user else "Unknown"
         leave_model_name = 'UnifiedLeaveRequest'
     else:
         logger.error(f"Unknown leave model type: {type(leave)}")
         return
+
+    # Calculate current balance leaves for email notification
+    def _format_leave_num(v):
+        try:
+            val = float(v if v is not None else 0)
+            return str(int(val)) if val == int(val) else ("%s" % val).rstrip("0").rstrip(".")
+        except (ValueError, TypeError):
+            return "0"
+
+    annual_balance = _format_leave_num(getattr(requester_profile, 'available_leaves', 0))
+    medical_balance = _format_leave_num(getattr(requester_profile, 'available_medical_leaves', 0))
+    cf_balance = _format_leave_num(getattr(requester_profile, 'carryforward_available_leaves', 0))
+
+    applied_leave_type = getattr(leave, 'leave_type', None)
+    is_sick_leave = (applied_leave_type == 'ML')
+    if is_sick_leave:
+        applied_type_name = "Sick Leave"
+        applied_leave_balance = medical_balance
+    else:
+        applied_type_name = "Annual Leave"
+        applied_leave_balance = annual_balance
 
     if email_type in ['new_request', 'new_manager_request']:
         subject = f"New Leave Request from {requester_name}"
@@ -87,7 +119,7 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
     elif email_type == 'withdrawal_rejected':
         subject = "Your Leave Withdrawal Request has been Rejected"
     elif email_type == 'submission_confirmation':
-        subject = "Leave Request Submitted Successfully"
+        subject = "Leave Application Submitted Successfully (Pending)"
     else:
         subject = "Leave Request Update"
 
@@ -99,25 +131,32 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
                 review_path = reverse('managers:leavelist')
         else:
             review_path = reverse('managers:manager_leave_requests_list')
-        review_url = request.build_absolute_uri(review_path)
+        review_url = request.build_absolute_uri(review_path) if request else review_path
     elif email_type in ['approved', 'rejected', 'submission_confirmation', 'withdrawal_approved', 'withdrawal_rejected']:
         if leave_model_name == 'LeaveRequest':
             review_path = reverse('employe:leavelist')
         else:
             review_path = reverse('managers:manager_leave_history')
-        review_url = request.build_absolute_uri(review_path)
+        review_url = request.build_absolute_uri(review_path) if request else review_path
     else:
         review_url = None
 
     html_content = render_to_string('emails/leave_notification.html', {
         'leave': leave,
         'employee': requester_profile,
+        'requester_name': requester_name,
         'email_type': email_type,
         'status': leave.status,
         'manager_name': manager_name,
         'review_url': review_url,
         'half_day_info': get_half_day_info(leave),
         'leave_duration_display': format_leave_duration_display(leave),
+        'annual_leave_balance': annual_balance,
+        'medical_leave_balance': medical_balance,
+        'carryforward_balance': cf_balance,
+        'applied_type_name': applied_type_name,
+        'applied_leave_balance': applied_leave_balance,
+        'is_sick_leave': is_sick_leave,
     })
 
     try:
@@ -126,8 +165,9 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
             # CC all founders to ensure every founder account receives the notification
             founders = Founder.objects.all()
             for founder in founders:
-                if founder.user.email not in cc_list:
-                    cc_list.append(founder.user.email)
+                founder_email = getattr(getattr(founder, 'user', None), 'email', None)
+                if founder_email and founder_email not in cc_list:
+                    cc_list.append(founder_email)
 
         # If it's a new request or a cancellation and the requester has a founder, 
         # that founder should be the primary recipient if no manager is assigned
@@ -135,26 +175,27 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
         if email_type in ['new_request', 'new_manager_request', 'cancelled']:
             requester_founder = None
             if isinstance(leave, LeaveRequest):
-                requester_founder = leave.employee.founder
+                requester_founder = getattr(leave.employee, 'founder', None) if getattr(leave, 'employee', None) else None
             elif isinstance(leave, UnifiedLeaveRequest):
                 if leave.employee:
-                    requester_founder = leave.employee.founder
+                    requester_founder = getattr(leave.employee, 'founder', None)
                 elif leave.manager:
-                    requester_founder = leave.manager.founder
+                    requester_founder = getattr(leave.manager, 'founder', None)
             
             if requester_founder:
-                # If we don't have a recipient email (like manager email), or if it's already set to founder
-                # or if recipient_email is a list (like for new_manager_request)
-                if not actual_recipient or actual_recipient == requester_founder.user.email:
-                    actual_recipient = requester_founder.user.email
-                
-                # If founder is the recipient, we don't need to CC them
-                if isinstance(actual_recipient, str) and actual_recipient == requester_founder.user.email:
-                    if actual_recipient in cc_list:
-                        cc_list.remove(actual_recipient)
-                elif isinstance(actual_recipient, (list, tuple)) and requester_founder.user.email in actual_recipient:
-                    if requester_founder.user.email in cc_list:
-                        cc_list.remove(requester_founder.user.email)
+                founder_email = getattr(getattr(requester_founder, 'user', None), 'email', None)
+                if founder_email:
+                    # If we don't have a recipient email, or if it's already set to founder
+                    if not actual_recipient or actual_recipient == founder_email:
+                        actual_recipient = founder_email
+                    
+                    # If founder is the recipient, we don't need to CC them
+                    if isinstance(actual_recipient, str) and actual_recipient == founder_email:
+                        if actual_recipient in cc_list:
+                            cc_list.remove(actual_recipient)
+                    elif isinstance(actual_recipient, (list, tuple)) and founder_email in actual_recipient:
+                        if founder_email in cc_list:
+                            cc_list.remove(founder_email)
 
         # Final check: if we still don't have a recipient but have CCs, use first CC as recipient
         if not actual_recipient and cc_list:
@@ -172,18 +213,97 @@ def send_leave_notification(request, leave, email_type, recipient_email, manager
         else:
             recipient_list = [str(actual_recipient)]
 
-        email = EmailMessage(
-            subject,
-            body=html_content,
-            from_email=settings.EMAIL_HOST_USER,
-            to=recipient_list,
-            cc=cc_list
-        )
-        email.content_subtype = 'html'
-        email.send()
-        logger.info(f"Leave notification '{email_type}' sent to {recipient_email}")
+        # Clean recipient_list and cc_list
+        recipient_list = [e.strip() for e in recipient_list if e and isinstance(e, str) and '@' in e]
+        cc_list = [e.strip() for e in cc_list if e and isinstance(e, str) and '@' in e and e not in recipient_list]
+
+        if not recipient_list:
+            if cc_list:
+                recipient_list = [cc_list.pop(0)]
+            else:
+                logger.warning(f"No valid recipient email address found for leave notification '{email_type}'")
+                return
+
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
+        clean_user = getattr(settings, 'EMAIL_HOST_USER', 'mavendoer802@gmail.com').strip()
+        clean_pass = (getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').replace(' ', '').strip()
+        all_recipients = list(recipient_list) + [c for c in cc_list if c not in recipient_list]
+
+        # Construct MIME message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = from_email or clean_user
+        msg['To'] = ', '.join(recipient_list)
+        if cc_list:
+            msg['Cc'] = ', '.join(cc_list)
+        msg.attach(MIMEText(html_content, 'html'))
+        msg_str = msg.as_string()
+
+        sent_successfully = False
+        smtp_errors = []
+
+        # Attempt sending: Port 465 SSL, then Port 587 TLS
+        for label, port, is_ssl in [('Port 465 SSL', 465, True), ('Port 587 TLS', 587, False)]:
+            server = None
+            try:
+                context = ssl.create_default_context()
+                if is_ssl:
+                    server = smtplib.SMTP_SSL('smtp.gmail.com', port, context=context, timeout=15)
+                else:
+                    server = smtplib.SMTP('smtp.gmail.com', port, timeout=15)
+                    server.ehlo()
+                    server.starttls(context=context)
+                    server.ehlo()
+
+                server.set_debuglevel(0)
+
+                # Attempt authentication (standard login, or AUTH LOGIN fallback)
+                try:
+                    server.login(clean_user, clean_pass)
+                except (smtplib.SMTPServerDisconnected, smtplib.SMTPAuthenticationError) as auth_err:
+                    logger.warning(f"{label} login encountered {auth_err}, retrying with AUTH LOGIN...")
+                    if server:
+                        try:
+                            server.close()
+                        except Exception:
+                            pass
+                    if is_ssl:
+                        server = smtplib.SMTP_SSL('smtp.gmail.com', port, context=context, timeout=15)
+                    else:
+                        server = smtplib.SMTP('smtp.gmail.com', port, timeout=15)
+                        server.ehlo()
+                        server.starttls(context=context)
+                        server.ehlo()
+                    server.set_debuglevel(0)
+
+                    code, resp = server.docmd("AUTH", "LOGIN")
+                    if code == 334:
+                        code, resp = server.docmd(base64.b64encode(clean_user.encode()).decode())
+                        if code == 334:
+                            code, resp = server.docmd(base64.b64encode(clean_pass.encode()).decode())
+                    if code not in (235, 503):
+                        raise smtplib.SMTPAuthenticationError(code, resp)
+
+                server.sendmail(msg['From'], all_recipients, msg_str)
+                logger.info(f"Leave notification '{email_type}' sent successfully via {label} to {recipient_list}")
+                sent_successfully = True
+                break
+            except Exception as conn_err:
+                logger.warning(f"Failed to send email via {label}: {conn_err}")
+                smtp_errors.append(f"{label}: {conn_err}")
+            finally:
+                if server:
+                    try:
+                        server.quit()
+                    except Exception:
+                        pass
+
+        if not sent_successfully:
+            logger.error(f"Failed to send email to {recipient_email}. Errors: {' | '.join(smtp_errors)}")
     except Exception as e:
-        logger.error(f"Failed to send email to {recipient_email}: {e}")
+        logger.error(f"Failed to send email to {recipient_email}: {e}", exc_info=True)
+
+
 
 
 @login_required(login_url='/managers/login')
@@ -306,10 +426,38 @@ def founder_dashboard(request):
 @login_required(login_url='/managers/founder/login/')
 @allow_founder
 def download_approved_leaves_excel(request):
-    from common.leave_excel import get_approved_leaves_excel_path, sync_approved_leaves_excel
+    import io
+    from common.leave_excel import (
+        collect_approved_leave_rows,
+        get_approved_leaves_excel_path,
+        sync_approved_leaves_excel,
+        write_approved_leaves_workbook,
+    )
 
+    filter_date = request.GET.get('date') or request.GET.get('filter_date')
+    to_date = request.GET.get('to_date') or request.GET.get('end_date')
+
+    # If date filter is provided, generate filtered Excel dynamically with matching records
+    if filter_date or to_date:
+        rows = collect_approved_leave_rows(
+            filter_date=filter_date,
+            start_date=filter_date,
+            end_date=to_date,
+        )
+        buffer = io.BytesIO()
+        write_approved_leaves_workbook(buffer, rows)
+        date_str = f"{filter_date}_to_{to_date}" if (filter_date and to_date) else (filter_date or to_date)
+        filename = f"approved_leaves_{date_str}.xlsx"
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=filename,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    # Full Excel file with all current and previous employees' approved leaves
     path = sync_approved_leaves_excel() or get_approved_leaves_excel_path()
-    if not os.path.exists(path):
+    if not path or not os.path.exists(path):
         messages.error(request, "Approved leaves Excel sheet could not be created.")
         return redirect(reverse("managers:founder_dashboard"))
 
@@ -324,13 +472,35 @@ def download_approved_leaves_excel(request):
 @login_required(login_url='/managers/founder/login/')
 @allow_founder
 def approved_leaves_table(request):
+    from urllib.parse import urlencode
     from common.leave_excel import HEADERS, collect_approved_leave_rows, sync_approved_leaves_excel
 
-    sync_approved_leaves_excel()
-    rows = collect_approved_leave_rows()
+    filter_date = request.GET.get('date') or request.GET.get('filter_date') or ''
+    to_date = request.GET.get('to_date') or request.GET.get('end_date') or ''
+
+    # Only full sync when no filter applied
+    if not filter_date and not to_date:
+        sync_approved_leaves_excel()
+
+    rows = collect_approved_leave_rows(
+        filter_date=filter_date or None,
+        start_date=filter_date or None,
+        end_date=to_date or None,
+    )
+
+    download_params = {}
+    if filter_date:
+        download_params['date'] = filter_date
+    if to_date:
+        download_params['to_date'] = to_date
+    download_query = urlencode(download_params) if download_params else ''
+
     return render(request, "managers/approved_leaves_table.html", {
         "headers": HEADERS,
         "rows": rows,
+        "filter_date": filter_date,
+        "to_date": to_date,
+        "download_query": download_query,
     })
 
 
@@ -361,6 +531,7 @@ def manager_dashboard(request):
             is_on_leave = UnifiedLeaveRequest.objects.filter(
                 manager=emp,
                 is_approved=True,
+                is_withdrawn=False,
                 start_date__lte=today,
                 end_date__gte=today
             ).exists()
@@ -368,6 +539,7 @@ def manager_dashboard(request):
             is_on_leave = LeaveRequest.objects.filter(
                 employee=emp,
                 status='Approved',
+                is_withdrawn=False,
                 start_date__lte=today,
                 end_date__gte=today
             ).exists()
@@ -422,7 +594,7 @@ def manager_dashboard(request):
 
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(
         Q(manager=manager, requested_by_role='manager', is_approved=False, is_rejected=False, is_cancelled=False) |
-        Q(manager=manager, requested_by_role='manager', is_withdrawal_requested=True)
+        Q(manager=manager, requested_by_role='manager', is_withdrawal_requested=True, is_withdrawn=False, withdrawal_rejected=False)
     ).order_by('-created_date')[:5]
 
     manager_leaves = UnifiedLeaveRequest.objects.filter(
@@ -544,7 +716,8 @@ def approve_employee_leave(request, leave_id):
             from django.db.models import Sum
             other_cf_used = LeaveRequest.objects.filter(
                 employee=employee_profile, 
-                status='Approved'
+                status='Approved',
+                is_withdrawn=False,
             ).exclude(id=leave_request.id).aggregate(total=Sum('carryforward_used'))['total'] or 0
             
             cf_available_from_grant = max(0, employee_profile.carryforward_granted - other_cf_used)
@@ -744,7 +917,8 @@ def approve_manager_leave(request, id):
         # How much CF is actually available from the grant
         other_cf_used = UnifiedLeaveRequest.objects.filter(
             manager=manager, 
-            is_approved=True
+            is_approved=True,
+            is_withdrawn=False,
         ).exclude(id=leave_request.id).aggregate(total=Sum('carryforward_used'))['total'] or 0
         
         cf_available_from_grant = max(0, manager.carryforward_granted - other_cf_used)
@@ -804,6 +978,10 @@ def manager_withdraw_leave(request, id):
         messages.error(request, "Only approved leaves can be withdrawn.")
         return redirect(reverse('managers:manager_leave_history'))
 
+    if not can_withdraw_leave(leave_request):
+        messages.error(request, "Leave can only be withdrawn within 7 days of approval.")
+        return redirect(reverse('managers:manager_leave_history'))
+
     if request.method == 'POST':
         leave_request.is_withdrawal_requested = True
         leave_request.withdrawal_subject = request.POST.get('subject')
@@ -825,6 +1003,29 @@ def manager_withdraw_leave(request, id):
     })
 
 
+def _withdrawal_redirect(request):
+    if is_founder(request.user):
+        return redirect(reverse('managers:founder_dashboard'))
+    next_target = request.POST.get('next') or ''
+    if next_target == 'leavelist' or 'leavelist' in request.META.get('HTTP_REFERER', ''):
+        return redirect(reverse('managers:leavelist'))
+    return redirect(reverse('managers:manager_dashboard'))
+
+
+def _can_action_withdrawal(request, leave_request, leave_type):
+    if request.user.is_superuser or is_founder(request.user):
+        return True
+    if leave_type != 'employee':
+        return False
+    manager = Manager.objects.filter(user=request.user).first()
+    if not manager:
+        return False
+    emp = leave_request.employee
+    if getattr(emp, 'reporting_employee_id', None):
+        return False
+    return emp in get_employees_under_manager(manager)
+
+
 @login_required(login_url='/managers/login')
 @role_required('manager', 'founder')
 def approve_withdrawal(request, id, leave_type):
@@ -833,28 +1034,50 @@ def approve_withdrawal(request, id, leave_type):
         recipient_email = leave_request.employee.user.email
     else:
         leave_request = get_object_or_404(UnifiedLeaveRequest, id=id)
-        recipient_email = leave_request.manager.user.email
+        if leave_request.manager:
+            recipient_email = leave_request.manager.user.email
+        elif leave_request.employee:
+            recipient_email = leave_request.employee.user.email
+        else:
+            recipient_email = None
+
+    if not _can_action_withdrawal(request, leave_request, leave_type):
+        messages.error(request, "You do not have permission to approve this withdrawal request.")
+        return _withdrawal_redirect(request)
+
+    if request.method != 'POST':
+        return _withdrawal_redirect(request)
+
+    if leave_request.is_withdrawn:
+        return _withdrawal_redirect(request)
 
     leave_request.is_withdrawn = True
     leave_request.is_withdrawal_requested = False
-    # If it was already approved, we effectively "un-approve" it or mark it as withdrawn
+    leave_request.withdrawal_rejected = False
+    leave_request.carryforward_used = 0
     leave_request.save()
 
-    # Recalculate leave counts for the requester
+    # Recalculate leave counts for the requester so counts return to normal automatically
     if leave_type == 'employee':
         leave_request.employee.recalculate_leave_counts()
         # CC founder if manager approves
         cc_founder = not is_founder(request.user)
-        send_leave_notification(request, leave_request, 'withdrawal_approved', recipient_email, cc_founder=cc_founder)
+        if recipient_email:
+            send_leave_notification(request, leave_request, 'withdrawal_approved', recipient_email, cc_founder=cc_founder)
     else:
-        leave_request.manager.recalculate_leave_counts()
+        if leave_request.manager:
+            leave_request.manager.recalculate_leave_counts()
+        elif leave_request.employee:
+            leave_request.employee.recalculate_leave_counts()
         # CC founder if manager (or another founder) approves a manager's withdrawal
-        send_leave_notification(request, leave_request, 'withdrawal_approved', recipient_email, cc_founder=True)
+        if recipient_email:
+            send_leave_notification(request, leave_request, 'withdrawal_approved', recipient_email, cc_founder=True)
+
+    from common.leave_excel import sync_approved_leaves_excel
+    sync_approved_leaves_excel()
 
     messages.success(request, "Withdrawal request approved.")
-    if is_founder(request.user):
-        return redirect(reverse('managers:founder_dashboard'))
-    return redirect(reverse('managers:manager_dashboard'))
+    return _withdrawal_redirect(request)
 
 
 @login_required(login_url='/managers/login')
@@ -865,7 +1088,19 @@ def reject_withdrawal(request, id, leave_type):
         recipient_email = leave_request.employee.user.email
     else:
         leave_request = get_object_or_404(UnifiedLeaveRequest, id=id)
-        recipient_email = leave_request.manager.user.email
+        if leave_request.manager:
+            recipient_email = leave_request.manager.user.email
+        elif leave_request.employee:
+            recipient_email = leave_request.employee.user.email
+        else:
+            recipient_email = None
+
+    if not _can_action_withdrawal(request, leave_request, leave_type):
+        messages.error(request, "You do not have permission to reject this withdrawal request.")
+        return _withdrawal_redirect(request)
+
+    if request.method != 'POST':
+        return _withdrawal_redirect(request)
 
     leave_request.is_withdrawal_requested = False
     leave_request.withdrawal_rejected = True
@@ -873,12 +1108,11 @@ def reject_withdrawal(request, id, leave_type):
 
     # CC founder if manager rejects
     cc_founder = not is_founder(request.user)
-    send_leave_notification(request, leave_request, 'withdrawal_rejected', recipient_email, cc_founder=cc_founder)
+    if recipient_email:
+        send_leave_notification(request, leave_request, 'withdrawal_rejected', recipient_email, cc_founder=cc_founder)
 
     messages.success(request, "Withdrawal request rejected.")
-    if is_founder(request.user):
-        return redirect(reverse('managers:founder_dashboard'))
-    return redirect(reverse('managers:manager_dashboard'))
+    return _withdrawal_redirect(request)
 
 
 @login_required(login_url='/managers/login')
@@ -972,14 +1206,17 @@ def leave_requests(request):
     ]
 
     pending_employee_requests = LeaveRequest.objects.filter(
-        employee__in=employees,
-        status='Pending',
-        is_cancelled=False
+        Q(employee__in=employees, status='Pending', is_cancelled=False) |
+        Q(employee__in=employees, is_withdrawal_requested=True, is_withdrawn=False, withdrawal_rejected=False)
     ).order_by('-created_date')
+
+    for leave in pending_employee_requests:
+        leave.leave_duration = leave.calculate_working_days()
 
     context = {
         'leave_requests': pending_employee_requests,
         'manager': manager,
+        'profile': manager,
         'notification_count': pending_employee_requests.count(),
     }
     return render(request, 'managers/leave_requests.html', context)
@@ -1253,6 +1490,7 @@ def add_employe(request):
                 is_on_leave = LeaveRequest.objects.filter(
                     employee=emp,
                     status='Approved',
+                    is_withdrawn=False,
                     start_date__lte=today,
                     end_date__gte=today
                 ).exists()
@@ -1384,6 +1622,22 @@ def edit_employe(request, id):
                     employe.carryforward_available_leaves = max(0, cf_granted - employe.carryforward_leaves_taken)
             except (ValueError, TypeError):
                 pass
+
+            total_annual_input = request.POST.get('total_annual_leaves')
+            if total_annual_input is not None and total_annual_input != '':
+                try:
+                    val = float(total_annual_input)
+                    employe.available_leaves = max(0.0, val - (employe.leaves_taken or 0))
+                except (ValueError, TypeError):
+                    pass
+
+            total_med_input = request.POST.get('total_medical_leaves')
+            if total_med_input is not None and total_med_input != '':
+                try:
+                    val = float(total_med_input)
+                    employe.available_medical_leaves = max(0.0, val - (employe.medical_leaves_taken or 0))
+                except (ValueError, TypeError):
+                    pass
                 
             employe.save()
             messages.success(request, "Employee details updated successfully!")
@@ -1884,13 +2138,15 @@ def leave_summary(request):
         total_annual_taken = UnifiedLeaveRequest.objects.filter(
             manager=mng,
             leave_type='AL',
-            is_approved=True
+            is_approved=True,
+            is_withdrawn=False,
         ).aggregate(total=Sum('leave_duration'))['total'] or 0
 
         total_medical_taken = UnifiedLeaveRequest.objects.filter(
             manager=mng,
             leave_type='ML',
-            is_approved=True
+            is_approved=True,
+            is_withdrawn=False,
         ).aggregate(total=Sum('leave_duration'))['total'] or 0
 
         manager_summary.append({
@@ -2155,6 +2411,7 @@ def edit_profile(request):
 @login_required
 def manager_employee_leave_detail(request, employee_id):
     employe = get_object_or_404(Employe, id=employee_id)
+    sync_prorated_leave_if_needed(employe)
     
     # Fetch leave history for this employee
     leave_history = LeaveRequest.objects.filter(employee=employe).order_by('-created_date')
@@ -2178,6 +2435,7 @@ def manager_employee_leave_detail(request, employee_id):
 def founder_employee_leave_detail(request, employee_id):
     employe = get_object_or_404(Employe, id=employee_id)
     sync_employee_profile_from_related(employe)
+    sync_prorated_leave_if_needed(employe)
 
     try:
         manager = request.user.manager
@@ -2202,6 +2460,7 @@ def founder_employee_leave_detail(request, employee_id):
 @allow_founder
 def founder_manager_leave_detail(request, manager_id):
     manager_obj = get_object_or_404(Manager, id=manager_id)
+    sync_prorated_leave_if_needed(manager_obj)
     
     # Fetch leave history using UnifiedLeaveRequest
     manager_leave_requests = UnifiedLeaveRequest.objects.filter(

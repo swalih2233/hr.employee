@@ -155,6 +155,14 @@
                                     <label for="carryforward_granted" class="block text-gray-600 font-medium">Carry-forward Granted</label>
                                     <input type="number" id="carryforward_granted" name="carryforward_granted" value="{{ employe.carryforward_granted }}" min="0" max="18" class="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:ring focus:ring-blue-300 focus:border-blue-500">
                                 </div>
+                                <div>
+                                    <label for="total_annual_leaves" class="block text-gray-600 font-medium">Annual Leave Allocated (Days)</label>
+                                    <input type="number" step="0.5" id="total_annual_leaves" name="total_annual_leaves" value="{{ employe.total_annual_leaves }}" class="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:ring focus:ring-blue-300 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label for="total_medical_leaves" class="block text-gray-600 font-medium">Medical Leave Allocated (Days)</label>
+                                    <input type="number" step="0.5" id="total_medical_leaves" name="total_medical_leaves" value="{{ employe.total_medical_leaves }}" class="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:ring focus:ring-blue-300 focus:border-blue-500">
+                                </div>
                             </div>
                         </div>
 

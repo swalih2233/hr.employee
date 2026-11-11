@@ -58,21 +58,38 @@ class Manager(CommonModel):
     def save(self, *args, **kwargs):
         if self._state.adding:
             annual, medical = get_prorated_leave_allocation(self.date_of_joining)
-            self.available_leaves = annual
-            self.available_medical_leaves = medical
+            if self.available_leaves == 18 or self.available_leaves is None:
+                self.available_leaves = annual
+            if self.available_medical_leaves == 14 or self.available_medical_leaves is None:
+                self.available_medical_leaves = medical
         super().save(*args, **kwargs)
 
     def recalculate_leave_counts(self):
-        """Recalculate leave counts based on approved leave requests."""
+        """Recalculate leave counts based on approved leave requests, preserving manual allocation adjustments."""
         approved_leaves = UnifiedLeaveRequest.objects.filter(manager=self, is_approved=True, is_withdrawn=False)
 
         self.carryforward_leaves_taken = sum(getattr(leave, 'carryforward_used', 0) for leave in approved_leaves)
-        self.leaves_taken = sum(leave.leave_duration - getattr(leave, 'carryforward_used', 0) for leave in approved_leaves if leave.leave_type == 'AL')
-        self.medical_leaves_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
+        new_leaves_taken = sum(leave.leave_duration - getattr(leave, 'carryforward_used', 0) for leave in approved_leaves if leave.leave_type == 'AL')
+        new_medical_taken = sum(leave.leave_duration for leave in approved_leaves if leave.leave_type == 'ML')
 
-        annual, medical = get_prorated_leave_allocation(self.date_of_joining)
-        self.available_leaves = annual - self.leaves_taken
-        self.available_medical_leaves = medical - self.medical_leaves_taken
+        # Preserve established baseline allocation (including manual adjustments from admin)
+        current_total_annual = (self.available_leaves or 0) + (self.leaves_taken or 0)
+        current_total_medical = (self.available_medical_leaves or 0) + (self.medical_leaves_taken or 0)
+
+        if current_total_annual > 0:
+            annual = current_total_annual
+        else:
+            annual, _ = get_prorated_leave_allocation(self.date_of_joining)
+
+        if current_total_medical > 0:
+            medical = current_total_medical
+        else:
+            _, medical = get_prorated_leave_allocation(self.date_of_joining)
+
+        self.leaves_taken = new_leaves_taken
+        self.medical_leaves_taken = new_medical_taken
+        self.available_leaves = max(0.0, annual - self.leaves_taken)
+        self.available_medical_leaves = max(0.0, medical - self.medical_leaves_taken)
         
         # update available carryforward based on granted and taken
         # but only if we are still within the validity period (Jan 1 - March 31)
@@ -84,6 +101,14 @@ class Manager(CommonModel):
             self.carryforward_available_leaves = 0
 
         self.save()
+
+    @property
+    def total_annual_leaves(self):
+        return round((self.available_leaves or 0) + (self.leaves_taken or 0), 2)
+
+    @property
+    def total_medical_leaves(self):
+        return round((self.available_medical_leaves or 0) + (self.medical_leaves_taken or 0), 2)
 
 class Founder(CommonModel):
     user = models.ForeignKey(User ,on_delete=models.CASCADE)

@@ -35,7 +35,9 @@
           <tbody class="bg-white divide-y divide-gray-200">
             {% for leave in pending_leaves %}
             <tr>
-              <td class="px-4 py-4 text-sm text-gray-900">{{ leave.employee.user.get_full_name }}</td>
+              <td class="px-4 py-4 text-sm text-gray-900">
+                <a href="{% url 'employe:team_member_leave_detail' leave.employee.id %}" class="text-indigo-600 hover:underline font-medium">{{ leave.employee.user.get_full_name }}</a>
+              </td>
               <td class="px-4 py-4 text-sm text-gray-700">{{ leave.get_leave_type_display }}</td>
               <td class="px-4 py-4 text-sm text-gray-700">{{ leave.start_date|date:"d M" }} - {{ leave.end_date|date:"d M Y" }}</td>
               <td class="px-4 py-4 text-sm text-gray-700">{{ leave.calculated_duration }}</td>
@@ -80,7 +82,9 @@
           <tbody class="bg-white divide-y divide-gray-200">
             {% for leave in withdrawal_leaves %}
             <tr>
-              <td class="px-4 py-4 text-sm text-gray-900">{{ leave.employee.user.get_full_name }}</td>
+              <td class="px-4 py-4 text-sm text-gray-900">
+                <a href="{% url 'employe:team_member_leave_detail' leave.employee.id %}" class="text-indigo-600 hover:underline font-medium">{{ leave.employee.user.get_full_name }}</a>
+              </td>
               <td class="px-4 py-4 text-sm text-gray-700">{{ leave.get_leave_type_display }}</td>
               <td class="px-4 py-4 text-sm text-gray-700">{{ leave.start_date|date:"d M" }} - {{ leave.end_date|date:"d M Y" }}</td>
               <td class="px-4 py-4 text-sm text-gray-500">{{ leave.withdrawal_reason|truncatechars:50|default:"-" }}</td>
@@ -119,15 +123,20 @@
           <tbody class="bg-white divide-y divide-gray-200">
             {% for leave in all_leaves %}
             <tr>
-              <td class="px-4 py-4 text-sm text-gray-900">{{ leave.employee.user.get_full_name }}</td>
+              <td class="px-4 py-4 text-sm text-gray-900">
+                <a href="{% url 'employe:team_member_leave_detail' leave.employee.id %}" class="text-indigo-600 hover:underline font-medium">{{ leave.employee.user.get_full_name }}</a>
+              </td>
               <td class="px-4 py-4 text-sm text-gray-700">{{ leave.get_leave_type_display }}</td>
               <td class="px-4 py-4 text-sm text-gray-700">{{ leave.start_date|date:"d M" }} - {{ leave.end_date|date:"d M Y" }}</td>
               <td class="px-4 py-4">
                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                  {% if leave.status == 'Approved' %}bg-green-100 text-green-800
+                  {% if leave.is_withdrawn %}bg-purple-100 text-purple-800
+                  {% elif leave.is_withdrawal_requested %}bg-indigo-100 text-indigo-800
+                  {% elif leave.status == 'Approved' %}bg-green-100 text-green-800
                   {% elif leave.status == 'Pending' %}bg-yellow-100 text-yellow-800
+                  {% elif leave.status == 'Cancelled' %}bg-gray-100 text-gray-800
                   {% else %}bg-red-100 text-red-800{% endif %}">
-                  {{ leave.status }}
+                  {% if leave.is_withdrawn %}Withdrawn{% elif leave.is_withdrawal_requested %}Withdrawal Pending{% else %}{{ leave.status }}{% endif %}
                 </span>
               </td>
             </tr>

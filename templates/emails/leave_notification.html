@@ -13,12 +13,12 @@
                     <!-- Header -->
                     <tr>
                         <td align="center" style="padding: 20px; background-color: #4f46e5; color: #ffffff; border-top-left-radius: 8px; border-top-right-radius: 8px;">
-                            {% if email_type == 'new_request' %}
+                            {% if email_type == 'new_request' or email_type == 'new_manager_request' %}
                                 <h1 style="margin: 0; font-size: 24px;">New Leave Request</h1>
                                 <p style="margin: 5px 0 0; font-size: 14px;">Requires Your Attention</p>
                             {% elif email_type == 'submission_confirmation' %}
-                                <h1 style="margin: 0; font-size: 24px;">Leave Request Submitted</h1>
-                                <p style="margin: 5px 0 0; font-size: 14px;">Your request is now pending approval.</p>
+                                <h1 style="margin: 0; font-size: 24px;">Leave Application Submitted</h1>
+                                <p style="margin: 5px 0 0; font-size: 14px;">Status: <strong style="color: #fde68a;">{{ status|default:'Pending' }}</strong></p>
                             {% elif email_type == 'cancelled' %}
                                 <h1 style="margin: 0; font-size: 24px;">Leave Request Cancelled</h1>
                                 <p style="margin: 5px 0 0; font-size: 14px;">The leave request has been cancelled by the requester.</p>
@@ -40,29 +40,47 @@
                     <!-- Body -->
                     <tr>
                         <td style="padding: 30px;">
-                            {% if email_type == 'new_request' %}
-                                <p style="font-size: 16px; color: #374151;">Dear {{ manager_name }},</p>
+                            {% if email_type == 'new_request' or email_type == 'new_manager_request' %}
+                                <p style="font-size: 16px; color: #374151;">Dear {{ manager_name|default:'Manager' }},</p>
                                 <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
-                                    This is to inform you that <strong>{{ employee.user.get_full_name }}</strong> ({{ employee.designation|default:'N/A' }}) has submitted
+                                    This is to inform you that <strong>{{ requester_name|default:employee.user.get_full_name|default:employee.user.username }}</strong> ({{ employee.designation|default:'N/A' }}) has submitted
                                     {% if leave.is_half_day %}
-                                        a <strong>Half-day {{ leave.get_leave_type_display }}</strong> request
+                                        a <strong>Half-day {{ applied_type_name }}</strong> request
                                         {% if half_day_info %}({{ half_day_info.label }}, {{ half_day_info.time }}){% endif %}.
                                     {% else %}
-                                        <strong>{{ leave.get_leave_type_display }}</strong> request.
+                                        a <strong>{{ applied_type_name }}</strong> request.
                                     {% endif %}
                                 </p>
-                            {% elif email_type == 'submission_confirmation' %}
-                                <p style="font-size: 16px; color: #374151;">Dear {{ employee.user.get_full_name }},</p>
-                                <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
-                                    Your leave request has been successfully submitted and is now pending approval from your manager. You will be notified once a decision is made.
+                                {% if is_sick_leave %}
+                                <p style="font-size: 14px; color: #166534; line-height: 1.6; margin-top: 6px; margin-bottom: 0;">
+                                    Current <strong>Sick Leave</strong> balance: <strong>{{ medical_leave_balance }}</strong> | Carry Forward balance: <strong>{{ carryforward_balance }}</strong>.
                                 </p>
+                                {% else %}
+                                <p style="font-size: 14px; color: #166534; line-height: 1.6; margin-top: 6px; margin-bottom: 0;">
+                                    Current <strong>Annual Leave</strong> balance: <strong>{{ annual_leave_balance }}</strong>.
+                                </p>
+                                {% endif %}
+                            {% elif email_type == 'submission_confirmation' %}
+                                <p style="font-size: 16px; color: #374151;">Dear {{ requester_name|default:employee.user.get_full_name|default:employee.user.username }},</p>
+                                <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                                    Your leave application has been successfully submitted and is waiting for {% if leave.requested_by_role == 'manager' %}founder's{% else %}your manager's{% endif %} action. You will be notified once a decision is made.
+                                </p>
+                                {% if is_sick_leave %}
+                                <p style="font-size: 14px; color: #166534; line-height: 1.6; margin-top: 6px; margin-bottom: 0;">
+                                    Your current <strong>Sick Leave</strong> balance: <strong>{{ medical_leave_balance }}</strong> | Carry Forward balance: <strong>{{ carryforward_balance }}</strong>.
+                                </p>
+                                {% else %}
+                                <p style="font-size: 14px; color: #166534; line-height: 1.6; margin-top: 6px; margin-bottom: 0;">
+                                    Your current <strong>Annual Leave</strong> balance: <strong>{{ annual_leave_balance }}</strong>.
+                                </p>
+                                {% endif %}
                             {% elif email_type == 'cancelled' %}
                                 <p style="font-size: 16px; color: #374151;">Notification of Cancellation,</p>
                                 <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
-                                    The leave request for <strong>{{ employee.user.get_full_name }}</strong> has been <strong>Cancelled</strong> by the requester.
+                                    The leave request for <strong>{{ requester_name|default:employee.user.get_full_name|default:employee.user.username }}</strong> has been <strong>Cancelled</strong> by the requester.
                                 </p>
                             {% else %}
-                                <p style="font-size: 16px; color: #374151;">Dear {{ employee.user.get_full_name }},</p>
+                                <p style="font-size: 16px; color: #374151;">Dear {{ requester_name|default:employee.user.get_full_name|default:employee.user.username }},</p>
                                 <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
                                     This is an update on your recent leave request. It has been 
                                     {% if status == 'Approved' %}
@@ -80,8 +98,18 @@
                                 <h3 style="color: #374151; margin-top: 0; margin-bottom: 15px; font-size: 16px;">Leave Details</h3>
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px;">
                                     <tr>
-                                        <td style="padding: 8px 0; color: #6b7280; width: 40%;">Employee:</td>
-                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ employee.user.get_full_name }}</td>
+                                        <td style="padding: 8px 0; color: #6b7280; width: 40%;">{% if leave.requested_by_role == 'manager' %}Manager:{% else %}Employee:{% endif %}</td>
+                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ requester_name|default:employee.user.get_full_name|default:employee.user.username }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">Leave Type:</td>
+                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">
+                                            {% if leave.is_half_day %}
+                                                Half-day {{ applied_type_name }}
+                                            {% else %}
+                                                {{ applied_type_name }}
+                                            {% endif %}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td style="padding: 8px 0; color: #6b7280;">From:</td>
@@ -91,12 +119,7 @@
                                         <td style="padding: 8px 0; color: #6b7280;">To:</td>
                                         <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ leave.end_date|date:"F d, Y" }}</td>
                                     </tr>
-                                    {% if leave.is_half_day %}
-                                    <tr>
-                                        <td style="padding: 8px 0; color: #6b7280;">Leave Type:</td>
-                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">Half-day Leave</td>
-                                    </tr>
-                                    {% if half_day_info %}
+                                    {% if leave.is_half_day and half_day_info %}
                                     <tr>
                                         <td style="padding: 8px 0; color: #6b7280;">Session:</td>
                                         <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ half_day_info.label }}</td>
@@ -108,18 +131,65 @@
                                     {% endif %}
                                     <tr>
                                         <td style="padding: 8px 0; color: #6b7280;">Total Days:</td>
-                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">0.5 day</td>
+                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">
+                                            {% if leave.is_half_day %}0.5 day{% else %}{{ leave_duration_display }}{% endif %}
+                                        </td>
+                                    </tr>
+                                    {% if status %}
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">Status:</td>
+                                        <td style="padding: 8px 0; font-weight: 700; {% if status == 'Approved' %}color: #16a34a;{% elif status == 'Rejected' or status == 'Cancelled' %}color: #dc2626;{% else %}color: #d97706;{% endif %}">
+                                            {{ status }}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if is_sick_leave %}
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">Sick Leave Balance:</td>
+                                        <td style="padding: 8px 0; color: #16a34a; font-weight: 700;">
+                                            {{ medical_leave_balance }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">Carry Forward Balance:</td>
+                                        <td style="padding: 8px 0; color: #16a34a; font-weight: 700;">
+                                            {{ carryforward_balance }}
+                                        </td>
                                     </tr>
                                     {% else %}
                                     <tr>
-                                        <td style="padding: 8px 0; color: #6b7280;">Total Days:</td>
-                                        <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">{{ leave_duration_display }}</td>
+                                        <td style="padding: 8px 0; color: #6b7280;">Annual Leave Balance:</td>
+                                        <td style="padding: 8px 0; color: #16a34a; font-weight: 700;">
+                                            {{ annual_leave_balance }}
+                                        </td>
                                     </tr>
                                     {% endif %}
                                     <tr>
                                         <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Reason:</td>
                                         <td style="padding: 8px 0; color: #1f2937;">{{ leave.description|default:"Not provided" }}</td>
                                     </tr>
+                                </table>
+                            </div>
+
+                            <!-- Leave Balance Section -->
+                            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; padding: 18px 20px; border-radius: 6px; margin: 20px 0;">
+                                <h3 style="color: #166534; margin-top: 0; margin-bottom: 12px; font-size: 15px; font-weight: bold;">Leave Balance Details</h3>
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px;">
+                                    {% if is_sick_leave %}
+                                    <tr>
+                                        <td style="padding: 6px 0; color: #4b5563; width: 45%;">Sick Leave Balance:</td>
+                                        <td style="padding: 6px 0; color: #111827; font-weight: 600;">{{ medical_leave_balance }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 6px 0; color: #4b5563;">Carry Forward Balance:</td>
+                                        <td style="padding: 6px 0; color: #111827; font-weight: 600;">{{ carryforward_balance }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td style="padding: 6px 0; color: #4b5563; width: 45%;">Annual Leave Balance:</td>
+                                        <td style="padding: 6px 0; color: #111827; font-weight: 600;">{{ annual_leave_balance }}</td>
+                                    </tr>
+                                    {% endif %}
                                 </table>
                             </div>
 

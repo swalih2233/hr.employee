@@ -6,7 +6,10 @@ from django.contrib.auth import authenticate, login as auth_login, logout as aut
 from django.contrib.auth.decorators import login_required
 
 from common.decorators import allow_employee, role_required
-from common.utils import get_user_profile, get_leave_balance_info
+from common.utils import (
+    get_user_profile, get_leave_balance_info, sync_prorated_leave_if_needed,
+    can_withdraw_leave, sync_employee_profile_from_related, get_employee_display_profile,
+)
 from employe.models import *
 from employe.models import LeaveRequest
 from managers.models import *
@@ -45,6 +48,8 @@ from users.models import OTP
 def details(request):
     user = request.user
     employe = get_object_or_404(Employe, user=user)
+    sync_employee_profile_from_related(employe)
+    sync_prorated_leave_if_needed(employe)
     contact, _ = EmergencyContact.objects.get_or_create(employe=employe)
     address, _ = Address.objects.get_or_create(employe=employe)
     background, _ = Background.objects.get_or_create(employe=employe)
@@ -61,6 +66,7 @@ def details(request):
     subordinate_leaves = LeaveRequest.objects.filter(employee__in=subordinates).order_by('-created_date')
     for sub_leave in subordinate_leaves:
         sub_leave.calculated_duration = sub_leave.calculate_working_days()
+        sub_leave.leave_duration = sub_leave.calculated_duration
     pending_sub_count = subordinate_leaves.filter(status='Pending', is_cancelled=False).count() + subordinate_leaves.filter(
         is_withdrawal_requested=True, is_withdrawn=False, withdrawal_rejected=False
     ).count()
@@ -341,9 +347,12 @@ def withdraw_leave(request, id):
 
     leave_request = get_object_or_404(LeaveRequest, id=id, employee=current_employee)
 
-    # Allow withdrawal for approved leaves only
+    # Allow withdrawal for approved leaves only within 7 days of approval
     if leave_request.status != 'Approved':
         messages.error(request, "Only approved leaves can be withdrawn.")
+        return redirect(reverse('employe:leavelist'))
+    if not can_withdraw_leave(leave_request):
+        messages.error(request, "Leave can only be withdrawn within 7 days of approval.")
         return redirect(reverse('employe:leavelist'))
 
     if request.method == 'POST':
@@ -508,10 +517,14 @@ def edit_employe(request, id):
 
         # Benefits
         benefits.salary_details = request.POST.get('salary_details')
-        benefits.bank_name = request.POST.get('bank_name')
-        benefits.account_number = get_int_or_none(request.POST.get('account_number'))
-        benefits.branch_name = request.POST.get('branch_name')
-        benefits.ifsc_code = request.POST.get('ifsc_code')
+        if 'bank_name' in request.POST:
+            benefits.bank_name = request.POST.get('bank_name')
+        if 'account_number' in request.POST:
+            benefits.account_number = get_int_or_none(request.POST.get('account_number'))
+        if 'branch_name' in request.POST:
+            benefits.branch_name = request.POST.get('branch_name')
+        if 'ifsc_code' in request.POST:
+            benefits.ifsc_code = request.POST.get('ifsc_code')
         benefits.pancard = request.POST.get('pancard')
         benefits.pf_fund = get_float_or_none(request.POST.get('pf_fund'))
         benefits.state_insurance_number = request.POST.get('state_insurance_number')
@@ -879,7 +892,8 @@ def approve_subordinate_leave(request, leave_id):
             from django.db.models import Sum
             other_cf_used = LeaveRequest.objects.filter(
                 employee=employee_profile,
-                status="Approved"
+                status="Approved",
+                is_withdrawn=False,
             ).exclude(id=leave_request.id).aggregate(total=Sum("carryforward_used"))["total"] or 0
 
             cf_available_from_grant = max(0, employee_profile.carryforward_granted - other_cf_used)
@@ -947,12 +961,17 @@ def approve_subordinate_withdrawal(request, leave_id):
         return redirect("employe:details")
 
     if request.method == "POST":
-        leave_request.is_withdrawn = True
-        leave_request.is_withdrawal_requested = False
-        leave_request.save()
-        leave_request.employee.recalculate_leave_counts()
-        send_leave_notification(request, leave_request, "withdrawal_approved", leave_request.employee.user.email, cc_founder=True)
-        messages.success(request, "Withdrawal request approved.")
+        if not leave_request.is_withdrawn:
+            leave_request.is_withdrawn = True
+            leave_request.is_withdrawal_requested = False
+            leave_request.withdrawal_rejected = False
+            leave_request.carryforward_used = 0
+            leave_request.save()
+            leave_request.employee.recalculate_leave_counts()
+            from common.leave_excel import sync_approved_leaves_excel
+            sync_approved_leaves_excel()
+            send_leave_notification(request, leave_request, "withdrawal_approved", leave_request.employee.user.email, cc_founder=True)
+            messages.success(request, "Withdrawal request approved.")
 
     return redirect("employe:subordinate_leave_requests")
 
@@ -972,3 +991,79 @@ def reject_subordinate_withdrawal(request, leave_id):
         messages.success(request, "Withdrawal request rejected.")
 
     return redirect("employe:subordinate_leave_requests")
+
+
+def _get_subordinate_member_and_count(request, employee_id):
+    current_employee = get_object_or_404(Employe, user=request.user)
+    employe = get_object_or_404(Employe, id=employee_id)
+    if employe.reporting_employee != current_employee and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to view this employee's details.")
+        return None, None, 0
+
+    subordinates = Employe.objects.filter(reporting_employee=current_employee)
+    sub_pending = LeaveRequest.objects.filter(
+        employee__in=subordinates, status="Pending", is_cancelled=False
+    ).count()
+    sub_withdrawals = LeaveRequest.objects.filter(
+        employee__in=subordinates,
+        is_withdrawal_requested=True,
+        is_withdrawn=False,
+        withdrawal_rejected=False,
+    ).count()
+    return current_employee, employe, sub_pending + sub_withdrawals
+
+
+@login_required(login_url="/login")
+@allow_employee
+def team_member_leave_detail(request, employee_id):
+    """Allow an employee to view a reporting team member's profile, available leaves, and leave history."""
+    current_employee, employe, notification_count = _get_subordinate_member_and_count(request, employee_id)
+    if not employe:
+        return redirect("employe:details")
+
+    sync_prorated_leave_if_needed(employe)
+    employe.recalculate_leave_counts()
+
+    leave_history = LeaveRequest.objects.filter(employee=employe).order_by("-created_date")
+    for leave in leave_history:
+        leave.leave_duration = leave.calculate_working_days()
+
+    return render(request, "managers/employee_leave_detail.html", {
+        "employe": employe,
+        "manager": None,
+        "profile": current_employee,
+        "leave_history": leave_history,
+        "notification_count": notification_count,
+        "is_employee_supervisor_view": True,
+    })
+
+
+@login_required(login_url="/login")
+@allow_employee
+def team_member_profile(request, employee_id):
+    """Allow an employee to view full profile details for a reporting team member using the manager details template."""
+    current_employee, employe, notification_count = _get_subordinate_member_and_count(request, employee_id)
+    if not employe:
+        return redirect("employe:details")
+
+    sync_employee_profile_from_related(employe)
+
+    address = Address.objects.filter(employe=employe).first()
+    contact = EmergencyContact.objects.filter(employe=employe).first()
+    benefits = Benefits.objects.filter(employe=employe).first()
+    workschedule = WorkSchedule.objects.filter(employe=employe).first()
+
+    return render(request, "managers/details.html", {
+        "manager": employe,
+        "user": employe.user,
+        "address": address,
+        "contact": contact,
+        "benefits": benefits,
+        "workschedule": workschedule,
+        "profile": current_employee,
+        "is_employee_view": True,
+        "is_employee_supervisor_view": True,
+        "profile_display": get_employee_display_profile(employe),
+        "notification_count": notification_count,
+        "back_url": reverse("employe:team_member_leave_detail", args=[employe.id]),
+    })

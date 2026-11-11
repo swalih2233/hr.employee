@@ -287,6 +287,137 @@
 </div>
 
 <!-- End Quick Stats -->
+    {% if pending_employee_requests %}
+    <!-- Employee Leave & Withdrawal Requests -->
+    <div class="bg-white rounded-lg shadow mx-4 md:mx-6 mb-6 p-4 md:p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base md:text-lg font-semibold text-gray-900">Employee Leave &amp; Withdrawal Requests</h3>
+        <a href="{% url 'managers:leavelist' %}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">View All →</a>
+      </div>
+
+      <!-- Desktop Table -->
+      <div class="hidden md:block overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for leave in pending_employee_requests %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">{{ leave.employee.user.get_full_name }}</div>
+                <div class="text-xs text-gray-500">{{ leave.employee.user.email }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ leave.get_leave_type_display }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ leave.start_date|date:"d M Y" }} - {{ leave.end_date|date:"d M Y" }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ leave|leave_days_count }}</td>
+              <td class="px-6 py-4 text-sm text-gray-600 max-w-xs">
+                {% if leave.is_withdrawal_requested %}
+                  <span class="text-xs font-semibold text-indigo-700 block">Withdrawal Reason:</span>
+                  {{ leave.withdrawal_reason|truncatechars:60|default:"-" }}
+                {% else %}
+                  {{ leave.description|truncatechars:60|default:"-" }}
+                {% endif %}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                {% if leave.is_withdrawal_requested %}
+                  <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Withdrawal Requested</span>
+                {% else %}
+                  <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ leave.status }}</span>
+                {% endif %}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                {% if leave.is_withdrawal_requested %}
+                  <div class="flex items-center gap-2">
+                    <form action="{% url 'managers:approve_withdrawal' leave.id 'employee' %}" method="post" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold">Approve Withdraw</button>
+                    </form>
+                    <form action="{% url 'managers:reject_withdrawal' leave.id 'employee' %}" method="post" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold">Reject Withdraw</button>
+                    </form>
+                  </div>
+                {% else %}
+                  <div class="flex items-center gap-2">
+                    <form action="{% url 'managers:approve_leave' leave.id %}" method="post" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold">Approve</button>
+                    </form>
+                    <form action="{% url 'managers:reject_leave' leave.id %}" method="post" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold">Reject</button>
+                    </form>
+                  </div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile Cards -->
+      <div class="md:hidden space-y-4">
+        {% for leave in pending_employee_requests %}
+        <div class="border rounded-lg p-4 bg-gray-50">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h4 class="font-semibold text-gray-900 text-sm">{{ leave.employee.user.get_full_name }}</h4>
+              <p class="text-xs text-gray-500">{{ leave.employee.user.email }}</p>
+            </div>
+            {% if leave.is_withdrawal_requested %}
+              <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Withdrawal Requested</span>
+            {% else %}
+              <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ leave.status }}</span>
+            {% endif %}
+          </div>
+          <div class="space-y-1 text-xs text-gray-600 mb-3">
+            <p><span class="font-medium">Type:</span> {{ leave.get_leave_type_display }} ({{ leave|leave_days_count }})</p>
+            <p><span class="font-medium">Dates:</span> {{ leave.start_date|date:"d M Y" }} - {{ leave.end_date|date:"d M Y" }}</p>
+            {% if leave.is_withdrawal_requested %}
+              <p><span class="font-medium text-indigo-700">Withdrawal Reason:</span> {{ leave.withdrawal_reason|default:"-" }}</p>
+            {% else %}
+              <p><span class="font-medium">Reason:</span> {{ leave.description|default:"-" }}</p>
+            {% endif %}
+          </div>
+          {% if leave.is_withdrawal_requested %}
+            <div class="flex gap-2">
+              <form action="{% url 'managers:approve_withdrawal' leave.id 'employee' %}" method="post" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-md text-xs font-semibold">Approve Withdraw</button>
+              </form>
+              <form action="{% url 'managers:reject_withdrawal' leave.id 'employee' %}" method="post" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-md text-xs font-semibold">Reject Withdraw</button>
+              </form>
+            </div>
+          {% else %}
+            <div class="flex gap-2">
+              <form action="{% url 'managers:approve_leave' leave.id %}" method="post" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-md text-xs font-semibold">Approve</button>
+              </form>
+              <form action="{% url 'managers:reject_leave' leave.id %}" method="post" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-md text-xs font-semibold">Reject</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Employee Table -->
     <div class="bg-white rounded-lg shadow mx-4 md:mx-6 p-4 md:p-6">
       <div class="flex flex-wrap items-center justify-between mb-4 space-y-2 md:space-y-0">

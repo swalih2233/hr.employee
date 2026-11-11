@@ -115,6 +115,10 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ leave.get_leave_type_display }}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ leave.start_date|date:"M d" }} - {{ leave.end_date|date:"M d, Y" }}</td>
               <td class="px-6 py-4">
+                {% if leave.is_withdrawal_requested %}
+                  <div class="text-xs font-semibold text-indigo-700 mb-1">Withdrawal Reason:</div>
+                  <div class="text-sm text-gray-700">{{ leave.withdrawal_reason|truncatechars:60|default:"-" }}</div>
+                {% else %}
                 <div x-data="{ expanded: false }">
                     <div class="text-sm text-gray-500" x-show="!expanded">
                         {{ leave.description|truncatechars:40|default:"-" }}
@@ -127,9 +131,14 @@
                         <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-xs focus:outline-none">Show Less</button>
                     </div>
                 </div>
+                {% endif %}
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                {% if leave.is_approved %}
+                {% if leave.is_withdrawn %}
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Withdrawn</span>
+                {% elif leave.is_withdrawal_requested %}
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Withdrawal Requested</span>
+                {% elif leave.is_approved %}
                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
                 {% elif leave.is_rejected %}
                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
@@ -138,7 +147,20 @@
                 {% endif %}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
-                {% if not leave.is_approved and not leave.is_rejected %}
+                {% if leave.is_withdrawal_requested %}
+                  <div class="flex items-center gap-2">
+                    <form action="{% url 'managers:approve_withdrawal' leave.id 'employee' %}" method="post" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="leavelist">
+                      <button type="submit" class="text-white bg-green-600 hover:bg-green-700 font-bold py-1 px-3 rounded-md">Approve Withdraw</button>
+                    </form>
+                    <form action="{% url 'managers:reject_withdrawal' leave.id 'employee' %}" method="post" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="leavelist">
+                      <button type="submit" class="text-white bg-red-600 hover:bg-red-700 font-bold py-1 px-3 rounded-md">Reject Withdraw</button>
+                    </form>
+                  </div>
+                {% elif not leave.is_approved and not leave.is_rejected %}
                   {% if user.is_manager %}
                     <div class="flex items-center gap-2">
                       <form action="{% url 'managers:approve_leave' leave.id %}" method="post" class="inline">
@@ -201,7 +223,11 @@
                 {{ leave.employee.user.email }}
               </div>
             </div>
-            {% if leave.is_approved %}
+            {% if leave.is_withdrawn %}
+              <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Withdrawn</span>
+            {% elif leave.is_withdrawal_requested %}
+              <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Withdrawal Requested</span>
+            {% elif leave.is_approved %}
               <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>
             {% elif leave.is_rejected %}
               <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>
@@ -221,6 +247,10 @@
               <span class="text-gray-900">{{ leave.start_date|date:"M d" }} - {{ leave.end_date|date:"M d, Y" }}</span>
             </div>
             <div class="flex flex-col">
+              {% if leave.is_withdrawal_requested %}
+                <span class="text-indigo-700 font-medium mb-1">Withdrawal Reason:</span>
+                <div class="text-gray-900 text-xs">{{ leave.withdrawal_reason|default:"-" }}</div>
+              {% else %}
               <span class="text-gray-600 font-medium mb-1">Reason:</span>
               <div x-data="{ expanded: false }">
                 <div class="text-gray-900 text-xs" x-show="!expanded">
@@ -234,11 +264,29 @@
                   <button @click="expanded = false" class="text-blue-600 hover:underline ml-1 text-[10px] focus:outline-none">Show Less</button>
                 </div>
               </div>
+              {% endif %}
             </div>
           </div>
 
           <!-- Action Buttons -->
-          {% if not leave.is_approved and not leave.is_rejected %}
+          {% if leave.is_withdrawal_requested %}
+          <div class="flex gap-2">
+            <form action="{% url 'managers:approve_withdrawal' leave.id 'employee' %}" method="post" class="flex-1">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="leavelist">
+              <button type="submit" class="w-full text-white bg-green-600 hover:bg-green-700 font-bold py-2 px-4 rounded-md text-sm">
+                Approve Withdraw
+              </button>
+            </form>
+            <form action="{% url 'managers:reject_withdrawal' leave.id 'employee' %}" method="post" class="flex-1">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="leavelist">
+              <button type="submit" class="w-full text-white bg-red-600 hover:bg-red-700 font-bold py-2 px-4 rounded-md text-sm">
+                Reject Withdraw
+              </button>
+            </form>
+          </div>
+          {% elif not leave.is_approved and not leave.is_rejected %}
           <div class="flex gap-2">
             <form action="{% url 'managers:approve_leave' leave.id %}" method="post" class="flex-1">
               {% csrf_token %}
